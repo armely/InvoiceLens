@@ -22,6 +22,16 @@ public static class DependencyInjection
 
         services.AddSingleton<IDocumentQueries, DocumentStreamService>();
         services.AddSingleton<IOpenInvoiceClient, OpenInvoiceClient>();
+        services.AddSingleton<ISyncOrchestrator, OpenInvoiceSyncOrchestrator>();
+        services.AddSingleton<IInvoiceListSyncHandler, DefaultInvoiceListSyncHandler>();
+        services.AddSingleton<IInvoiceDetailSyncHandler, DefaultInvoiceDetailSyncHandler>();
+        services.AddSingleton<IInvoiceUpsertHandler, DefaultInvoiceUpsertHandler>();
+        services.AddSingleton<ISyncCheckpointHandler, DefaultSyncCheckpointHandler>();
+        services.AddSingleton<InvoiceListResponseParser>();
+        services.AddSingleton<InvoiceDetailXmlParser>();
+        services.AddSingleton<OpenInvoicePagingService>();
+        services.AddSingleton<SyncCheckpointRepository>();
+        services.AddSingleton<SyncErrorRepository>();
 
         return services;
     }

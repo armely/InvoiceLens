@@ -1,0 +1,28 @@
+CREATE TABLE dbo.SyncCheckpoint (
+    SyncCheckpointId INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    SyncType NVARCHAR(50) NOT NULL,
+    LastRunUtc DATETIME2 NOT NULL,
+    LastCursor NVARCHAR(250) NULL,
+    CreatedAtUtc DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+);
+
+CREATE TABLE dbo.SyncBatch (
+    SyncBatchId UNIQUEIDENTIFIER NOT NULL PRIMARY KEY,
+    SyncType NVARCHAR(50) NOT NULL,
+    StartedAtUtc DATETIME2 NOT NULL,
+    FinishedAtUtc DATETIME2 NULL,
+    ProcessedCount INT NOT NULL,
+    FailedCount INT NOT NULL,
+    Status NVARCHAR(30) NOT NULL
+);
+
+CREATE TABLE dbo.SyncError (
+    SyncErrorId UNIQUEIDENTIFIER NOT NULL PRIMARY KEY,
+    SyncBatchId UNIQUEIDENTIFIER NOT NULL,
+    InvoiceExternalId NVARCHAR(120) NULL,
+    ErrorCode NVARCHAR(100) NULL,
+    ErrorMessage NVARCHAR(MAX) NOT NULL,
+    OccurredAtUtc DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    RetryCount INT NOT NULL DEFAULT 0,
+    CONSTRAINT FK_SyncError_SyncBatch FOREIGN KEY (SyncBatchId) REFERENCES dbo.SyncBatch(SyncBatchId)
+);
