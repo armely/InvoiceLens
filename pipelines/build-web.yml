@@ -1,0 +1,13 @@
+jobs:
+- job: BuildWeb
+	displayName: Build Web
+	steps:
+	- task: NodeTool@0
+		inputs:
+			versionSpec: '20.x'
+
+	- script: |
+			cd apps/web
+			npm ci
+			npm run build
+		displayName: Build Angular Web

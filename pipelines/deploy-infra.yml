@@ -1,0 +1,16 @@
+jobs:
+- job: DeployInfra
+	displayName: Deploy Bicep Infra
+	steps:
+	- task: AzureCLI@2
+		inputs:
+			azureSubscription: 'replace-with-service-connection'
+			scriptType: 'pscore'
+			scriptLocation: 'inlineScript'
+			inlineScript: |
+				az bicep install
+				az deployment sub create \
+					--name invoicelens-$(Build.BuildId) \
+					--location eastus \
+					--template-file infra/bicep/main.bicep \
+					--parameters infra/bicep/parameters/dev.bicepparam

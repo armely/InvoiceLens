@@ -1,0 +1,10 @@
+trigger: none
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+- script: |
+    echo "Deploy API placeholder"
+    echo "Add Azure service connection and container deploy steps here."
+  displayName: Deploy API

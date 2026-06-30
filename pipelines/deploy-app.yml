@@ -1,0 +1,10 @@
+trigger: none
+
+pool:
+	vmImage: ubuntu-latest
+
+steps:
+- script: |
+		echo "Composite app deployment placeholder"
+		echo "Use deploy-api.yml, deploy-web.yml and deploy-worker.yml for concrete app deployments."
+	displayName: Deploy App Composite

@@ -1,0 +1,23 @@
+trigger:
+- main
+
+pool:
+	vmImage: ubuntu-latest
+
+stages:
+- stage: Build
+	jobs:
+	- template: build-api.yml
+	- template: build-web.yml
+
+- stage: DeployInfra
+	dependsOn: Build
+	jobs:
+	- template: deploy-infra.yml
+
+- stage: DeployApps
+	dependsOn: DeployInfra
+	jobs:
+	- template: deploy-api.yml
+	- template: deploy-web.yml
+	- template: deploy-worker.yml

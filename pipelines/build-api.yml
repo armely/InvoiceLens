@@ -1,0 +1,14 @@
+jobs:
+- job: BuildApi
+	displayName: Build API
+	steps:
+	- task: UseDotNet@2
+		inputs:
+			packageType: 'sdk'
+			version: '10.x'
+
+	- script: dotnet restore src/InvoiceLens.Api/InvoiceLens.Api.csproj
+		displayName: Restore API
+
+	- script: dotnet build src/InvoiceLens.Api/InvoiceLens.Api.csproj --configuration Release --no-restore
+		displayName: Build API
