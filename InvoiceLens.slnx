@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/InvoiceLens.Api/InvoiceLens.Api.csproj" />
+    <Project Path="src/InvoiceLens.Application/InvoiceLens.Application.csproj" />
+    <Project Path="src/InvoiceLens.Domain/InvoiceLens.Domain.csproj" />
+    <Project Path="src/InvoiceLens.Infrastructure/InvoiceLens.Infrastructure.csproj" />
+    <Project Path="src/InvoiceLens.Worker/InvoiceLens.Worker.csproj" />
+  </Folder>
+</Solution>
