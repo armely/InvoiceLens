@@ -17,8 +17,22 @@ if (app.Environment.IsDevelopment())
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 app.UseAuthorization();
+
+app.MapGet("/", () => Results.Ok(new
+{
+    service = "InvoiceLens.Api",
+    status = "running",
+    openApi = "/openapi/v1.json",
+    health = "/health"
+}));
+
+app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
+
 app.MapControllers();
 
 app.Run();
