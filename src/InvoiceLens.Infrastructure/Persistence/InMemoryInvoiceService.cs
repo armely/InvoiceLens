@@ -1,11 +1,10 @@
 using InvoiceLens.Application.ComplianceQueue;
 using InvoiceLens.Application.Invoices;
 using InvoiceLens.Application.Sync;
-using InvoiceLens.Application.Validation;
 
 namespace InvoiceLens.Infrastructure.Persistence;
 
-public class InMemoryInvoiceService : IInvoiceQueries, IQueueService, IValidationService, ISyncStatusService
+public class InMemoryInvoiceService : IInvoiceQueries, IQueueService, ISyncStatusService
 {
     private readonly List<InvoiceDetailDto> _invoices =
     [
@@ -67,23 +66,6 @@ public class InMemoryInvoiceService : IInvoiceQueries, IQueueService, IValidatio
             .ToList();
 
         return Task.FromResult<IReadOnlyList<QueueItemDto>>(items);
-    }
-
-    public Task<ValidationSummaryDto?> RunValidationAsync(Guid invoiceId, CancellationToken cancellationToken)
-    {
-        var invoice = _invoices.FirstOrDefault(x => x.InvoiceId == invoiceId);
-        if (invoice is null)
-        {
-            return Task.FromResult<ValidationSummaryDto?>(null);
-        }
-
-        var summary = new ValidationSummaryDto(
-            invoiceId,
-            "Warning",
-            ["Vendor match: Pass", "AFE match: Pass", "Currency check: Pass", "Amount variance: Review"],
-            DateTimeOffset.UtcNow);
-
-        return Task.FromResult<ValidationSummaryDto?>(summary);
     }
 
     public Task<SyncStatusDto> GetStatusAsync(CancellationToken cancellationToken)

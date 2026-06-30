@@ -1,11 +1,13 @@
+using InvoiceLens.Application.Audit;
 using InvoiceLens.Application.Invoices;
+using InvoiceLens.Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
 
 namespace InvoiceLens.Api.Controllers;
 
 [ApiController]
 [Route("api/invoices")]
-public class InvoicesController(IInvoiceQueries invoiceQueries) : ControllerBase
+public class InvoicesController(IInvoiceQueries invoiceQueries, CreateAuditEntryCommand createAuditEntry) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<InvoiceSummaryDto>>> GetInvoices([FromQuery] string? query, CancellationToken cancellationToken)
@@ -32,6 +34,10 @@ public class InvoicesController(IInvoiceQueries invoiceQueries) : ControllerBase
     public async Task<IActionResult> Approve(Guid invoiceId, CancellationToken cancellationToken)
     {
         var updated = await invoiceQueries.ApproveAsync(invoiceId, cancellationToken);
+        if (updated)
+        {
+            await createAuditEntry.ExecuteAsync(invoiceId, AuditActionType.Approved, "system", "Invoice approved", cancellationToken);
+        }
         return updated ? NoContent() : NotFound();
     }
 
@@ -39,6 +45,10 @@ public class InvoicesController(IInvoiceQueries invoiceQueries) : ControllerBase
     public async Task<IActionResult> SendBack(Guid invoiceId, CancellationToken cancellationToken)
     {
         var updated = await invoiceQueries.SendBackAsync(invoiceId, cancellationToken);
+        if (updated)
+        {
+            await createAuditEntry.ExecuteAsync(invoiceId, AuditActionType.SentBack, "system", "Invoice sent back", cancellationToken);
+        }
         return updated ? NoContent() : NotFound();
     }
 }
