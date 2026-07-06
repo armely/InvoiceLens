@@ -1,0 +1,15 @@
+{
+  "name": "invoicelens-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "start": "node scripts/serve.mjs",
+    "watch": "tsc -p tsconfig.json --watch"
+  },
+  "devDependencies": {
+    "@types/node": "24.0.14",
+    "typescript": "5.8.3"
+  }
+}

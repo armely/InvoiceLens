@@ -35,7 +35,11 @@ public class ValidationOrchestrator(IInvoiceQueries invoiceQueries, IValidationR
                 : "Pass";
 
         var checks = results
-            .Select(r => $"{r.RuleName}: {r.Status} ({r.Message})")
+            .Select(r => new ValidationCheckDto(
+                r.RuleName,
+                r.Status.ToString(),
+                r.Severity.ToString(),
+                r.Message))
             .ToList();
 
         return new ValidationSummaryDto(invoiceId, overall, checks, DateTimeOffset.UtcNow);
@@ -55,7 +59,11 @@ public class ValidationOrchestrator(IInvoiceQueries invoiceQueries, IValidationR
                 ? "Warning"
                 : "Pass";
 
-        var checks = results.Select(r => $"{r.RuleName}: {r.Status} ({r.Message})").ToList();
+        var checks = results.Select(r => new ValidationCheckDto(
+            r.RuleName,
+            r.Status.ToString(),
+            r.Severity.ToString(),
+            r.Message)).ToList();
         return new ValidationSummaryDto(invoiceId, overall, checks, results.Max(x => x.ExecutedAtUtc));
     }
 }

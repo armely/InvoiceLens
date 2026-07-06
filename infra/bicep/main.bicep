@@ -11,6 +11,12 @@ param sqlAdminPassword string
 @secure()
 param logAnalyticsSharedKey string
 
+param authClientId string = ''
+param authTenantId string = ''
+param authRedirectUri string = ''
+param authPostLogoutRedirectUri string = ''
+param authScopes string = 'openid profile email'
+
 param apiImage string = 'invoicelens-api:latest'
 param webImage string = 'invoicelens-web:latest'
 param workerImage string = 'invoicelens-worker:latest'
@@ -127,6 +133,11 @@ module webAppService './modules/web-app-service.bicep' = {
 		appServicePlanId: appServicePlan.outputs.id
 		acrServer: acr.outputs.loginServer
 		webImage: webImage
+		authClientId: authClientId
+		authTenantId: authTenantId
+		authRedirectUri: authRedirectUri
+		authPostLogoutRedirectUri: authPostLogoutRedirectUri
+		authScopes: authScopes
 	}
 }
 
@@ -159,6 +170,11 @@ module containerWeb './modules/container-app-web.bicep' = {
 		environmentId: containerAppsEnvironment.outputs.id
 		acrServer: acr.outputs.loginServer
 		webImage: webImage
+		authClientId: authClientId
+		authTenantId: authTenantId
+		authRedirectUri: authRedirectUri
+		authPostLogoutRedirectUri: authPostLogoutRedirectUri
+		authScopes: authScopes
 	}
 }
 

@@ -1,0 +1,28 @@
+﻿{
+    "localInvoiceId":  "LOCAL-INV-260701-0018",
+    "fileName":  "INV-260701-0018.pdf",
+    "invoiceNumber":  "INV-260701-0018",
+    "supplierNumber":  "Falcon Safety",
+    "supplierName":  "Falcon Safety",
+    "invoiceDate":  "2026-07-02",
+    "purchaseOrderNumber":  "PO-450018",
+    "afeNumber":  "AFE-1018",
+    "costCenter":  "Compliance",
+    "currency":  "USD",
+    "subtotal":  23690,
+    "tax":  0,
+    "totalAmount":  23690,
+    "status":  "PendingReview",
+    "exportStatus":  "Pending",
+    "paymentStatus":  "Awaiting Approval",
+    "lineItems":  [
+                      {
+                          "lineNumber":  1,
+                          "description":  "Falcon Safety service line",
+                          "quantity":  1,
+                          "unitPrice":  23690,
+                          "amount":  23690,
+                          "coding":  ""
+                      }
+                  ]
+}

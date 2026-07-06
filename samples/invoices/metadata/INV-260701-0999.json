@@ -1,0 +1,28 @@
+{
+  "localInvoiceId": "LOCAL-INV-260701-0999",
+  "fileName": "INV-260701-0999.pdf",
+  "invoiceNumber": "INV-260701-0999",
+  "supplierNumber": "No Match Supplier",
+  "supplierName": "No Match Supplier",
+  "invoiceDate": "2026-07-02",
+  "purchaseOrderNumber": "PO-459999",
+  "afeNumber": "AFE-9999",
+  "costCenter": "Unknown",
+  "currency": "USD",
+  "subtotal": 22222.00,
+  "tax": 222.22,
+  "totalAmount": 22444.22,
+  "status": "Submitted",
+  "exportStatus": "Not Exported",
+  "paymentStatus": "Unpaid",
+  "lineItems": [
+    {
+      "lineNumber": 1,
+      "description": "Unmatched local invoice",
+      "quantity": 1,
+      "unitPrice": 22444.22,
+      "amount": 22444.22,
+      "coding": "Unknown"
+    }
+  ]
+}

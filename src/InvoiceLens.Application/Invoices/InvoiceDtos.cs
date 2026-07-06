@@ -1,8 +1,28 @@
 namespace InvoiceLens.Application.Invoices;
 
-public record InvoiceSummaryDto(Guid InvoiceId, string InvoiceNumber, string Vendor, decimal Amount, string Status);
+public record InvoiceSummaryDto(
+    Guid InvoiceId,
+    string InvoiceNumber,
+    string Vendor,
+    string Company,
+    string Afe,
+    decimal Amount,
+    string Currency,
+    string Status,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset UpdatedAtUtc);
 
-public record InvoiceDetailDto(Guid InvoiceId, string InvoiceNumber, string Vendor, string Company, string Afe, decimal Amount, string Currency, string Status);
+public record InvoiceDetailDto(
+    Guid InvoiceId,
+    string InvoiceNumber,
+    string Vendor,
+    string Company,
+    string Afe,
+    decimal Amount,
+    string Currency,
+    string Status,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset UpdatedAtUtc);
 
 public record InvoiceReviewDto(InvoiceDetailDto Invoice, IReadOnlyList<string> ValidationHighlights, IReadOnlyList<string> Attachments);
 

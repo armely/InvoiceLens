@@ -1,9 +1,6 @@
 namespace InvoiceLens.Infrastructure.OpenInvoice;
 
-public class OpenInvoiceClient : IOpenInvoiceClient
+public sealed class OpenInvoiceClient(HttpClient httpClient, OpenInvoiceOptions options)
+    : HttpOpenInvoiceClient(httpClient, options)
 {
-    public Task<bool> PingAsync(CancellationToken cancellationToken)
-    {
-        return Task.FromResult(true);
-    }
 }

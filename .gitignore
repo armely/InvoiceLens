@@ -11,6 +11,10 @@ obj/
 # Logs
 *.log
 
+# Environment files
+.env
+.env.local
+
 # Rider / VS Code
 .idea/
 .vscode/

@@ -1,0 +1,8 @@
+[
+  { "SupplierNumber": "SUP-001", "SupplierName": "BluePeak Services LLC" },
+  { "SupplierNumber": "SUP-002", "SupplierName": "NorthWind Drilling" },
+  { "SupplierNumber": "SUP-003", "SupplierName": "Summit Logistics" },
+  { "SupplierNumber": "SUP-004", "SupplierName": "Velocity Rentals" },
+  { "SupplierNumber": "SUP-005", "SupplierName": "Global Fuel Supply" },
+  { "SupplierNumber": "SUP-006", "SupplierName": "Duplicate Invoice Vendor" }
+]

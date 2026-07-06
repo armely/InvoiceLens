@@ -1,0 +1,28 @@
+{
+  "localInvoiceId": "LOCAL-INV-260701-0003",
+  "fileName": "INV-260701-0003.pdf",
+  "invoiceNumber": "INV-260701-0003",
+  "supplierNumber": "SUP-999",
+  "supplierName": "Different Supplier",
+  "invoiceDate": "2026-07-02",
+  "purchaseOrderNumber": "PO-450003",
+  "afeNumber": "AFE-1003",
+  "costCenter": "North Ops",
+  "currency": "USD",
+  "subtotal": 32110.00,
+  "tax": 0.00,
+  "totalAmount": 32110.00,
+  "status": "Submitted",
+  "exportStatus": "Not Exported",
+  "paymentStatus": "Unpaid",
+  "lineItems": [
+    {
+      "lineNumber": 1,
+      "description": "Logistics run",
+      "quantity": 1,
+      "unitPrice": 32110.00,
+      "amount": 32110.00,
+      "coding": "North Ops"
+    }
+  ]
+}

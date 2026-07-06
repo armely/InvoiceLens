@@ -1,0 +1,28 @@
+{
+  "localInvoiceId": "LOCAL-INV-260701-0001",
+  "fileName": "INV-260701-0001.pdf",
+  "invoiceNumber": "INV-260701-0001",
+  "supplierNumber": "BluePeak Services LLC",
+  "supplierName": "BluePeak Services LLC",
+  "invoiceDate": "2026-07-02",
+  "purchaseOrderNumber": "PO-450001",
+  "afeNumber": "AFE-1001",
+  "costCenter": "North Ops",
+  "currency": "USD",
+  "subtotal": 125430.00,
+  "tax": 0.00,
+  "totalAmount": 125430.00,
+  "status": "Submitted",
+  "exportStatus": "Not Exported",
+  "paymentStatus": "Unpaid",
+  "lineItems": [
+    {
+      "lineNumber": 1,
+      "description": "Rig support services",
+      "quantity": 1,
+      "unitPrice": 125430.00,
+      "amount": 125430.00,
+      "coding": "North Ops"
+    }
+  ]
+}

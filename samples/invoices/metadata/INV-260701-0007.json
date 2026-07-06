@@ -1,0 +1,28 @@
+﻿{
+    "localInvoiceId":  "LOCAL-INV-260701-0007",
+    "fileName":  "INV-260701-0007.pdf",
+    "invoiceNumber":  "INV-260701-0007",
+    "supplierNumber":  "Atlas Hauling",
+    "supplierName":  "Atlas Hauling",
+    "invoiceDate":  "2026-07-02",
+    "purchaseOrderNumber":  "PO-450007",
+    "afeNumber":  "AFE-1007",
+    "costCenter":  "Transport",
+    "currency":  "USD",
+    "subtotal":  45220,
+    "tax":  0,
+    "totalAmount":  45220,
+    "status":  "SentBack",
+    "exportStatus":  "Not Exported",
+    "paymentStatus":  "On Hold",
+    "lineItems":  [
+                      {
+                          "lineNumber":  1,
+                          "description":  "Atlas Hauling service line",
+                          "quantity":  1,
+                          "unitPrice":  45220,
+                          "amount":  45220,
+                          "coding":  ""
+                      }
+                  ]
+}

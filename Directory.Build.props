@@ -2,5 +2,6 @@
 	<PropertyGroup>
 		<TreatWarningsAsErrors>false</TreatWarningsAsErrors>
 		<LangVersion>latest</LangVersion>
+		<NuGetAudit>false</NuGetAudit>
 	</PropertyGroup>
 </Project>

@@ -1,0 +1,28 @@
+{
+  "localInvoiceId": "LOCAL-INV-260701-0002",
+  "fileName": "INV-260701-0002.pdf",
+  "invoiceNumber": "INV-260701-0002",
+  "supplierNumber": "NorthWind Drilling",
+  "supplierName": "NorthWind Drilling",
+  "invoiceDate": "2026-07-02",
+  "purchaseOrderNumber": "PO-450002",
+  "afeNumber": "AFE-1002",
+  "costCenter": "South Ops",
+  "currency": "USD",
+  "subtotal": 98750.00,
+  "tax": 1.00,
+  "totalAmount": 98751.00,
+  "status": "Submitted",
+  "exportStatus": "Not Exported",
+  "paymentStatus": "Unpaid",
+  "lineItems": [
+    {
+      "lineNumber": 1,
+      "description": "Drilling support",
+      "quantity": 1,
+      "unitPrice": 98750.00,
+      "amount": 98750.00,
+      "coding": "South Ops"
+    }
+  ]
+}

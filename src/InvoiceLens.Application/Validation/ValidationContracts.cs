@@ -1,6 +1,8 @@
 namespace InvoiceLens.Application.Validation;
 
-public record ValidationSummaryDto(Guid InvoiceId, string OverallStatus, IReadOnlyList<string> Checks, DateTimeOffset ExecutedAt);
+public record ValidationCheckDto(string RuleName, string Status, string Severity, string Message);
+
+public record ValidationSummaryDto(Guid InvoiceId, string OverallStatus, IReadOnlyList<ValidationCheckDto> Checks, DateTimeOffset ExecutedAt);
 
 public interface IValidationService
 {

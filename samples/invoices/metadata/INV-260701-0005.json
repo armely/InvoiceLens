@@ -1,0 +1,28 @@
+{
+  "localInvoiceId": "LOCAL-INV-260701-0005",
+  "fileName": "INV-260701-0005.pdf",
+  "invoiceNumber": "INV-260701-0005",
+  "supplierNumber": "Global Fuel Supply",
+  "supplierName": "Global Fuel Supply",
+  "invoiceDate": "2026-07-02",
+  "purchaseOrderNumber": "PO-450005",
+  "afeNumber": "",
+  "costCenter": "Fuel Ops",
+  "currency": "USD",
+  "subtotal": 63540.00,
+  "tax": 0.00,
+  "totalAmount": 63540.00,
+  "status": "Submitted",
+  "exportStatus": "Not Exported",
+  "paymentStatus": "Unpaid",
+  "lineItems": [
+    {
+      "lineNumber": 1,
+      "description": "Fuel delivery",
+      "quantity": 1,
+      "unitPrice": 63540.00,
+      "amount": 63540.00,
+      "coding": "Fuel Ops"
+    }
+  ]
+}

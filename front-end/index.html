@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>InvoiceLens Workspace</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell" data-sidebar="expanded">
+    <header class="topbar" aria-label="Application header">
+      <div class="brand-area">
+        <button class="icon-button sidebar-toggle" type="button" data-action="toggle-sidebar" aria-label="Toggle menu">
+          <span class="hamburger" aria-hidden="true"></span>
+        </button>
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-name">Invoice<span>Lens</span></span>
+      </div>
+
+      <form class="global-search" role="search" data-action="global-search-submit">
+        <span aria-hidden="true" class="search-glyph">⌕</span>
+        <input id="globalSearch" type="search" placeholder="Search invoices, vendors, AFE, cost center..." autocomplete="off" />
+        <kbd>⌘ K</kbd>
+      </form>
+
+      <div class="top-actions" aria-label="User actions">
+        <button class="icon-button notification-button" type="button" aria-label="Notifications">
+          <span aria-hidden="true">◴</span>
+          <span class="notify-badge">6</span>
+        </button>
+        <button class="icon-button" type="button" aria-label="Help">?</button>
+        <button class="icon-button" type="button" aria-label="Settings" data-route="admin">⚙</button>
+        <button class="profile-button" type="button" data-route="admin" aria-label="User profile">
+          <span class="profile-avatar">SJ</span>
+          <span class="profile-copy">
+            <strong>Sarah Johnson</strong>
+            <small>Finance Operations</small>
+          </span>
+        </button>
+      </div>
+    </header>
+
+    <aside class="sidebar" aria-label="Primary navigation">
+      <nav class="side-nav">
+        <button class="nav-item active" type="button" data-route="dashboard">
+          <span class="nav-icon">▦</span>
+          <span class="nav-label">Dashboard</span>
+        </button>
+        <button class="nav-item" type="button" data-route="invoices">
+          <span class="nav-icon">▤</span>
+          <span class="nav-label">Invoices</span>
+        </button>
+        <button class="nav-item" type="button" data-route="compliance-queue">
+          <span class="nav-icon">☑</span>
+          <span class="nav-label">Review Queue</span>
+          <span class="nav-count" data-count="queue">0</span>
+        </button>
+        <button class="nav-item" type="button" data-route="invoice-review">
+          <span class="nav-icon">◫</span>
+          <span class="nav-label">Invoice Review</span>
+        </button>
+        <button class="nav-item" type="button" data-route="validation-summary">
+          <span class="nav-icon">✓</span>
+          <span class="nav-label">Validation Summary</span>
+        </button>
+        <button class="nav-item" type="button" data-route="admin">
+          <span class="nav-icon">⚙</span>
+          <span class="nav-label">Admin Settings</span>
+        </button>
+      </nav>
+
+      <button class="collapse-button" type="button" data-action="toggle-sidebar">
+        <span aria-hidden="true">‹</span>
+        <span class="nav-label">Collapse</span>
+      </button>
+    </aside>
+
+    <main class="page-host" id="pageHost" tabindex="-1"></main>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>

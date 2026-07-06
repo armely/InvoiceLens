@@ -1,0 +1,19 @@
+{
+  "localInvoiceId": "LOCAL-INV-AMBIG-0001",
+  "fileName": "INV-AMBIG-0001.pdf",
+  "invoiceNumber": "",
+  "supplierNumber": "",
+  "supplierName": "",
+  "invoiceDate": "2026-07-02",
+  "purchaseOrderNumber": "",
+  "afeNumber": "",
+  "costCenter": "North Ops",
+  "currency": "USD",
+  "subtotal": null,
+  "tax": null,
+  "totalAmount": null,
+  "status": "Submitted",
+  "exportStatus": "Not Exported",
+  "paymentStatus": "Unpaid",
+  "lineItems": []
+}

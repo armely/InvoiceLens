@@ -1,0 +1,28 @@
+{
+  "localInvoiceId": "LOCAL-INV-260701-0004",
+  "fileName": "INV-260701-0004.pdf",
+  "invoiceNumber": "INV-260701-0004",
+  "supplierNumber": "Velocity Rentals",
+  "supplierName": "Velocity Rentals",
+  "invoiceDate": "2026-07-02",
+  "purchaseOrderNumber": "",
+  "afeNumber": "AFE-1004",
+  "costCenter": "Field Ops",
+  "currency": "USD",
+  "subtotal": 17890.00,
+  "tax": 0.00,
+  "totalAmount": 17890.00,
+  "status": "Submitted",
+  "exportStatus": "Not Exported",
+  "paymentStatus": "Unpaid",
+  "lineItems": [
+    {
+      "lineNumber": 1,
+      "description": "Equipment rental",
+      "quantity": 1,
+      "unitPrice": 17890.00,
+      "amount": 17890.00,
+      "coding": "Field Ops"
+    }
+  ]
+}

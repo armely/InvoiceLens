@@ -1,0 +1,142 @@
+[
+  {
+    "DocumentId": "5521340",
+    "InvoiceNumber": "INV-1001",
+    "SupplierNumber": "SUP-001",
+    "SupplierName": "BluePeak Services LLC",
+    "Status": "submitted",
+    "ServiceType": "submitted",
+    "ServiceStatus": "pending",
+    "InvoiceDate": "2026-07-01T00:00:00Z",
+    "ReceivedDate": "2026-07-02T00:00:00Z",
+    "ApprovedDate": null,
+    "Currency": "USD",
+    "Subtotal": 1000.00,
+    "Tax": 80.00,
+    "Total": 1080.00,
+    "LastActionDate": "2026-07-02T00:00:00Z",
+    "LineItems": [
+      { "LineNumber": 1, "Description": "Labor", "Quantity": 10, "UnitPrice": 100, "Amount": 1000 }
+    ],
+    "CodingFields": { "afe": "AFE-1001", "costCenter": "CC-10" },
+    "Attachments": [
+      { "InvoiceDocumentId": "5521340", "AttachmentId": "att-1001", "FileName": "field-ticket-1001.pdf", "ContentType": "application/pdf", "SizeBytes": 124000, "StorageFileName": "att-1001.pdf" }
+    ],
+    "SnapshotFileName": "5521340.pdf"
+  },
+  {
+    "DocumentId": "5521341",
+    "InvoiceNumber": "INV-1002",
+    "SupplierNumber": "SUP-002",
+    "SupplierName": "NorthWind Drilling",
+    "Status": "resubmitted",
+    "ServiceType": "submitted",
+    "ServiceStatus": "pending",
+    "InvoiceDate": "2026-06-28T00:00:00Z",
+    "ReceivedDate": "2026-07-01T00:00:00Z",
+    "ApprovedDate": null,
+    "Currency": "USD",
+    "Subtotal": 850.00,
+    "Tax": 68.00,
+    "Total": 918.00,
+    "LastActionDate": "2026-07-02T00:00:00Z",
+    "LineItems": [
+      { "LineNumber": 1, "Description": "Service", "Quantity": 5, "UnitPrice": 170, "Amount": 850 }
+    ],
+    "CodingFields": { "afe": "AFE-1002" },
+    "Attachments": [
+      { "InvoiceDocumentId": "5521341", "AttachmentId": "att-1002", "FileName": "invoice-1002.xlsx", "ContentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "SizeBytes": 12400, "StorageFileName": "att-1002.xlsx" }
+    ],
+    "SnapshotFileName": "5521341.pdf"
+  },
+  {
+    "DocumentId": "5521342",
+    "InvoiceNumber": "INV-1003",
+    "SupplierNumber": "SUP-003",
+    "SupplierName": "Summit Logistics",
+    "Status": "approved",
+    "ServiceType": "approved",
+    "ServiceStatus": "completed",
+    "InvoiceDate": "2026-06-27T00:00:00Z",
+    "ReceivedDate": "2026-07-01T00:00:00Z",
+    "ApprovedDate": "2026-07-01T12:00:00Z",
+    "Currency": "USD",
+    "Subtotal": 2000.00,
+    "Tax": 160.00,
+    "Total": 2160.00,
+    "LastActionDate": "2026-07-01T12:00:00Z",
+    "LineItems": [
+      { "LineNumber": 1, "Description": "Haulage", "Quantity": 20, "UnitPrice": 100, "Amount": 2000 }
+    ],
+    "CodingFields": { "afe": "AFE-1003", "costCenter": "CC-20" },
+    "Attachments": [],
+    "SnapshotFileName": "5521340.pdf"
+  },
+  {
+    "DocumentId": "5521343",
+    "InvoiceNumber": "INV-1004",
+    "SupplierNumber": "SUP-004",
+    "SupplierName": "Velocity Rentals",
+    "Status": "disputed",
+    "ServiceType": "submitted",
+    "ServiceStatus": "pending",
+    "InvoiceDate": "2026-06-26T00:00:00Z",
+    "ReceivedDate": "2026-07-01T00:00:00Z",
+    "ApprovedDate": null,
+    "Currency": "USD",
+    "Subtotal": 300.00,
+    "Tax": 24.00,
+    "Total": 324.00,
+    "LastActionDate": "2026-07-02T00:00:00Z",
+    "LineItems": [
+      { "LineNumber": 1, "Description": "Rental", "Quantity": 3, "UnitPrice": 100, "Amount": 300 }
+    ],
+    "CodingFields": { "costCenter": "CC-30" },
+    "Attachments": [
+      { "InvoiceDocumentId": "5521343", "AttachmentId": "att-missing", "FileName": "missing.pdf", "ContentType": "application/pdf", "SizeBytes": 10, "StorageFileName": "missing.pdf" }
+    ],
+    "SnapshotFileName": "5521341.pdf"
+  },
+  {
+    "DocumentId": "5521344",
+    "InvoiceNumber": "INV-1005",
+    "SupplierNumber": "SUP-005",
+    "SupplierName": "Global Fuel Supply",
+    "Status": "cancelled",
+    "ServiceType": "submitted",
+    "ServiceStatus": "completed",
+    "InvoiceDate": "2026-06-25T00:00:00Z",
+    "ReceivedDate": "2026-07-01T00:00:00Z",
+    "ApprovedDate": null,
+    "Currency": "USD",
+    "Subtotal": 400.00,
+    "Tax": 32.00,
+    "Total": 432.00,
+    "LastActionDate": "2026-07-01T00:00:00Z",
+    "LineItems": [],
+    "CodingFields": { "afe": "AFE-1005" },
+    "Attachments": [],
+    "SnapshotFileName": "5521340.pdf"
+  },
+  {
+    "DocumentId": "5521345",
+    "InvoiceNumber": "INV-1001",
+    "SupplierNumber": "SUP-006",
+    "SupplierName": "Duplicate Invoice Vendor",
+    "Status": "submitted",
+    "ServiceType": "submitted",
+    "ServiceStatus": "pending",
+    "InvoiceDate": "2026-06-24T00:00:00Z",
+    "ReceivedDate": "2026-07-01T00:00:00Z",
+    "ApprovedDate": null,
+    "Currency": "USD",
+    "Subtotal": 150.00,
+    "Tax": 12.00,
+    "Total": 162.00,
+    "LastActionDate": "2026-07-02T00:00:00Z",
+    "LineItems": [],
+    "CodingFields": {},
+    "Attachments": [],
+    "SnapshotFileName": "5521341.pdf"
+  }
+]

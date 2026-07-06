@@ -1,0 +1,28 @@
+﻿{
+    "localInvoiceId":  "LOCAL-INV-260701-0017",
+    "fileName":  "INV-260701-0017.pdf",
+    "invoiceNumber":  "INV-260701-0017",
+    "supplierNumber":  "RedRock Fabrication",
+    "supplierName":  "RedRock Fabrication",
+    "invoiceDate":  "2026-07-02",
+    "purchaseOrderNumber":  "PO-450017",
+    "afeNumber":  "AFE-1017",
+    "costCenter":  "Maintenance",
+    "currency":  "USD",
+    "subtotal":  74250,
+    "tax":  0,
+    "totalAmount":  74250,
+    "status":  "Approved",
+    "exportStatus":  "Exported",
+    "paymentStatus":  "Pending Payment",
+    "lineItems":  [
+                      {
+                          "lineNumber":  1,
+                          "description":  "RedRock Fabrication service line",
+                          "quantity":  1,
+                          "unitPrice":  74250,
+                          "amount":  74250,
+                          "coding":  ""
+                      }
+                  ]
+}

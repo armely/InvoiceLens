@@ -5,7 +5,7 @@ CREATE TABLE dbo.AuditEntry (
     PerformedBy NVARCHAR(120) NOT NULL,
     Details NVARCHAR(1000) NOT NULL,
     OccurredAtUtc DATETIME2 NOT NULL,
-    CONSTRAINT FK_AuditEntry_Invoice FOREIGN KEY (InvoiceId) REFERENCES dbo.Invoice(InvoiceId)
+    CONSTRAINT FK_AuditEntry_Invoice FOREIGN KEY (InvoiceId) REFERENCES dbo.Invoice(InvoiceId) ON DELETE CASCADE
 );
 
 CREATE INDEX IX_AuditEntry_InvoiceId_OccurredAtUtc ON dbo.AuditEntry(InvoiceId, OccurredAtUtc DESC);

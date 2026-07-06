@@ -1,0 +1,28 @@
+﻿{
+    "localInvoiceId":  "LOCAL-INV-260701-0019",
+    "fileName":  "INV-260701-0019.pdf",
+    "invoiceNumber":  "INV-260701-0019",
+    "supplierNumber":  "Mesa Consulting",
+    "supplierName":  "Mesa Consulting",
+    "invoiceDate":  "2026-07-02",
+    "purchaseOrderNumber":  "PO-450019",
+    "afeNumber":  "AFE-1019",
+    "costCenter":  "Corporate",
+    "currency":  "USD",
+    "subtotal":  41830,
+    "tax":  0,
+    "totalAmount":  41830,
+    "status":  "SentBack",
+    "exportStatus":  "Not Exported",
+    "paymentStatus":  "On Hold",
+    "lineItems":  [
+                      {
+                          "lineNumber":  1,
+                          "description":  "Mesa Consulting service line",
+                          "quantity":  1,
+                          "unitPrice":  41830,
+                          "amount":  41830,
+                          "coding":  ""
+                      }
+                  ]
+}

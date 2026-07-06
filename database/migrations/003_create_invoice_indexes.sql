@@ -3,4 +3,8 @@ CREATE INDEX IX_Invoice_VendorCode ON dbo.Invoice (VendorCode);
 CREATE INDEX IX_Invoice_CompanyCode_AfeCode ON dbo.Invoice (CompanyCode, AfeCode);
 CREATE INDEX IX_Invoice_Status_UpdatedAtUtc ON dbo.Invoice (Status, UpdatedAtUtc);
 CREATE INDEX IX_InvoiceLine_InvoiceId ON dbo.InvoiceLine (InvoiceId);
+CREATE INDEX IX_InvoiceAttachmentReference_InvoiceId ON dbo.InvoiceAttachmentReference (InvoiceId);
+CREATE INDEX IX_SyncCheckpoint_SyncType ON dbo.SyncCheckpoint (SyncType);
+CREATE INDEX IX_SyncBatch_SyncType_Status ON dbo.SyncBatch (SyncType, Status);
+CREATE INDEX IX_SyncError_SyncBatchId_OccurredAtUtc ON dbo.SyncError (SyncBatchId, OccurredAtUtc DESC);
 CREATE INDEX IX_SyncError_OccurredAtUtc ON dbo.SyncError (OccurredAtUtc);

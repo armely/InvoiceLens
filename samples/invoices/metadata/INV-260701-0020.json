@@ -1,0 +1,28 @@
+﻿{
+    "localInvoiceId":  "LOCAL-INV-260701-0020",
+    "fileName":  "INV-260701-0020.pdf",
+    "invoiceNumber":  "INV-260701-0020",
+    "supplierNumber":  "Sierra Parts",
+    "supplierName":  "Sierra Parts",
+    "invoiceDate":  "2026-07-02",
+    "purchaseOrderNumber":  "PO-450020",
+    "afeNumber":  "AFE-1020",
+    "costCenter":  "Procurement",
+    "currency":  "USD",
+    "subtotal":  59870,
+    "tax":  0,
+    "totalAmount":  59870,
+    "status":  "PendingReview",
+    "exportStatus":  "Pending",
+    "paymentStatus":  "Awaiting Approval",
+    "lineItems":  [
+                      {
+                          "lineNumber":  1,
+                          "description":  "Sierra Parts service line",
+                          "quantity":  1,
+                          "unitPrice":  59870,
+                          "amount":  59870,
+                          "coding":  ""
+                      }
+                  ]
+}
