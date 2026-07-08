@@ -33,7 +33,7 @@ import { renderDashboard } from './views/dashboard.js';
 import { renderHelpPage } from './views/help.js';
 import { renderInvoicesPage } from './views/invoices.js';
 import { renderNotificationsPage } from './views/notifications.js';
-import { renderInvoiceModal } from './views/shared.js';
+import { renderInvoicePreviewModalRich } from './views/shared.js';
 import { renderValidationSummaryPage } from './views/validation-summary.js';
 
 type ReviewBundle = {
@@ -55,7 +55,7 @@ const state: AppState = {
   comparisonDetailFieldIndex: null,
   invoicePreviewOpen: false,
   search: '',
-  sidebarCollapsed: false,
+  sidebarCollapsed: true,
   dashboardDateRange: 'Last 30 Days',
   dashboardDateFrom: '',
   dashboardDateTo: '',
@@ -927,7 +927,7 @@ function renderLoading(route = state.route): void {
   }
 }
 
-function renderAuthGate(message = 'Sign in with Microsoft to unlock the InvoiceLens workspace.'): void {
+function renderAuthGate(message?: string): void {
   setAuthState(false);
   pageHost.innerHTML = `
     <section class="auth-gate">
@@ -935,7 +935,7 @@ function renderAuthGate(message = 'Sign in with Microsoft to unlock the InvoiceL
         <p class="section-eyebrow">Microsoft sign-in required</p>
         <h1>Microsoft sign-in required</h1>
         <p class="auth-gate-subtitle">InvoiceLens is locked</p>
-        <p class="auth-gate-copy">${escapeHtml(message)}</p>
+        <p class="auth-gate-copy">${escapeHtml(message ?? 'Sign in with Microsoft to unlock the InvoiceLens workspace.')}</p>
         <div class="auth-gate-actions">
           <button class="button primary" type="button" data-action="profile-auth">Sign in with Microsoft</button>
         </div>
@@ -969,6 +969,7 @@ function render(): void {
   }
 
   const dashboardData = buildDashboardData();
+  const reviewData = buildReviewViewData();
   const comparisonData = buildComparisonViewData();
 
   const routeRenderers: Record<Route, () => string> = {
@@ -981,6 +982,8 @@ function render(): void {
         state.invoiceDateRange,
         state.invoiceDateFrom,
         state.invoiceDateTo,
+        state.selectedInvoiceId,
+        reviewData,
       ),
     'compliance-queue': () =>
       renderComplianceQueuePage(
@@ -1002,8 +1005,8 @@ function render(): void {
   const pageMarkup = routeRenderers[state.route]();
   const previewBundle = buildReviewViewData();
   const invoicePreviewMarkup =
-    state.invoicePreviewOpen && state.selectedInvoiceId
-      ? renderInvoiceModal(previewBundle.review, !store.selected.has(state.selectedInvoiceId))
+    state.route !== 'invoices' && state.invoicePreviewOpen && state.selectedInvoiceId
+      ? renderInvoicePreviewModalRich(previewBundle.review, !store.selected.has(state.selectedInvoiceId))
       : '';
 
   pageHost.innerHTML = `${pageMarkup}${invoicePreviewMarkup}`;
@@ -1348,8 +1351,8 @@ async function reloadData(selectedInvoiceId = state.selectedInvoiceId): Promise<
 async function openInvoicePreview(invoiceId: string): Promise<void> {
   state.route = 'invoices';
   state.selectedInvoiceId = invoiceId;
-  state.invoicePreviewOpen = true;
-  syncBrowserLocation('invoices', invoiceId, false, true);
+  state.invoicePreviewOpen = false;
+  syncBrowserLocation('invoices', '', false, false);
   await loadReviewBundle(invoiceId);
   render();
 }
@@ -1586,7 +1589,8 @@ async function start(): Promise<void> {
   });
 
   try {
-    const profile = await initializeMicrosoftAuth();
+    const authBootstrap = await initializeMicrosoftAuth();
+    const profile = authBootstrap.profile;
     appDebug('Microsoft auth initialization finished.', {
       hasProfile: Boolean(profile),
       displayName: profile?.displayName ?? '',
@@ -1596,7 +1600,7 @@ async function start(): Promise<void> {
     });
     if (!profile) {
       syncProfile(null);
-      renderAuthGate();
+      renderAuthGate(authBootstrap.unavailableMessage ?? undefined);
     } else {
       syncProfile(profile);
       const restoredRoute = restorePostLoginRoute();
