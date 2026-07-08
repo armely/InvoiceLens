@@ -982,6 +982,7 @@ function render(): void {
         state.invoiceDateRange,
         state.invoiceDateFrom,
         state.invoiceDateTo,
+        state.queueSort,
         state.selectedInvoiceId,
         reviewData,
       ),

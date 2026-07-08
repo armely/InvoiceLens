@@ -202,6 +202,7 @@ export function renderInvoicesPage(
   dateRange: 'All Time' | 'Last 30 Days' | 'This Week' | 'This Quarter',
   dateFrom: string,
   dateTo: string,
+  queueSort: 'Oldest First' | 'Newest First' | 'Highest Amount',
   selectedInvoiceId: string,
   reviewData: ReviewViewData,
 ): string {
@@ -211,7 +212,7 @@ export function renderInvoicesPage(
     dateRange,
     dateFrom,
     dateTo,
-    sort: 'Oldest First',
+    sort: queueSort,
   });
 
   const selectedInvoice = rows.find((invoice) => invoice.invoiceId === selectedInvoiceId) ?? rows[0] ?? null;
@@ -239,49 +240,14 @@ export function renderInvoicesPage(
             </div>
             <span class="status-chip pending-neutral">${rows.length}</span>
           </div>
-          <section class="filter-bar invoice-filter-bar-inline">
-            <div class="filter-field invoice-search-field">
-              <span class="field-label">Search</span>
-              <div class="search-input-wrap invoice-search">
-                <span aria-hidden="true" class="search-glyph">
-                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                    <circle cx="11" cy="11" r="6.5"></circle>
-                    <path d="M16.2 16.2 20 20"></path>
-                  </svg>
-                </span>
-                <input class="search-input" type="search" value="${search}" data-input="page-search" placeholder="Search invoice number, vendor, AFE, company, or amount..." />
-              </div>
-            </div>
-            <div class="invoice-filter-grid-inline">
-              <label class="filter-field">
-                <span class="field-label">Status</span>
-                <select class="select-field" data-filter="invoice-status">
-                  ${['All Statuses', 'Pending Review', 'Sent Back', 'Approved']
-                    .map((option) => `<option value="${option}" ${statusFilter === option ? 'selected' : ''}>${option}</option>`)
-                    .join('')}
-                </select>
-              </label>
-              <label class="filter-field">
-                <span class="field-label">Date Range</span>
-                <select class="select-field" data-filter="invoice-date-range">
-                  ${['All Time', 'Last 30 Days', 'This Week', 'This Quarter']
-                    .map((option) => `<option value="${option}" ${dateRange === option ? 'selected' : ''}>${option}</option>`)
-                    .join('')}
-                </select>
-              </label>
-            </div>
-            <div class="invoice-filter-grid-inline invoice-filter-grid-inline-dates">
-              <label class="filter-field">
-                <span class="field-label">From</span>
-                <input class="input-field" type="date" value="${dateFrom}" data-filter="invoice-date-from" aria-label="From date" />
-              </label>
-              <label class="filter-field">
-                <span class="field-label">To</span>
-                <input class="input-field" type="date" value="${dateTo}" data-filter="invoice-date-to" aria-label="To date" />
-              </label>
-            </div>
-            <button class="button primary invoice-filter-reset" type="button" data-action="reset-invoice-filters">Clear</button>
-          </div>
+          <section class="invoice-queue-controls" aria-label="Queue controls">
+            <span class="invoice-queue-sort-label">Sort:</span>
+            <select class="select-field invoice-queue-sort" data-filter="queue-sort" aria-label="Sort queue">
+              ${['Oldest First', 'Newest First', 'Highest Amount']
+                .map((option) => `<option value="${option}" ${queueSort === option ? 'selected' : ''}>${option}</option>`)
+                .join('')}
+            </select>
+          </section>
           <div class="queue-page-list">
             ${rows.length > 0 ? rows.map((invoice) => renderInvoiceQueueItem(invoice, selectedInvoice?.invoiceId ?? '')).join('') : '<div class="empty-state">No invoices match current filters.</div>'}
           </div>

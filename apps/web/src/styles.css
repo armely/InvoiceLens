@@ -1067,6 +1067,31 @@ tbody tr:hover {
   letter-spacing: -0.03em;
 }
 
+.invoice-queue-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 10px 2px;
+  border-top: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.invoice-queue-sort-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.invoice-queue-sort {
+  min-height: 34px;
+  width: auto;
+  min-width: 150px;
+  border-radius: 10px;
+  border-color: var(--line);
+  padding-right: 24px;
+}
+
 .invoice-filter-bar-inline {
   display: grid;
   gap: 10px;
@@ -2506,6 +2531,12 @@ tbody tr:hover {
   .invoice-filter-grid-inline-dates,
   .invoice-insight-grid {
     grid-template-columns: 1fr;
+  }
+  .invoice-queue-controls {
+    flex-wrap: wrap;
+  }
+  .invoice-queue-sort {
+    width: 100%;
   }
   .invoice-insight-summary dl div {
     grid-template-columns: 1fr;
