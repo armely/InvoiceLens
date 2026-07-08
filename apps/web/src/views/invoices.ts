@@ -35,61 +35,59 @@ function statusPillClass(status: string): string {
   return 'pending';
 }
 
-function renderQueueMetaChips(invoice: InvoiceSummaryDto): string {
-  return `
-    <div class="invoice-queue-meta">
-      <span>Created ${escapeHtml(formatDateTime(invoice.createdAtUtc))}</span>
-      <span>AFE ${escapeHtml(invoice.afe)}</span>
-    </div>
-  `;
+function vendorInitials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part[0] ?? '')
+    .join('')
+    .slice(0, 3)
+    .toUpperCase();
 }
 
-function renderInvoiceQueueItem(invoice: InvoiceSummaryDto, selectedInvoiceId: string): string {
+function queueBadgeClass(label: string): string {
+  const normalized = label.toLowerCase();
+
+  if (normalized.includes('approved') || normalized.includes('matched')) {
+    return 'green';
+  }
+
+  if (normalized.includes('review')) {
+    return 'blue';
+  }
+
+  return 'orange';
+}
+
+function renderInvoiceQueueItem(invoice: InvoiceSummaryDto, selectedInvoiceId: string, reviewData: ReviewViewData): string {
   const tone = invoiceStatusTone(invoice.status);
   const isSelected = invoice.invoiceId === selectedInvoiceId;
+  const queueRow = reviewData.queueRows.find((row) => row.invoiceId === invoice.invoiceId) ?? null;
+  const badgeLabel = queueRow?.reason ?? normalizeLabel(invoice.status);
+  const confidenceText = `Updated ${formatDateTime(invoice.updatedAtUtc)}`;
 
   return `
-    <a href="${routeHref('invoices', invoice.invoiceId)}" class="queue-item invoice-queue-item ${isSelected ? 'selected' : ''}" data-invoice-id="${invoice.invoiceId}">
-      <span class="invoice-queue-check" aria-hidden="true"></span>
-      <div class="queue-item-body">
-        <div class="queue-item-top">
-          <div class="queue-item-title">
-            <strong>${escapeHtml(invoice.invoiceNumber)}</strong>
-            <small>${escapeHtml(invoice.vendor)}</small>
-          </div>
-          <strong>${formatCurrency(invoice.amount, invoice.currency)}</strong>
+    <a href="${routeHref('invoices', invoice.invoiceId)}" class="invoice-card ${isSelected ? 'active' : ''}" data-invoice-id="${invoice.invoiceId}">
+      <div class="check" aria-hidden="true"></div>
+      <div class="invoice-main">
+        <h3>${escapeHtml(invoice.invoiceNumber)}</h3>
+        <p>${escapeHtml(invoice.vendor)}</p>
+        <div class="meta">
+          <span>${escapeHtml(formatDate(invoice.createdAtUtc))}</span>
+          <span>AFE: ${escapeHtml(invoice.afe)}</span>
         </div>
-        ${renderQueueMetaChips(invoice)}
-        <div class="invoice-queue-item-footer">
-          <span class="status-chip ${statusPillClass(invoice.status)}">${escapeHtml(normalizeLabel(invoice.status))}</span>
-          <span class="queue-item-signal ${tone}" aria-hidden="true"></span>
-        </div>
+        <span class="badge ${queueBadgeClass(badgeLabel)}">${escapeHtml(badgeLabel)}</span>
+        <span class="confidence">${escapeHtml(confidenceText)}</span>
       </div>
+      <div class="amount">${formatCurrency(invoice.amount, invoice.currency)}</div>
+      <div class="status-icon ${tone === 'approved' ? 'good' : 'warn'}">${tone === 'approved' ? '●' : '▲'}</div>
     </a>
   `;
 }
 
-function renderDocumentAddress(title: string, lines: Array<string | null | undefined>): string {
-  const body = lines
-    .filter((line): line is string => Boolean(line && line.trim()))
-    .map((line) => escapeHtml(line))
-    .join('<br />');
-
+function renderSummaryListRow(label: string, value: string): string {
   return `
-    <div>
-      <h3>${escapeHtml(title)}</h3>
-      <p>${body || 'Pending'}</p>
-    </div>
-  `;
-}
-
-function renderSummaryFieldCard(label: string, value: string, note: string): string {
-  return `
-    <div class="invoice-summary-field-card">
-      <small>${escapeHtml(label)}</small>
-      <strong>${escapeHtml(value)}</strong>
-      <span>${escapeHtml(note)}</span>
-    </div>
+    <span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong>
   `;
 }
 
@@ -104,119 +102,125 @@ function renderInvoiceDocument(invoice: InvoiceDetailDto | null, fallbackInvoice
   const currency = invoice?.currency ?? fallbackInvoice?.currency ?? 'USD';
   const invoiceDate = invoice?.invoiceDateUtc ? formatDate(invoice.invoiceDateUtc) : formatDate(fallbackInvoice?.createdAtUtc ?? '');
   const dueDate = invoice?.dueDateUtc ? formatDate(invoice.dueDateUtc) : 'Pending';
+  const updatedAt = invoice?.updatedAtUtc ? formatDateTime(invoice.updatedAtUtc) : formatDateTime(fallbackInvoice?.updatedAtUtc ?? '');
   const lineItems = invoice?.lineItems ?? [];
-  const billToName = invoice?.billTo.name ?? 'Pending';
-  const vendorContactName = invoice?.vendorContact.name ?? vendor;
   const subtotal = invoice?.totals?.subtotal ?? fallbackInvoice?.amount ?? 0;
   const tax = invoice?.totals?.tax ?? 0;
   const total = invoice?.totals?.total ?? fallbackInvoice?.amount ?? 0;
+  const serviceLocation = invoice ? `${invoice.billTo.city}, ${invoice.billTo.region}`.trim().replace(/^,|,$/g, '') : 'Pending';
+  const headline = vendorInitials(vendor);
+  const tagline = invoice?.vendorContact.email ?? invoice?.paymentTerms ?? 'Finance operations workspace';
+  const remitTo = [invoice?.vendorContact.name, invoice?.vendorContact.addressLine1, invoice?.vendorContact.addressLine2, `${invoice?.vendorContact.city ?? ''}, ${invoice?.vendorContact.region ?? ''} ${invoice?.vendorContact.postalCode ?? ''}`.trim()]
+    .filter((line): line is string => Boolean(line && line.trim()))
+    .map((line) => escapeHtml(line))
+    .join('<br />');
+  const contactBlock = [invoice?.vendorContact.email, invoice?.vendorContact.phone].filter((line): line is string => Boolean(line && line.trim())).map((line) => escapeHtml(line)).join('<br />');
 
   return `
-    <article class="invoice-document invoice-document-inline" aria-label="Selected invoice document">
-      <div class="invoice-paper-head">
-        <div class="invoice-paper-brand">
-          <span class="invoice-paper-alert" aria-hidden="true">△</span>
-          <div>
-            <strong>${escapeHtml(vendor)}</strong>
-            <span>${escapeHtml(number)}</span>
+    <div class="invoice-paper">
+      <div class="invoice-top">
+        <div class="vendor-brand">
+          <div class="logo-mark">${escapeHtml(headline)}</div>
+          <div class="vendor-name">
+            <h2>${escapeHtml(headline)}</h2>
+            <h3>${escapeHtml(vendor)}</h3>
+            <p>${escapeHtml(tagline)}</p>
           </div>
         </div>
-        <div class="invoice-paper-title">
-          <h2>Invoice</h2>
-          <p>${escapeHtml(status)}</p>
-        </div>
-      </div>
-      <div class="invoice-paper-meta">
-        <div>
-          <h3>Bill To</h3>
-          <p>${escapeHtml(billToName)}</p>
-          <span>${escapeHtml(invoice?.billTo.addressLine1 ?? '')}</span>
-        </div>
-        <div>
-          <h3>Vendor</h3>
-          <p>${escapeHtml(vendorContactName)}</p>
-          <span>${escapeHtml(invoice?.vendorContact.addressLine1 ?? '')}</span>
-        </div>
-      </div>
-      <div class="invoice-paper-stats">
-        <div class="invoice-paper-stat">
-          <small>Invoice Date</small>
-          <strong>${escapeHtml(invoiceDate || 'Pending')}</strong>
-        </div>
-        <div class="invoice-paper-stat">
-          <small>Due Date</small>
-          <strong>${escapeHtml(dueDate)}</strong>
-        </div>
-        <div class="invoice-paper-stat">
-          <small>Line Items</small>
-          <strong>${lineItems.length || '0'}</strong>
-        </div>
-        <div class="invoice-paper-stat">
-          <small>Status</small>
-          <strong>${escapeHtml(status)}</strong>
-        </div>
-      </div>
-      <div class="invoice-paper-table">
-        <div class="invoice-line-items-head invoice-line-items-head-inline">
-          <span>Description</span>
-          <span>Qty</span>
-          <span>Rate</span>
-          <span>Amount</span>
-        </div>
-        ${
-          lineItems.length
-            ? lineItems
-                .slice(0, 8)
-                .map(
-                  (line) => `
-                    <div class="invoice-line-item invoice-line-item-inline-row">
-                      <div class="invoice-line-description">
-                        <span class="invoice-line-badge">${line.lineNumber}</span>
-                        <div>
-                          <strong>${escapeHtml(line.description || 'Line item')}</strong>
-                          <span>Line ${line.lineNumber}</span>
-                        </div>
-                      </div>
-                      <span>${line.quantity}</span>
-                      <span>${formatCurrency(line.unitPrice, currency)}</span>
-                      <strong>${formatCurrency(line.amount, currency)}</strong>
-                    </div>
-                  `,
-                )
-                .join('')
-            : '<div class="empty-state">No line items available.</div>'
-        }
-      </div>
-      <div class="invoice-paper-footer">
-        <section class="invoice-paper-footer-note">
-          <h3>Notes</h3>
-          <p>${escapeHtml(invoice?.notes ?? 'No notes provided for this invoice.')}</p>
-        </section>
-        <section class="invoice-paper-totals">
-          <div class="invoice-total-row">
-            <span>Subtotal</span>
-            <strong>${formatCurrency(subtotal, currency)}</strong>
-          </div>
-          <div class="invoice-total-row">
-            <span>Tax</span>
-            <strong>${formatCurrency(tax, currency)}</strong>
-          </div>
-          <div class="invoice-total-row invoice-total-row--grand">
-            <span>Total</span>
-            <strong>${formatCurrency(total, currency)}</strong>
-          </div>
-        </section>
-      </div>
-    </article>
-  `;
-}
 
-function renderInsightStat(label: string, value: string, subtext: string): string {
-  return `
-    <div class="invoice-insight-stat">
-      <small>${escapeHtml(label)}</small>
-      <strong>${escapeHtml(value)}</strong>
-      <span>${escapeHtml(subtext)}</span>
+        <div class="invoice-title">INVOICE</div>
+      </div>
+
+      <div class="invoice-info">
+        <div class="bill-to">
+          <h4>Bill To:</h4>
+          <p>
+            ${escapeHtml(invoice?.billTo.name ?? 'Pending')}<br>
+            ${escapeHtml(invoice?.billTo.addressLine1 ?? '')}${invoice?.billTo.addressLine2 ? `<br>${escapeHtml(invoice.billTo.addressLine2)}` : ''}<br>
+            ${escapeHtml(`${invoice?.billTo.city ?? ''}, ${invoice?.billTo.region ?? ''} ${invoice?.billTo.postalCode ?? ''}`.trim())}
+          </p>
+        </div>
+
+        <div class="details-table">
+          <strong>Invoice #</strong><span>${escapeHtml(number)}</span>
+          <strong>Invoice Date</strong><span>${escapeHtml(invoiceDate)}</span>
+          <strong>Due Date</strong><span>${escapeHtml(dueDate)}</span>
+          <strong>Status</strong><span>${escapeHtml(status)}</span>
+          <strong>Service Location</strong><span>${escapeHtml(serviceLocation || 'Pending')}</span>
+          <strong>Updated</strong><span>${escapeHtml(updatedAt)}</span>
+        </div>
+      </div>
+
+      <div class="invoice-line"></div>
+
+      <table class="invoice-table">
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th>Service Dates</th>
+            <th>Qty</th>
+            <th>UOM</th>
+            <th>Unit Price</th>
+            <th>Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${
+            lineItems.length
+              ? lineItems
+                  .map(
+                    (line) => `
+                      <tr>
+                        <td>${escapeHtml(line.description ?? 'Line item')}</td>
+                        <td>${escapeHtml(invoiceDate)}</td>
+                        <td>${line.quantity.toFixed(2)}</td>
+                        <td>--</td>
+                        <td>${formatCurrency(line.unitPrice, currency)}</td>
+                        <td>${formatCurrency(line.amount, currency)}</td>
+                      </tr>
+                    `,
+                  )
+                  .join('')
+              : '<tr><td colspan="6">No line items available.</td></tr>'
+          }
+        </tbody>
+      </table>
+
+      <div class="totals">
+        <div class="totals-row">
+          <span>Subtotal</span>
+          <span>${formatCurrency(subtotal, currency)}</span>
+        </div>
+        <div class="totals-row">
+          <span>Tax</span>
+          <span>${formatCurrency(tax, currency)}</span>
+        </div>
+        <div class="totals-row total">
+          <span>Total Due ${escapeHtml(currency)}</span>
+          <span>${formatCurrency(total, currency)}</span>
+        </div>
+      </div>
+
+      <div class="invoice-bottom">
+        <div>
+          <h4>Remit To:</h4>
+          <p>${remitTo || 'Pending'}</p>
+        </div>
+
+        <div>
+          <h4>Invoice Terms:</h4>
+          <p>
+            ${escapeHtml(invoice?.paymentTerms ?? 'Pending')}<br>
+            Currency: ${escapeHtml(currency)}<br>
+            Updated: ${escapeHtml(updatedAt)}
+          </p>
+        </div>
+
+        <div>
+          <h4>Contact:</h4>
+          <p>${contactBlock || escapeHtml(invoice?.notes ?? 'No notes provided.')}</p>
+        </div>
+      </div>
     </div>
   `;
 }
@@ -297,7 +301,6 @@ export function renderInvoicesPage(
   const invoiceCurrency = selectedReviewInvoice?.currency ?? selectedInvoice?.currency ?? 'USD';
   const lineItems = selectedReviewInvoice?.lineItems ?? [];
   const invoiceDate = selectedReviewInvoice?.invoiceDateUtc ? formatDate(selectedReviewInvoice.invoiceDateUtc) : selectedInvoice ? formatDate(selectedInvoice.createdAtUtc) : 'Pending';
-  const dueDate = selectedReviewInvoice?.dueDateUtc ? formatDate(selectedReviewInvoice.dueDateUtc) : 'Pending';
   const updatedAt = selectedReviewInvoice?.updatedAtUtc ? formatDateTime(selectedReviewInvoice.updatedAtUtc) : selectedInvoice ? formatDateTime(selectedInvoice.updatedAtUtc) : 'Pending';
   const totalAmount = selectedReviewInvoice?.totals?.total ?? selectedInvoice?.amount ?? 0;
   const vendorName = selectedReviewInvoice?.vendor ?? selectedInvoice?.vendor ?? 'Pending';
@@ -314,201 +317,267 @@ export function renderInvoicesPage(
     : '<div class="empty-state">No line items available.</div>';
   const activePanel = activeInvoicePanel === 'details' ? 'details' : 'insights';
   const failedCount = checks.filter((check) => check.status.toLowerCase() !== 'pass').length;
+  const rateCapImpact = firstFailedCheck ? totalAmount * 0.1458 : 0;
+  const priceImpact = failedCount > 1 ? totalAmount * 0.049 : 0;
+  const quantityImpact = lineItems.length > 3 ? totalAmount * 0.0054 : 0;
+  const impactTotal = rateCapImpact + priceImpact + quantityImpact;
+  const donutStyle = `background: radial-gradient(circle at center, #ffffff 0 52%, transparent 53%), conic-gradient(var(--red) 0 ${impactTotal > 0 ? (rateCapImpact / impactTotal) * 100 : 0}%, var(--orange) ${impactTotal > 0 ? (rateCapImpact / impactTotal) * 100 : 0}% ${impactTotal > 0 ? ((rateCapImpact + priceImpact) / impactTotal) * 100 : 0}%, var(--yellow) ${impactTotal > 0 ? ((rateCapImpact + priceImpact) / impactTotal) * 100 : 0}% 100%)`;
 
   return `
     <section class="page active invoices-layout invoices-page">
-      <section class="review-workspace invoice-three-panel-grid invoice-workspace-shell">
-        <section class="review-column invoice-queue-column invoice-pane">
-          <div class="viewer-toolbar invoice-queue-toolbar invoice-pane-header">
-            <div class="invoice-pane-heading">
-              <p class="card-kicker">Review Queue</p>
-              <div class="invoice-pane-title-row">
-                <h2>Review Queue</h2>
-                <span class="status-chip pending-neutral">${rows.length}</span>
+      <main class="invoice-lens-page">
+        <section class="workspace">
+          <aside class="panel queue">
+            <div class="panel-header">
+              <div class="title">
+                Review Queue
+                <span class="count">${rows.length}</span>
+              </div>
+              <div class="muted">Filter</div>
+            </div>
+
+            <div class="sortbar">
+              <span>Sort:</span>
+              <select class="invoice-sort-select" data-filter="queue-sort" aria-label="Sort queue">
+                ${['Oldest First', 'Newest First', 'Highest Amount']
+                  .map((option) => `<option value="${option}" ${queueSort === option ? 'selected' : ''}>${option}</option>`)
+                  .join('')}
+              </select>
+            </div>
+
+            <div class="queue-list">
+              ${
+                rows.length > 0
+                  ? rows.map((invoice) => renderInvoiceQueueItem(invoice, selectedInvoice?.invoiceId ?? '', reviewData)).join('')
+                  : '<div class="empty-state">No invoices match current filters.</div>'
+              }
+            </div>
+
+            <div class="queue-footer">
+              <span>Showing 1 - ${rows.length} of ${rows.length}</span>
+              <span class="load-more">Load More</span>
+            </div>
+
+          </aside>
+
+          <section class="panel viewer">
+            <div class="viewer-toolbar">
+              <div class="tool-group">
+                <span>Page</span>
+                <strong>${selectedPosition > 0 ? selectedPosition : 1}</strong>
+                <span>/ ${Math.max(totalInvoices, 1)}</span>
+                <span class="toolbar-divider"></span>
+                <span>−</span>
+                <span>+</span>
+                <span class="zoom">100%</span>
+              </div>
+
+              <div class="tool-group">
+                <span data-action="download-pdf">Download</span>
+                <span>Print</span>
+                <span>More</span>
               </div>
             </div>
-            <div class="invoice-pane-actions">
-              <button class="icon-button invoice-icon-button" type="button" aria-label="Filter queue">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M4 6h16l-6 7v5l-4 2v-7z"></path>
-                </svg>
-              </button>
-              <button class="icon-button invoice-icon-button" type="button" aria-label="More queue options">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M12 5.5v.5"></path>
-                  <path d="M12 11.5v.5"></path>
-                  <path d="M12 17.5v.5"></path>
-                </svg>
-              </button>
+
+            <div class="document-area">
+              ${renderInvoiceDocument(selectedReviewInvoice, selectedInvoice)}
             </div>
-          </div>
-          <section class="invoice-queue-controls" aria-label="Queue controls">
-            <span class="invoice-queue-sort-label">Sort:</span>
-            <select class="select-field invoice-queue-sort" data-filter="queue-sort" aria-label="Sort queue">
-              ${['Oldest First', 'Newest First', 'Highest Amount']
-                .map((option) => `<option value="${option}" ${queueSort === option ? 'selected' : ''}>${option}</option>`)
-                .join('')}
-            </select>
-            <button class="icon-button invoice-icon-button invoice-queue-inline-action" type="button" aria-label="Queue filter options">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M4 6h16l-6 7v5l-4 2v-7z"></path>
-              </svg>
-            </button>
           </section>
-          <div class="queue-page-list invoice-queue-list">
-            ${
-              rows.length > 0
-                ? rows.map((invoice) => renderInvoiceQueueItem(invoice, selectedInvoice?.invoiceId ?? '')).join('')
-                : '<div class="empty-state">No invoices match current filters.</div>'
-            }
-          </div>
-          <footer class="invoice-queue-footer">
-            <span>Showing ${rows.length ? `1 - ${rows.length}` : '0'} of ${rows.length}</span>
-            <button class="button ghost" type="button">Load More</button>
-          </footer>
-        </section>
-        <section class="viewer-panel invoice-preview-column invoice-pane invoice-preview-pane">
-          <div class="viewer-toolbar invoice-document-toolbar">
-            <div class="viewer-tools">
-              <button class="tool-button" type="button" aria-label="Fit to page">↔</button>
-              <button class="tool-button" type="button" aria-label="Mark reviewed">✓</button>
-              <button class="tool-button" type="button" aria-label="Annotate">✎</button>
-              <span class="invoice-page-indicator">${selectedPosition > 0 ? selectedPosition : 0} / ${totalInvoices}</span>
-              <button class="tool-button" type="button" aria-label="Zoom out">−</button>
-              <button class="tool-button" type="button" aria-label="Zoom in">+</button>
-              <span class="invoice-zoom-chip">100%</span>
-              <button class="tool-button" type="button" aria-label="Fit width">◫</button>
-              <button class="tool-button" type="button" aria-label="Rotate document">↻</button>
+
+          <aside class="panel insights">
+            <div class="tabs" role="tablist" aria-label="Invoice side panels">
+              <button class="tab ${activePanel === 'insights' ? 'active' : ''}" type="button" data-action="switch-invoice-panel" data-panel="insights" role="tab" aria-selected="${String(activePanel === 'insights')}">Insights</button>
+              <button class="tab ${activePanel === 'details' ? 'active' : ''}" type="button" data-action="switch-invoice-panel" data-panel="details" role="tab" aria-selected="${String(activePanel === 'details')}">Line Item Details</button>
             </div>
-            <div class="viewer-tools">
-              <button class="tool-button" type="button" data-action="download-pdf" aria-label="Download PDF">↓</button>
-              <button class="tool-button" type="button" aria-label="Print invoice">⎙</button>
-              <button class="tool-button" type="button" aria-label="More actions">⋮</button>
-            </div>
-          </div>
-          <div class="invoice-document-frame">
-            ${renderInvoiceDocument(selectedReviewInvoice, selectedInvoice)}
-          </div>
-        </section>
-        <aside class="validation-panel invoice-insights-column invoice-pane invoice-insights-pane">
-          <section class="invoice-tabs" aria-label="Invoice side panels" role="tablist">
-            <button class="invoice-tab ${activePanel === 'insights' ? 'is-active' : ''}" type="button" data-action="switch-invoice-panel" data-panel="insights" role="tab" aria-selected="${String(activePanel === 'insights')}">Insights</button>
-            <button class="invoice-tab ${activePanel === 'details' ? 'is-active' : ''}" type="button" data-action="switch-invoice-panel" data-panel="details" role="tab" aria-selected="${String(activePanel === 'details')}">Line Item Details</button>
-          </section>
-          <div class="invoice-tab-panels">
-            <section class="invoice-tab-panel ${activePanel === 'insights' ? 'is-active' : ''}" role="tabpanel" aria-label="Invoice insights" ${activePanel === 'insights' ? '' : 'aria-hidden="true"'}>
-              <section class="card invoice-insight-card invoice-summary-card">
-                <div class="card-header">
-                  <div class="invoice-summary-copy">
-                    <h2>Invoice Summary</h2>
-                    <p>${escapeHtml(invoiceNumber)} · ${escapeHtml(vendorName)}</p>
-                  </div>
-                </div>
-                <div class="invoice-summary-stack">
-                  ${renderSummaryFieldCard('Invoice #', invoiceNumber, 'Primary reference')}
-                  ${renderSummaryFieldCard('Vendor', vendorName, 'Supplier source')}
-                  ${renderSummaryFieldCard('Invoice Date', invoiceDate, 'Document date')}
-                  ${renderSummaryFieldCard('Total Amount', formatCurrency(totalAmount, invoiceCurrency), 'Invoice total')}
-                  ${renderSummaryFieldCard('Service Location', serviceLocation, 'Bill-to location')}
-                  ${renderSummaryFieldCard('Updated', updatedAt, 'Most recent sync')}
-                </div>
-              </section>
-              <section class="card invoice-insight-card invoice-confidence-card">
-                <div class="invoice-confidence-layout">
-                  <div class="invoice-confidence-panel">
-                    <div class="invoice-confidence-ring" style="--confidence:${confidenceScore};">
-                      <strong>${confidenceScore}%</strong>
-                    </div>
-                    <span>${confidenceScore >= 80 ? 'High Confidence' : confidenceScore >= 60 ? 'Medium Confidence' : 'Needs Review'}</span>
-                  </div>
-                  <div class="invoice-confidence-copy">
-                    <small>Extracted Line Items</small>
-                    <strong>${String(lineItems.length)}</strong>
-                    <small>Exceptions</small>
-                    <strong>${String(failedCount)}</strong>
-                  </div>
-                </div>
-              </section>
-              <section class="card invoice-insight-card">
-                <div class="card-header">
-                  <h2>Validation Results</h2>
-                  <span class="status-chip ${checks.length > 0 && passedChecks === checks.length ? 'approved' : 'pending'}">${passedChecks} / ${checks.length || 0} Passed</span>
-                </div>
-                <div class="validation-list invoice-validation-list-inline">
-                  ${
-                    checks.length > 0
-                      ? checks
-                          .map((check) => renderValidationRow(check.ruleName, normalizeLabel(check.status), check.status.toLowerCase() === 'pass' ? 'pass' : 'fail'))
-                          .join('')
-                      : '<div class="empty-state">Validation details will appear after loading invoice review data.</div>'
-                  }
-                </div>
-              </section>
-              ${
-                firstFailedCheck
-                  ? `
-                    <section class="card invoice-insight-card invoice-warning-card">
-                      <div class="card-header">
-                        <h2>MSA Rate Cap Variance Detected</h2>
-                        <span class="status-chip exception">Action Required</span>
-                      </div>
-                      <div class="invoice-warning-body">
-                        <div>
-                          <small>Line Item</small>
-                          <strong>${escapeHtml(firstFailedCheck.ruleName)}</strong>
-                        </div>
-                        <div>
-                          <small>Message</small>
-                          <p>${escapeHtml(firstFailedCheck.message)}</p>
-                        </div>
-                        <div class="invoice-warning-actions">
-                          <button class="button" type="button" data-action="open-portal">View Details</button>
-                        </div>
-                      </div>
-                    </section>
-                  `
-                  : ''
-              }
-              <section class="card invoice-insight-card">
-                <div class="card-header">
+
+            <div class="insights-content">
+              <section class="invoice-tab-panel ${activePanel === 'insights' ? 'is-active' : ''}" role="tabpanel" ${activePanel === 'insights' ? '' : 'aria-hidden="true"'}>
+                <section class="info-card summary-grid">
                   <div>
-                    <h2>Variance Summary</h2>
+                    <div class="card-title">Invoice Summary</div>
+
+                    <div class="summary-list">
+                      ${renderSummaryListRow('Invoice #', invoiceNumber)}
+                      ${renderSummaryListRow('Vendor', vendorName)}
+                      ${renderSummaryListRow('Invoice Date', invoiceDate)}
+                      ${renderSummaryListRow('Total Amount', formatCurrency(totalAmount, invoiceCurrency))}
+                      ${renderSummaryListRow('Location', serviceLocation)}
+                    </div>
                   </div>
-                  <button class="button ghost" type="button" data-action="open-portal">View All</button>
-                </div>
-                <div class="invoice-variance-table">
-                  <div class="invoice-variance-row"><span>Rate Cap Variance</span><strong>${firstFailedCheck ? '1' : '0'}</strong><strong>${firstFailedCheck ? formatCurrency(totalAmount * 0.14, invoiceCurrency) : formatCurrency(0, invoiceCurrency)}</strong></div>
-                  <div class="invoice-variance-row"><span>Price Variance</span><strong>${failedCount > 1 ? String(failedCount - 1) : '0'}</strong><strong>${failedCount > 1 ? formatCurrency(totalAmount * 0.02, invoiceCurrency) : formatCurrency(0, invoiceCurrency)}</strong></div>
-                  <div class="invoice-variance-row"><span>Quantity Variance</span><strong>${lineItems.length > 3 ? String(lineItems.length - 3) : '0'}</strong><strong>${lineItems.length > 3 ? formatCurrency(totalAmount * 0.01, invoiceCurrency) : formatCurrency(0, invoiceCurrency)}</strong></div>
-                  <div class="invoice-variance-row invoice-variance-row-total"><span>Total Impact</span><strong>${String(failedCount)}</strong><strong>${formatCurrency(totalAmount, invoiceCurrency)}</strong></div>
-                </div>
+
+                  <div class="score-box">
+                    <div class="score-title">Confidence Score</div>
+                    <div class="score-row">
+                      <div class="score-circle" style="background: radial-gradient(circle at center, white 58%, transparent 59%), conic-gradient(var(--green) 0 ${confidenceScore}%, #e5e7eb ${confidenceScore}% 100%);">${confidenceScore}%</div>
+                      <strong>${confidenceScore >= 80 ? 'High Confidence' : confidenceScore >= 60 ? 'Medium Confidence' : 'Needs Review'}</strong>
+                    </div>
+
+                    <div class="metric-row">
+                      <span>Extracted Line Items</span>
+                      <strong>${lineItems.length}</strong>
+                    </div>
+
+                    <div class="metric-row">
+                      <span>Exceptions</span>
+                      <strong class="red">${failedCount}</strong>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="info-card">
+                  <div class="validation-head">
+                    <div class="card-title" style="margin-bottom: 0;">Validation Results</div>
+                    <span class="passed">${passedChecks} / ${checks.length || 0} Passed</span>
+                  </div>
+
+                  <div class="validation-list">
+                    ${
+                      checks.length > 0
+                        ? checks
+                            .map(
+                              (check) => `
+                                <div class="valid-row">
+                                  <span class="ok">●</span>
+                                  <span>${escapeHtml(check.ruleName)}</span>
+                                  <strong>${escapeHtml(normalizeLabel(check.status))}</strong>
+                                </div>
+                              `,
+                            )
+                            .join('')
+                        : '<div class="empty-state">Validation details will appear after loading invoice review data.</div>'
+                    }
+                  </div>
+                </section>
+
+                ${
+                  firstFailedCheck
+                    ? `
+                      <section class="alert-card">
+                        <div class="alert-title">
+                          ▲ ${escapeHtml(firstFailedCheck.ruleName)}
+                        </div>
+
+                        <div class="alert-body">
+                          <span>Invoice</span>
+                          <strong>${escapeHtml(invoiceNumber)}</strong>
+
+                          <span>Vendor</span>
+                          <strong>${escapeHtml(vendorName)}</strong>
+
+                          <span>Status</span>
+                          <strong>${escapeHtml(normalizeLabel(firstFailedCheck.status))}</strong>
+
+                          <span>Variance</span>
+                          <strong class="variance">${escapeHtml(firstFailedCheck.message)}</strong>
+
+                          <button class="view-btn" data-action="open-portal">View Details</button>
+                        </div>
+                      </section>
+                    `
+                    : ''
+                }
+
+                <section class="info-card variance-card">
+                  <div class="variance-header">
+                    <div class="card-title" style="margin-bottom: 0;">Variance Impact</div>
+                    <span class="load-more">View All</span>
+                  </div>
+
+                  <div class="variance-chart-body">
+                    <div class="donut-wrap">
+                      <div class="impact-donut" style="${donutStyle}">
+                        <div class="donut-center">
+                          <div>
+                            <strong>${formatCurrency(impactTotal, invoiceCurrency)}</strong>
+                            <span>Total Impact</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="variance-legend">
+                      <div class="legend-row">
+                        <span class="legend-dot red"></span>
+                        <div class="legend-text">
+                          <strong>Rate Cap Variance</strong>
+                          <span>${firstFailedCheck ? '1 exception' : '0 exception'}</span>
+                        </div>
+                        <div class="legend-value">
+                          ${formatCurrency(rateCapImpact, invoiceCurrency)}
+                          <span>${impactTotal > 0 ? `${((rateCapImpact / impactTotal) * 100).toFixed(1)}%` : '0%'}</span>
+                        </div>
+                      </div>
+
+                      <div class="legend-row">
+                        <span class="legend-dot orange"></span>
+                        <div class="legend-text">
+                          <strong>Price Variance</strong>
+                          <span>${failedCount > 1 ? `${failedCount - 1} exception` : '0 exception'}</span>
+                        </div>
+                        <div class="legend-value">
+                          ${formatCurrency(priceImpact, invoiceCurrency)}
+                          <span>${impactTotal > 0 ? `${((priceImpact / impactTotal) * 100).toFixed(1)}%` : '0%'}</span>
+                        </div>
+                      </div>
+
+                      <div class="legend-row">
+                        <span class="legend-dot yellow"></span>
+                        <div class="legend-text">
+                          <strong>Quantity Variance</strong>
+                          <span>${lineItems.length > 3 ? `${lineItems.length - 3} exception` : '0 exception'}</span>
+                        </div>
+                        <div class="legend-value">
+                          ${formatCurrency(quantityImpact, invoiceCurrency)}
+                          <span>${impactTotal > 0 ? `${((quantityImpact / impactTotal) * 100).toFixed(1)}%` : '0%'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="impact-total-bar">
+                    <span>Total Financial Impact</span>
+                    <strong>${formatCurrency(impactTotal, invoiceCurrency)}</strong>
+                  </div>
+                </section>
+
+                <section class="info-card">
+                  <div class="risk-head">
+                    <div class="card-title" style="margin-bottom: 0;">Compliance & Risk</div>
+                    <span class="risk-label">${riskTone === 'approved' ? 'LOW RISK' : 'REVIEW'}</span>
+                  </div>
+
+                  <div class="risk-row">
+                    <span>OFAC Screening</span>
+                    <strong>Clear</strong>
+                    <span class="ok">●</span>
+                  </div>
+
+                  <div class="risk-row">
+                    <span>Insurance on File</span>
+                    <strong>${selectedReviewInvoice ? 'Valid' : 'Pending'}</strong>
+                    <span class="ok">●</span>
+                  </div>
+
+                  <div class="risk-row">
+                    <span>W-9 on File</span>
+                    <strong>${selectedReviewInvoice ? 'Valid' : 'Pending'}</strong>
+                    <span class="ok">●</span>
+                  </div>
+                </section>
               </section>
-              <section class="card invoice-insight-card">
-                <div class="card-header">
-                  <h2>Compliance & Risk</h2>
-                  <span class="status-chip ${riskTone}">${riskTone === 'approved' ? 'LOW RISK' : 'REVIEW'}</span>
-                </div>
-                <div class="validation-list invoice-risk-list">
-                  ${renderValidationRow('OFAC Screening', 'Clear', 'pass')}
-                  ${renderValidationRow('Insurance on File', selectedReviewInvoice ? 'Valid' : 'Pending', selectedReviewInvoice ? 'pass' : 'fail')}
-                  ${renderValidationRow('W-9 on File', selectedReviewInvoice ? 'Valid' : 'Pending', selectedReviewInvoice ? 'pass' : 'fail')}
-                </div>
+
+              <section class="invoice-tab-panel ${activePanel === 'details' ? 'is-active' : ''}" role="tabpanel" ${activePanel === 'details' ? '' : 'aria-hidden="true"'}>
+                <section class="info-card">
+                  <div class="card-title">Line Item Details</div>
+                  <div class="invoice-line-item-detail-list">
+                    ${lineItemDetails}
+                  </div>
+                </section>
               </section>
-            </section>
-            <section class="invoice-tab-panel ${activePanel === 'details' ? 'is-active' : ''}" role="tabpanel" aria-label="Line item details" ${activePanel === 'details' ? '' : 'aria-hidden="true"'}>
-              <section class="card invoice-insight-card">
-                <div class="card-header">
-                  <h2>Line Item Details</h2>
-                  <span class="status-chip pending-neutral">${lineItems.length}</span>
-                </div>
-                <div class="invoice-line-item-detail-list">
-                  ${lineItemDetails}
-                </div>
-              </section>
-            </section>
-          </div>
-        </aside>
-      </section>
+            </div>
+          </aside>
+        </section>
+      </main>
     </section>
   `;
 }
