@@ -1,6 +1,6 @@
 import { InvoiceDetailDto, InvoicePanelTab, InvoiceSummaryDto, ReviewViewData } from '../shared/models.js';
 import { applyInvoiceFilters, formatCurrency, formatDate, formatDateTime, invoiceStatusTone, normalizeLabel } from '../shared/utils.js';
-import { routeHref, statusChip } from './shared.js';
+import { routeHref } from './shared.js';
 
 function escapeHtml(value: unknown): string {
   return String(value ?? '').replace(/[&<>"']/g, (character) => {
@@ -83,6 +83,16 @@ function renderDocumentAddress(title: string, lines: Array<string | null | undef
   `;
 }
 
+function renderSummaryFieldCard(label: string, value: string, note: string): string {
+  return `
+    <div class="invoice-summary-field-card">
+      <small>${escapeHtml(label)}</small>
+      <strong>${escapeHtml(value)}</strong>
+      <span>${escapeHtml(note)}</span>
+    </div>
+  `;
+}
+
 function renderInvoiceDocument(invoice: InvoiceDetailDto | null, fallbackInvoice: InvoiceSummaryDto | null): string {
   if (!invoice && !fallbackInvoice) {
     return '<div class="empty-state">No invoice selected.</div>';
@@ -95,67 +105,59 @@ function renderInvoiceDocument(invoice: InvoiceDetailDto | null, fallbackInvoice
   const invoiceDate = invoice?.invoiceDateUtc ? formatDate(invoice.invoiceDateUtc) : formatDate(fallbackInvoice?.createdAtUtc ?? '');
   const dueDate = invoice?.dueDateUtc ? formatDate(invoice.dueDateUtc) : 'Pending';
   const lineItems = invoice?.lineItems ?? [];
+  const billToName = invoice?.billTo.name ?? 'Pending';
+  const vendorContactName = invoice?.vendorContact.name ?? vendor;
   const subtotal = invoice?.totals?.subtotal ?? fallbackInvoice?.amount ?? 0;
   const tax = invoice?.totals?.tax ?? 0;
   const total = invoice?.totals?.total ?? fallbackInvoice?.amount ?? 0;
 
   return `
     <article class="invoice-document invoice-document-inline" aria-label="Selected invoice document">
-      <div class="document-head">
-        <div class="document-logo">
-          <span class="rig-mark">&#x25EC;</span>
+      <div class="invoice-paper-head">
+        <div class="invoice-paper-brand">
+          <span class="invoice-paper-alert" aria-hidden="true">△</span>
           <div>
             <strong>${escapeHtml(vendor)}</strong>
             <span>${escapeHtml(number)}</span>
           </div>
         </div>
-        <div class="document-title">
+        <div class="invoice-paper-title">
           <h2>Invoice</h2>
           <p>${escapeHtml(status)}</p>
         </div>
       </div>
-      <div class="document-meta">
-        ${
-          invoice
-            ? renderDocumentAddress('Bill To', [
-                invoice.billTo.name,
-                invoice.billTo.addressLine1,
-                invoice.billTo.addressLine2,
-                `${invoice.billTo.city}, ${invoice.billTo.region} ${invoice.billTo.postalCode}`.trim(),
-              ])
-            : '<div><h3>Bill To</h3><p>Pending</p></div>'
-        }
-        ${
-          invoice
-            ? renderDocumentAddress('Vendor', [
-                invoice.vendorContact.name,
-                invoice.vendorContact.addressLine1,
-                invoice.vendorContact.addressLine2,
-                `${invoice.vendorContact.city}, ${invoice.vendorContact.region} ${invoice.vendorContact.postalCode}`.trim(),
-              ])
-            : '<div><h3>Vendor</h3><p>Pending</p></div>'
-        }
+      <div class="invoice-paper-meta">
+        <div>
+          <h3>Bill To</h3>
+          <p>${escapeHtml(billToName)}</p>
+          <span>${escapeHtml(invoice?.billTo.addressLine1 ?? '')}</span>
+        </div>
+        <div>
+          <h3>Vendor</h3>
+          <p>${escapeHtml(vendorContactName)}</p>
+          <span>${escapeHtml(invoice?.vendorContact.addressLine1 ?? '')}</span>
+        </div>
       </div>
-      <div class="document-fields">
-        <div class="document-field">
+      <div class="invoice-paper-stats">
+        <div class="invoice-paper-stat">
           <small>Invoice Date</small>
           <strong>${escapeHtml(invoiceDate || 'Pending')}</strong>
         </div>
-        <div class="document-field">
+        <div class="invoice-paper-stat">
           <small>Due Date</small>
           <strong>${escapeHtml(dueDate)}</strong>
         </div>
-        <div class="document-field">
+        <div class="invoice-paper-stat">
           <small>Line Items</small>
           <strong>${lineItems.length || '0'}</strong>
         </div>
-        <div class="document-field">
+        <div class="invoice-paper-stat">
           <small>Status</small>
           <strong>${escapeHtml(status)}</strong>
         </div>
       </div>
-      <div class="invoice-line-items invoice-line-items-inline">
-        <div class="invoice-line-items-head">
+      <div class="invoice-paper-table">
+        <div class="invoice-line-items-head invoice-line-items-head-inline">
           <span>Description</span>
           <span>Qty</span>
           <span>Rate</span>
@@ -167,7 +169,7 @@ function renderInvoiceDocument(invoice: InvoiceDetailDto | null, fallbackInvoice
                 .slice(0, 8)
                 .map(
                   (line) => `
-                    <div class="invoice-line-item">
+                    <div class="invoice-line-item invoice-line-item-inline-row">
                       <div class="invoice-line-description">
                         <span class="invoice-line-badge">${line.lineNumber}</span>
                         <div>
@@ -185,12 +187,12 @@ function renderInvoiceDocument(invoice: InvoiceDetailDto | null, fallbackInvoice
             : '<div class="empty-state">No line items available.</div>'
         }
       </div>
-      <div class="invoice-summary-footer invoice-summary-footer-inline">
-        <section class="invoice-notes">
+      <div class="invoice-paper-footer">
+        <section class="invoice-paper-footer-note">
           <h3>Notes</h3>
           <p>${escapeHtml(invoice?.notes ?? 'No notes provided for this invoice.')}</p>
         </section>
-        <section class="invoice-totals">
+        <section class="invoice-paper-totals">
           <div class="invoice-total-row">
             <span>Subtotal</span>
             <strong>${formatCurrency(subtotal, currency)}</strong>
@@ -311,6 +313,7 @@ export function renderInvoicesPage(
         .join('')
     : '<div class="empty-state">No line items available.</div>';
   const activePanel = activeInvoicePanel === 'details' ? 'details' : 'insights';
+  const failedCount = checks.filter((check) => check.status.toLowerCase() !== 'pass').length;
 
   return `
     <section class="page active invoices-layout invoices-page">
@@ -401,22 +404,28 @@ export function renderInvoicesPage(
                     <p>${escapeHtml(invoiceNumber)} · ${escapeHtml(vendorName)}</p>
                   </div>
                 </div>
-                <div class="invoice-summary-grid">
-                  <div class="invoice-summary-list">
-                    ${renderInsightStat('Invoice #', invoiceNumber, 'Primary reference')}
-                    ${renderInsightStat('Vendor', vendorName, 'Supplier source')}
-                    ${renderInsightStat('Invoice Date', invoiceDate, 'Document date')}
-                    ${renderInsightStat('Total Amount', formatCurrency(totalAmount, invoiceCurrency), 'Invoice total')}
-                    ${renderInsightStat('Service Location', serviceLocation, 'Bill-to location')}
-                    ${renderInsightStat('Updated', updatedAt, 'Most recent sync')}
-                  </div>
+                <div class="invoice-summary-stack">
+                  ${renderSummaryFieldCard('Invoice #', invoiceNumber, 'Primary reference')}
+                  ${renderSummaryFieldCard('Vendor', vendorName, 'Supplier source')}
+                  ${renderSummaryFieldCard('Invoice Date', invoiceDate, 'Document date')}
+                  ${renderSummaryFieldCard('Total Amount', formatCurrency(totalAmount, invoiceCurrency), 'Invoice total')}
+                  ${renderSummaryFieldCard('Service Location', serviceLocation, 'Bill-to location')}
+                  ${renderSummaryFieldCard('Updated', updatedAt, 'Most recent sync')}
+                </div>
+              </section>
+              <section class="card invoice-insight-card invoice-confidence-card">
+                <div class="invoice-confidence-layout">
                   <div class="invoice-confidence-panel">
                     <div class="invoice-confidence-ring" style="--confidence:${confidenceScore};">
                       <strong>${confidenceScore}%</strong>
                     </div>
                     <span>${confidenceScore >= 80 ? 'High Confidence' : confidenceScore >= 60 ? 'Medium Confidence' : 'Needs Review'}</span>
-                    <small>${lineItems.length} extracted line items</small>
-                    <small>${checks.length - passedChecks} exceptions flagged</small>
+                  </div>
+                  <div class="invoice-confidence-copy">
+                    <small>Extracted Line Items</small>
+                    <strong>${String(lineItems.length)}</strong>
+                    <small>Exceptions</small>
+                    <strong>${String(failedCount)}</strong>
                   </div>
                 </div>
               </section>
@@ -467,11 +476,11 @@ export function renderInvoicesPage(
                   </div>
                   <button class="button ghost" type="button" data-action="open-portal">View All</button>
                 </div>
-                <div class="invoice-variance-grid">
-                  ${renderInsightStat('Rate Cap Variance', firstFailedCheck ? 'Detected' : 'None', firstFailedCheck ? 'Requires review' : 'All clear')}
-                  ${renderInsightStat('Price Variance', checks.length > 0 ? `${checks.filter((check) => check.status.toLowerCase() !== 'pass').length}` : '0', 'Flagged checks')}
-                  ${renderInsightStat('Quantity Variance', String(lineItems.length > 0 ? Math.max(0, lineItems.length - 3) : 0), 'Derived from line items')}
-                  ${renderInsightStat('Total Impact', formatCurrency(selectedReviewInvoice?.amount ?? selectedInvoice?.amount ?? 0, invoiceCurrency), 'Invoice value at risk')}
+                <div class="invoice-variance-table">
+                  <div class="invoice-variance-row"><span>Rate Cap Variance</span><strong>${firstFailedCheck ? '1' : '0'}</strong><strong>${firstFailedCheck ? formatCurrency(totalAmount * 0.14, invoiceCurrency) : formatCurrency(0, invoiceCurrency)}</strong></div>
+                  <div class="invoice-variance-row"><span>Price Variance</span><strong>${failedCount > 1 ? String(failedCount - 1) : '0'}</strong><strong>${failedCount > 1 ? formatCurrency(totalAmount * 0.02, invoiceCurrency) : formatCurrency(0, invoiceCurrency)}</strong></div>
+                  <div class="invoice-variance-row"><span>Quantity Variance</span><strong>${lineItems.length > 3 ? String(lineItems.length - 3) : '0'}</strong><strong>${lineItems.length > 3 ? formatCurrency(totalAmount * 0.01, invoiceCurrency) : formatCurrency(0, invoiceCurrency)}</strong></div>
+                  <div class="invoice-variance-row invoice-variance-row-total"><span>Total Impact</span><strong>${String(failedCount)}</strong><strong>${formatCurrency(totalAmount, invoiceCurrency)}</strong></div>
                 </div>
               </section>
               <section class="card invoice-insight-card">
