@@ -352,6 +352,9 @@ a:hover { text-decoration: underline; }
   padding: 24px;
   outline: none;
 }
+.page-host:has(.invoices-page) {
+  padding: 0;
+}
 .auth-gate {
   min-height: calc(100vh - var(--topbar-height) - 48px);
   display: grid;
