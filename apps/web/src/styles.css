@@ -4159,6 +4159,38 @@ tbody tr:hover {
   gap: 14px;
 }
 
+.invoices-page .tool-group-actions {
+  gap: 8px;
+}
+
+.invoices-page .tool-icon {
+  width: 30px;
+  height: 30px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid #dce4ef;
+  border-radius: 7px;
+  background: #fbfdff;
+  color: #334155;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.invoices-page .tool-icon:hover {
+  background: #eef4fb;
+  border-color: #b9cbe6;
+}
+
+.invoices-page .tool-icon svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .invoices-page .toolbar-divider {
   width: 1px;
   height: 28px;

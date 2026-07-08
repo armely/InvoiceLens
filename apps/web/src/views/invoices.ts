@@ -366,10 +366,16 @@ export function renderInvoicesPage(
                 <span class="zoom">100%</span>
               </div>
 
-              <div class="tool-group">
-                <span data-action="download-pdf">Download</span>
-                <span>Print</span>
-                <span>More</span>
+              <div class="tool-group tool-group-actions">
+                <button class="tool-icon" type="button" data-action="download-pdf" aria-label="Download" title="Download">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4"></path><path d="M5 19h14"></path></svg>
+                </button>
+                <button class="tool-icon" type="button" aria-label="Print" title="Print">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V4h10v4"></path><rect x="5" y="8" width="14" height="8" rx="1.5"></rect><path d="M7 16h10v4H7z"></path></svg>
+                </button>
+                <button class="tool-icon" type="button" aria-label="More" title="More">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.4"></circle><circle cx="12" cy="12" r="1.4"></circle><circle cx="12" cy="19" r="1.4"></circle></svg>
+                </button>
               </div>
             </div>
 
