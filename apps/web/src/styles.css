@@ -4253,13 +4253,13 @@ tbody tr:hover {
 
 .invoices-page .invoice-table-wrap {
   width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow: visible;
 }
 
 .invoices-page .invoice-table {
   width: 100%;
-  min-width: 640px;
+  min-width: 0;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 11px;
   margin-bottom: 18px;
@@ -4269,14 +4269,31 @@ tbody tr:hover {
   background: #092e66;
   color: white;
   text-align: left;
-  padding: 11px 14px;
-  font-size: 11px;
+  padding: 8px 8px;
+  font-size: 10px;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .invoices-page .invoice-table td {
-  padding: 11px 14px;
+  padding: 8px 8px;
   border-bottom: 1px solid #dce4ef;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
+
+.invoices-page .invoice-table th:nth-child(1),
+.invoices-page .invoice-table td:nth-child(1) { width: 30%; }
+.invoices-page .invoice-table th:nth-child(2),
+.invoices-page .invoice-table td:nth-child(2) { width: 22%; }
+.invoices-page .invoice-table th:nth-child(3),
+.invoices-page .invoice-table td:nth-child(3) { width: 9%; }
+.invoices-page .invoice-table th:nth-child(4),
+.invoices-page .invoice-table td:nth-child(4) { width: 9%; }
+.invoices-page .invoice-table th:nth-child(5),
+.invoices-page .invoice-table td:nth-child(5) { width: 15%; }
+.invoices-page .invoice-table th:nth-child(6),
+.invoices-page .invoice-table td:nth-child(6) { width: 15%; }
 
 .invoices-page .invoice-table td:nth-child(3),
 .invoices-page .invoice-table td:nth-child(5),
@@ -4329,6 +4346,7 @@ tbody tr:hover {
 .invoices-page .insights {
   display: grid;
   grid-template-rows: 48px 1fr;
+  min-height: 0;
 }
 
 .invoices-page .tabs {
@@ -4370,40 +4388,69 @@ tbody tr:hover {
 
 .invoices-page .insights-content {
   padding: 12px;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   min-height: 0;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.invoices-page .insights-content:hover,
+.invoices-page .insights-content:focus-within {
+  scrollbar-color: rgba(11, 31, 67, 0.28) transparent;
+}
+
+.invoices-page .insights-content::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.invoices-page .insights-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.invoices-page .insights-content::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+
+.invoices-page .insights-content:hover::-webkit-scrollbar-thumb,
+.invoices-page .insights-content:focus-within::-webkit-scrollbar-thumb {
+  background-color: rgba(11, 31, 67, 0.28);
 }
 
 .invoices-page .info-card {
   background: white;
   border: 1px solid #dce4ef;
   border-radius: 9px;
-  padding: 14px;
+  padding: clamp(12px, 1vw, 14px);
   margin-bottom: 12px;
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
 }
 
 .invoices-page .summary-grid {
   display: grid;
-  grid-template-columns: 1.5fr 1fr;
-  gap: 16px;
+  grid-template-columns: minmax(0, 1.18fr) minmax(200px, 0.82fr);
+  gap: clamp(12px, 1vw, 16px);
 }
 
 .invoices-page .card-title {
   display: flex;
   align-items: center;
   gap: 9px;
-  font-size: 13px;
+  font-size: clamp(12px, 0.9vw, 13px);
   font-weight: 800;
-  margin-bottom: 14px;
+  margin-bottom: clamp(10px, 1vw, 14px);
   color: #172033;
 }
 
 .invoices-page .summary-list {
   display: grid;
-  grid-template-columns: 115px 1fr;
-  gap: 10px;
-  font-size: 11px;
+  grid-template-columns: minmax(96px, 118px) minmax(0, 1fr);
+  gap: clamp(8px, 0.8vw, 10px);
+  font-size: clamp(10px, 0.8vw, 11px);
 }
 
 .invoices-page .summary-list span:nth-child(odd) {
@@ -4413,24 +4460,24 @@ tbody tr:hover {
 
 .invoices-page .score-box {
   border-left: 1px solid #dce4ef;
-  padding-left: 18px;
+  padding-left: clamp(12px, 1vw, 18px);
 }
 
 .invoices-page .score-title {
-  font-size: 11px;
+  font-size: clamp(10px, 0.8vw, 11px);
   font-weight: 800;
-  margin-bottom: 12px;
+  margin-bottom: clamp(8px, 1vw, 12px);
 }
 
 .invoices-page .score-row {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: clamp(10px, 1vw, 14px);
 }
 
 .invoices-page .score-circle {
-  width: 74px;
-  height: 74px;
+  width: clamp(64px, 4.8vw, 74px);
+  height: clamp(64px, 4.8vw, 74px);
   border-radius: 50%;
   display: grid;
   place-items: center;
@@ -4440,8 +4487,8 @@ tbody tr:hover {
 }
 
 .invoices-page .score-circle canvas {
-  width: 74px;
-  height: 74px;
+  width: clamp(64px, 4.8vw, 74px);
+  height: clamp(64px, 4.8vw, 74px);
   display: block;
 }
 
@@ -4450,21 +4497,21 @@ tbody tr:hover {
   inset: 0;
   display: grid;
   place-items: center;
-  font-size: 13px;
+  font-size: clamp(11px, 0.9vw, 13px);
   font-weight: 800;
   color: #172033;
   pointer-events: none;
 }
 
 .invoices-page .metric-row {
-  margin-top: 12px;
+  margin-top: clamp(8px, 1vw, 12px);
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
+  font-size: clamp(10px, 0.8vw, 11px);
 }
 
 .invoices-page .metric-row strong {
-  font-size: 13px;
+  font-size: clamp(12px, 0.9vw, 13px);
 }
 
 .invoices-page .red {
@@ -4475,26 +4522,26 @@ tbody tr:hover {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: clamp(8px, 1vw, 12px);
 }
 
 .invoices-page .passed {
   color: #16a34a;
-  font-size: 12px;
+  font-size: clamp(11px, 0.85vw, 12px);
   font-weight: 800;
 }
 
 .invoices-page .validation-list {
   display: grid;
-  gap: 10px;
-  font-size: 12px;
+  gap: clamp(8px, 0.8vw, 10px);
+  font-size: clamp(11px, 0.8vw, 12px);
 }
 
 .invoices-page .valid-row {
   display: grid;
-  grid-template-columns: 22px 1fr auto;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
 }
 
 .invoices-page .valid-row i,
@@ -4504,7 +4551,7 @@ tbody tr:hover {
 
 .invoices-page .valid-row strong {
   color: #16a34a;
-  font-size: 11px;
+  font-size: clamp(10px, 0.8vw, 11px);
 }
 
 .invoices-page .alert-card {
@@ -4518,20 +4565,20 @@ tbody tr:hover {
 .invoices-page .alert-title {
   background: linear-gradient(90deg, #ef233c, #d90429);
   color: white;
-  padding: 15px 18px;
+  padding: clamp(12px, 1vw, 15px) clamp(14px, 1vw, 18px);
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 15px;
+  font-size: clamp(13px, 1vw, 15px);
   font-weight: 800;
 }
 
 .invoices-page .alert-body {
-  padding: 14px 16px;
-  font-size: 11px;
+  padding: clamp(12px, 1vw, 14px) clamp(14px, 1vw, 16px);
+  font-size: clamp(10px, 0.8vw, 11px);
   display: grid;
-  grid-template-columns: 110px 1fr;
-  row-gap: 11px;
+  grid-template-columns: minmax(82px, 110px) minmax(0, 1fr);
+  row-gap: 10px;
   align-items: center;
 }
 
@@ -4551,10 +4598,10 @@ tbody tr:hover {
   border: 1px solid #c9d7ea;
   color: #1557c0;
   background: white;
-  padding: 9px 16px;
+  padding: 8px 14px;
   border-radius: 5px;
   font-weight: 800;
-  font-size: 11px;
+  font-size: 10px;
   cursor: pointer;
 }
 
@@ -4564,18 +4611,18 @@ tbody tr:hover {
 }
 
 .invoices-page .variance-header {
-  padding: 16px 16px 10px;
+  padding: clamp(12px, 1vw, 16px) clamp(12px, 1vw, 16px) 8px;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
 .invoices-page .variance-chart-body {
-  padding: 4px 16px 16px;
+  padding: 4px clamp(12px, 1vw, 16px) clamp(12px, 1vw, 16px);
   display: grid;
-  grid-template-columns: 150px 1fr;
-  gap: 18px;
-  align-items: center;
+  grid-template-columns: minmax(120px, 138px) minmax(0, 1fr);
+  gap: clamp(12px, 1vw, 18px);
+  align-items: start;
 }
 
 .invoices-page .donut-wrap {
@@ -4584,16 +4631,16 @@ tbody tr:hover {
 }
 
 .invoices-page .impact-donut {
-  width: 138px;
-  height: 138px;
+  width: clamp(116px, 11vw, 138px);
+  height: clamp(116px, 11vw, 138px);
   border-radius: 50%;
   position: relative;
   box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.06);
 }
 
 .invoices-page .impact-donut canvas {
-  width: 138px;
-  height: 138px;
+  width: clamp(116px, 11vw, 138px);
+  height: clamp(116px, 11vw, 138px);
   display: block;
 }
 
@@ -4616,7 +4663,7 @@ tbody tr:hover {
 
 .invoices-page .donut-center strong {
   display: block;
-  font-size: 15px;
+  font-size: clamp(13px, 1vw, 15px);
   color: #111827;
 }
 
@@ -4624,22 +4671,22 @@ tbody tr:hover {
   display: block;
   margin-top: 4px;
   color: #64748b;
-  font-size: 10px;
+  font-size: clamp(9px, 0.8vw, 10px);
   font-weight: 700;
 }
 
 .invoices-page .variance-legend {
   display: grid;
-  gap: 10px;
+  gap: clamp(8px, 0.8vw, 10px);
 }
 
 .invoices-page .legend-row {
   display: grid;
-  grid-template-columns: 12px 1fr auto;
-  gap: 9px;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  gap: 8px;
   align-items: center;
-  font-size: 11px;
-  padding-bottom: 10px;
+  font-size: clamp(10px, 0.8vw, 11px);
+  padding-bottom: 8px;
   border-bottom: 1px solid #eef2f6;
 }
 
@@ -4649,8 +4696,8 @@ tbody tr:hover {
 }
 
 .invoices-page .legend-dot {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
 }
 
@@ -4669,13 +4716,13 @@ tbody tr:hover {
 .invoices-page .legend-text strong {
   display: block;
   color: #111827;
-  font-size: 11px;
+  font-size: clamp(10px, 0.8vw, 11px);
   margin-bottom: 2px;
 }
 
 .invoices-page .legend-text span {
   color: #64748b;
-  font-size: 10px;
+  font-size: clamp(9px, 0.75vw, 10px);
 }
 
 .invoices-page .legend-value {
@@ -4688,17 +4735,17 @@ tbody tr:hover {
   display: block;
   margin-top: 2px;
   color: #64748b;
-  font-size: 10px;
+  font-size: clamp(9px, 0.75vw, 10px);
   font-weight: 700;
 }
 
 .invoices-page .impact-total-bar {
   background: #fff7f7;
   border-top: 1px solid #ffd1d1;
-  padding: 13px 16px;
+  padding: 12px clamp(12px, 1vw, 16px);
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
+  font-size: clamp(11px, 0.85vw, 12px);
   font-weight: 800;
 }
 
@@ -4710,22 +4757,22 @@ tbody tr:hover {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 14px;
+  margin-bottom: clamp(10px, 1vw, 14px);
 }
 
 .invoices-page .risk-label {
   color: #16a34a;
   font-weight: 800;
-  font-size: 11px;
+  font-size: clamp(10px, 0.8vw, 11px);
 }
 
 .invoices-page .risk-row {
   display: grid;
-  grid-template-columns: 1fr auto 18px;
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto 16px;
+  gap: 8px;
   align-items: center;
-  font-size: 11px;
-  padding: 7px 0;
+  font-size: clamp(10px, 0.8vw, 11px);
+  padding: 6px 0;
 }
 
 .invoices-page .risk-row strong {
@@ -4740,11 +4787,57 @@ tbody tr:hover {
   .invoices-page .workspace {
     grid-template-columns: 320px minmax(0, 1fr) 320px;
   }
+
+  .invoices-page .summary-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .invoices-page .score-box {
+    border-left: 0;
+    border-top: 1px solid #dce4ef;
+    padding-left: 0;
+    padding-top: 12px;
+  }
+
+  .invoices-page .variance-chart-body {
+    grid-template-columns: 1fr;
+  }
+
+  .invoices-page .donut-wrap {
+    justify-self: start;
+  }
 }
 
 @media (max-width: 1100px) {
   .invoices-page .workspace {
     grid-template-columns: 280px minmax(0, 1fr) 300px;
+  }
+
+  .invoices-page .tabs {
+    gap: 20px;
+    padding-inline: 14px;
+  }
+
+  .invoices-page .insights-content {
+    padding: 10px;
+  }
+
+  .invoices-page .info-card {
+    padding: 11px;
+  }
+
+  .invoices-page .summary-list {
+    grid-template-columns: minmax(84px, 104px) minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  .invoices-page .alert-body {
+    grid-template-columns: 1fr;
+  }
+
+  .invoices-page .view-btn {
+    grid-column: 1;
+    justify-self: start;
   }
 }
 
@@ -4769,7 +4862,7 @@ tbody tr:hover {
 
   .invoices-page .document-area,
   .invoices-page .insights-content {
-    overflow: auto;
+    overflow-y: auto;
   }
 
   .invoices-page .invoice-paper {
