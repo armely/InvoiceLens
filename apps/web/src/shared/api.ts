@@ -58,6 +58,32 @@ export class InvoiceLensApiClient {
     return (await response.json()) as T;
   }
 
+  private async requestOptionalJson<T>(path: string, init: RequestInitWithJson = {}): Promise<T | null> {
+    const response = await fetch(this.buildUrl(path), {
+      headers: {
+        Accept: 'application/json',
+        ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(init.headers ?? {}),
+      },
+      credentials: 'include',
+      ...init,
+    });
+
+    if (response.status === 404 || response.status === 204) {
+      return null;
+    }
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new ApiAuthorizationError(`Microsoft authentication is required for ${path}.`);
+      }
+
+      throw new Error(`Request failed (${response.status} ${response.statusText}) for ${path}`);
+    }
+
+    return (await response.json()) as T;
+  }
+
   async getInvoices(query = ''): Promise<InvoiceSummaryDto[]> {
     const trimmedQuery = query.trim();
     const path = trimmedQuery ? `/api/invoices?query=${encodeURIComponent(trimmedQuery)}` : '/api/invoices';
@@ -68,12 +94,12 @@ export class InvoiceLensApiClient {
     return this.requestJson<InvoiceDetailDto>(`/api/invoices/${invoiceId}`);
   }
 
-  async getReview(invoiceId: string): Promise<InvoiceReviewDto> {
-    return this.requestJson<InvoiceReviewDto>(`/api/invoices/${invoiceId}/review`);
+  async getReview(invoiceId: string): Promise<InvoiceReviewDto | null> {
+    return this.requestOptionalJson<InvoiceReviewDto>(`/api/invoices/${invoiceId}/review`);
   }
 
-  async getValidationSummary(invoiceId: string): Promise<ValidationSummaryDto> {
-    return this.requestJson<ValidationSummaryDto>(`/api/invoices/${invoiceId}/validation-summary`);
+  async getValidationSummary(invoiceId: string): Promise<ValidationSummaryDto | null> {
+    return this.requestOptionalJson<ValidationSummaryDto>(`/api/invoices/${invoiceId}/validation-summary`);
   }
 
   async getAuditTrail(invoiceId: string): Promise<AuditEntryDto[]> {
@@ -102,6 +128,10 @@ export class InvoiceLensApiClient {
 
   getLocalInvoicePdfUrl(localInvoiceFileId: number): string {
     return this.buildUrl(`/api/local-invoices/${localInvoiceFileId}/pdf`);
+  }
+
+  getInvoiceSnapshotUrl(invoiceId: string): string {
+    return this.buildUrl(`/api/invoices/${encodeURIComponent(invoiceId)}/snapshot`);
   }
 
   async getSyncStatus(): Promise<SyncStatusDto> {

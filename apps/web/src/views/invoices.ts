@@ -84,7 +84,7 @@ function renderSummaryListRow(label: string, value: string): string {
   `;
 }
 
-function renderInvoiceDocument(invoice: InvoiceDetailDto | null, fallbackInvoice: InvoiceSummaryDto | null): string {
+function renderInvoiceDocument(invoice: InvoiceDetailDto | null, fallbackInvoice: InvoiceSummaryDto | null, snapshotUrl: string | null = null): string {
   if (!invoice && !fallbackInvoice) {
     return '<div class="empty-state">No invoice selected.</div>';
   }
@@ -108,7 +108,7 @@ function renderInvoiceDocument(invoice: InvoiceDetailDto | null, fallbackInvoice
     .join('<br />');
   const contactBlock = [invoice?.vendorContact.email, invoice?.vendorContact.phone].filter((line): line is string => Boolean(line && line.trim())).map((line) => escapeHtml(line)).join('<br />');
 
-  return `
+  const paperHtml = `
     <div class="invoice-paper">
       <div class="invoice-top">
         <div class="vendor-brand">
@@ -211,6 +211,16 @@ function renderInvoiceDocument(invoice: InvoiceDetailDto | null, fallbackInvoice
         </div>
       </div>
     </div>
+  `;
+
+  if (!snapshotUrl) {
+    return paperHtml;
+  }
+
+  return `
+    <object class="invoice-pdf-frame" data="${escapeHtml(snapshotUrl)}#toolbar=0&navpanes=0&view=FitH" type="application/pdf" aria-label="Invoice PDF preview">
+      ${paperHtml}
+    </object>
   `;
 }
 
@@ -380,7 +390,7 @@ export function renderInvoicesPage(
             </div>
 
             <div class="document-area">
-              ${renderInvoiceDocument(selectedReviewInvoice, selectedInvoice)}
+              ${renderInvoiceDocument(selectedReviewInvoice, selectedInvoice, selectedInvoice ? `/api/invoices/${encodeURIComponent(selectedInvoice.invoiceId)}/snapshot` : null)}
             </div>
           </section>
 
