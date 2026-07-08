@@ -3984,6 +3984,42 @@ tbody tr:hover {
   flex-wrap: wrap;
 }
 
+.invoices-page .meta-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.invoices-page .meta-cal {
+  width: 12px;
+  height: 12px;
+  border: 1.4px solid #94a3b8;
+  border-radius: 3px;
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.invoices-page .meta-cal::before {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: 2px;
+  right: 2px;
+  height: 3px;
+  border-left: 1.4px solid #94a3b8;
+  border-right: 1.4px solid #94a3b8;
+}
+
+.invoices-page .meta-cal::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 1.5px;
+  right: 1.5px;
+  height: 1.4px;
+  background: #94a3b8;
+}
+
 .invoices-page .badge {
   display: inline-flex;
   align-items: center;
@@ -4026,16 +4062,24 @@ tbody tr:hover {
 .invoices-page .status-icon {
   display: grid;
   place-items: center;
-  margin-top: 4px;
-  font-size: 18px;
+  align-self: center;
+  width: 24px;
+  height: 24px;
+  font-size: 13px;
+  line-height: 1;
 }
 
 .invoices-page .status-icon.good {
-  color: #16a34a;
+  color: #ffffff;
+  background: #16a34a;
+  border-radius: 50%;
+  font-weight: 900;
 }
 
 .invoices-page .status-icon.warn {
   color: #dc2626;
+  font-size: 17px;
+  background: transparent;
 }
 
 .invoices-page .queue-footer {

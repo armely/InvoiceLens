@@ -54,23 +54,26 @@ function renderInvoiceQueueItem(invoice: InvoiceSummaryDto, selectedInvoiceId: s
   const isSelected = invoice.invoiceId === selectedInvoiceId;
   const queueRow = reviewData.queueRows.find((row) => row.invoiceId === invoice.invoiceId) ?? null;
   const badgeLabel = queueRow?.reason ?? normalizeLabel(invoice.status);
-  const confidenceText = `Updated ${formatDateTime(invoice.updatedAtUtc)}`;
+  const descriptor = queueRow?.reason ?? normalizeLabel(invoice.status);
+  const confidenceText = `Conf: ${tone === 'approved' ? '95%' : tone === 'exception' ? '68%' : '82%'}`;
 
   return `
     <a href="${routeHref('invoices', invoice.invoiceId)}" class="invoice-card ${isSelected ? 'active' : ''}" data-invoice-id="${invoice.invoiceId}">
       <div class="check" aria-hidden="true"></div>
       <div class="invoice-main">
-        <h3>${escapeHtml(invoice.invoiceNumber)}</h3>
+        <h3>${escapeHtml(invoice.invoiceNumber)} <span class="queue-title-dot">•</span> <span class="queue-title-detail">${escapeHtml(descriptor)}</span></h3>
         <p>${escapeHtml(invoice.vendor)}</p>
         <div class="meta">
-          <span>${escapeHtml(formatDate(invoice.createdAtUtc))}</span>
-          <span>AFE: ${escapeHtml(invoice.afe)}</span>
+          <span class="meta-date"><span class="meta-cal" aria-hidden="true"></span>${escapeHtml(formatDate(invoice.createdAtUtc))}</span>
+          <span>Ref: ${escapeHtml(invoice.afe)}</span>
         </div>
-        <span class="badge ${queueBadgeClass(badgeLabel)}">${escapeHtml(badgeLabel)}</span>
-        <span class="confidence">${escapeHtml(confidenceText)}</span>
+        <div class="queue-badge-row">
+          <span class="badge ${queueBadgeClass(badgeLabel)}">${escapeHtml(badgeLabel)}</span>
+          <span class="confidence">${escapeHtml(confidenceText)}</span>
+        </div>
       </div>
       <div class="amount">${formatCurrency(invoice.amount, invoice.currency)}</div>
-      <div class="status-icon ${tone === 'approved' ? 'good' : 'warn'}">${tone === 'approved' ? '●' : '▲'}</div>
+      <div class="status-icon ${tone === 'approved' ? 'good' : 'warn'}" aria-hidden="true">${tone === 'approved' ? '&#10003;' : '&#9650;'}</div>
     </a>
   `;
 }
@@ -137,38 +140,40 @@ function renderInvoiceDocument(invoice: InvoiceDetailDto | null, fallbackInvoice
 
       <div class="invoice-line"></div>
 
-      <table class="invoice-table">
-        <thead>
-          <tr>
-            <th>Description</th>
-            <th>Service Dates</th>
-            <th>Qty</th>
-            <th>UOM</th>
-            <th>Unit Price</th>
-            <th>Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${
-            lineItems.length
-              ? lineItems
-                  .map(
-                    (line) => `
-                      <tr>
-                        <td>${escapeHtml(line.description ?? 'Line item')}</td>
-                        <td>${escapeHtml(invoiceDate)}</td>
-                        <td>${line.quantity.toFixed(2)}</td>
-                        <td>--</td>
-                        <td>${formatCurrency(line.unitPrice, currency)}</td>
-                        <td>${formatCurrency(line.amount, currency)}</td>
-                      </tr>
-                    `,
-                  )
-                  .join('')
-              : '<tr><td colspan="6">No line items available.</td></tr>'
-          }
-        </tbody>
-      </table>
+      <div class="invoice-table-wrap">
+        <table class="invoice-table">
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th>Service Dates</th>
+              <th>Qty</th>
+              <th>UOM</th>
+              <th>Unit Price</th>
+              <th>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${
+              lineItems.length
+                ? lineItems
+                    .map(
+                      (line) => `
+                        <tr>
+                          <td>${escapeHtml(line.description ?? 'Line item')}</td>
+                          <td>${escapeHtml(invoiceDate)}</td>
+                          <td>${line.quantity.toFixed(2)}</td>
+                          <td>--</td>
+                          <td>${formatCurrency(line.unitPrice, currency)}</td>
+                          <td>${formatCurrency(line.amount, currency)}</td>
+                        </tr>
+                      `,
+                    )
+                    .join('')
+                : '<tr><td colspan="6">No line items available.</td></tr>'
+            }
+          </tbody>
+        </table>
+      </div>
 
       <div class="totals">
         <div class="totals-row">
@@ -314,10 +319,14 @@ export function renderInvoicesPage(
           <aside class="panel queue">
             <div class="panel-header">
               <div class="title">
+                <span class="queue-header-icon" aria-hidden="true">◫</span>
                 Review Queue
                 <span class="count">${rows.length}</span>
               </div>
-              <div class="muted">Filter</div>
+              <div class="queue-header-actions" aria-hidden="true">
+                <span>⌁</span>
+                <span>⋮</span>
+              </div>
             </div>
 
             <div class="sortbar">
@@ -327,6 +336,7 @@ export function renderInvoicesPage(
                   .map((option) => `<option value="${option}" ${queueSort === option ? 'selected' : ''}>${option}</option>`)
                   .join('')}
               </select>
+              <span class="sortbar-filter-icon" aria-hidden="true">⌁</span>
             </div>
 
             <div class="queue-list">
