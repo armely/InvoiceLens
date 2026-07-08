@@ -359,7 +359,7 @@ export function renderInvoicesPage(
 
             <div class="queue-footer">
               <span>Showing 1 - ${rows.length} of ${rows.length}</span>
-              <span class="load-more">Load More</span>
+              <button class="load-more" type="button" data-action="load-more">Load More</button>
             </div>
 
           </aside>
@@ -368,22 +368,32 @@ export function renderInvoicesPage(
             <div class="viewer-toolbar">
               <div class="tool-group">
                 <span>Page</span>
+                <button class="tool-icon tool-icon-sm" type="button" data-action="prev-invoice" aria-label="Previous invoice" title="Previous">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+                </button>
                 <strong>${selectedPosition > 0 ? selectedPosition : 1}</strong>
                 <span>/ ${Math.max(totalInvoices, 1)}</span>
+                <button class="tool-icon tool-icon-sm" type="button" data-action="next-invoice" aria-label="Next invoice" title="Next">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+                </button>
                 <span class="toolbar-divider"></span>
-                <span>−</span>
-                <span>+</span>
-                <span class="zoom">100%</span>
+                <button class="tool-icon tool-icon-sm" type="button" data-action="zoom-out" aria-label="Zoom out" title="Zoom out">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12"></path></svg>
+                </button>
+                <button class="tool-icon tool-icon-sm" type="button" data-action="zoom-in" aria-label="Zoom in" title="Zoom in">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v12M6 12h12"></path></svg>
+                </button>
+                <button class="zoom" type="button" data-action="zoom-reset" title="Reset zoom">100%</button>
               </div>
 
               <div class="tool-group tool-group-actions">
                 <button class="tool-icon" type="button" data-action="download-pdf" aria-label="Download" title="Download">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4"></path><path d="M5 19h14"></path></svg>
                 </button>
-                <button class="tool-icon" type="button" aria-label="Print" title="Print">
+                <button class="tool-icon" type="button" data-action="print-invoice" aria-label="Print" title="Print">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V4h10v4"></path><rect x="5" y="8" width="14" height="8" rx="1.5"></rect><path d="M7 16h10v4H7z"></path></svg>
                 </button>
-                <button class="tool-icon" type="button" aria-label="More" title="More">
+                <button class="tool-icon" type="button" data-action="more-actions" aria-label="Open in new tab" title="Open in new tab">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.4"></circle><circle cx="12" cy="12" r="1.4"></circle><circle cx="12" cy="19" r="1.4"></circle></svg>
                 </button>
               </div>

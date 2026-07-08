@@ -122,6 +122,53 @@ const toast = toastElement;
 let toastTimer: number | undefined;
 let bootstrapping = false;
 let invoiceChartInstances: Array<{ destroy: () => void }> = [];
+let invoiceZoom = 1;
+
+function applyInvoiceZoom(): void {
+  const paper = pageHost.querySelector<HTMLElement>('.invoice-paper');
+  if (paper) {
+    paper.style.transform = invoiceZoom === 1 ? '' : `scale(${invoiceZoom})`;
+    paper.style.transformOrigin = 'top center';
+  }
+
+  const label = pageHost.querySelector<HTMLElement>('.zoom');
+  if (label) {
+    label.textContent = `${Math.round(invoiceZoom * 100)}%`;
+  }
+}
+
+function setInvoiceZoom(next: number): void {
+  invoiceZoom = Math.min(2, Math.max(0.5, Math.round(next * 10) / 10));
+  applyInvoiceZoom();
+}
+
+function getQueueOrderedInvoices(): InvoiceSummaryDto[] {
+  return applyInvoiceFilters(store.invoices, {
+    search: state.search,
+    status: state.invoiceStatusFilter,
+    dateRange: state.invoiceDateRange,
+    dateFrom: state.invoiceDateFrom,
+    dateTo: state.invoiceDateTo,
+    sort: state.queueSort,
+  });
+}
+
+function navigateInvoiceBy(delta: number): void {
+  const rows = getQueueOrderedInvoices();
+  if (rows.length === 0) {
+    return;
+  }
+
+  const currentIndex = rows.findIndex((invoice) => invoice.invoiceId === state.selectedInvoiceId);
+  const baseIndex = currentIndex < 0 ? 0 : currentIndex;
+  const nextIndex = Math.min(rows.length - 1, Math.max(0, baseIndex + delta));
+  const nextInvoice = rows[nextIndex];
+
+  if (nextInvoice && nextInvoice.invoiceId !== state.selectedInvoiceId) {
+    invoiceZoom = 1;
+    void openInvoicePreview(nextInvoice.invoiceId);
+  }
+}
 
 type ChartJsCtor = new (
   item: HTMLCanvasElement,
@@ -749,6 +796,11 @@ function updateNavState(): void {
   sidebarToggleButton?.setAttribute('aria-expanded', String(!state.sidebarCollapsed));
 }
 
+function applySidebarState(): void {
+  appShell.dataset['sidebar'] = state.sidebarCollapsed ? 'collapsed' : 'expanded';
+  sidebarToggleButton?.setAttribute('aria-expanded', String(!state.sidebarCollapsed));
+}
+
 function updateQueueCount(): void {
   document.querySelectorAll<HTMLElement>('[data-count="queue"]').forEach((item) => {
     item.textContent = String(store.queueRows.length);
@@ -1178,6 +1230,7 @@ function render(): void {
   updateNavState();
   updateQueueCount();
   renderInvoiceCharts();
+  applyInvoiceZoom();
   document.body.classList.toggle('modal-open', state.invoicePreviewOpen || (state.route === 'comparison' && state.comparisonDetailFieldIndex !== null));
   syncProfile();
 
@@ -1245,7 +1298,8 @@ function handleSearchUpdate(value: string): void {
 
 function toggleSidebar(): void {
   state.sidebarCollapsed = !state.sidebarCollapsed;
-  render();
+  applySidebarState();
+  persistWorkspaceSettings();
 }
 
 async function loadReviewBundle(invoiceId: string): Promise<ReviewBundle> {
@@ -1640,7 +1694,47 @@ document.addEventListener('click', (event) => {
       render();
       break;
     case 'download-pdf':
-      showToast('Download request was routed through the SQL-backed review flow.');
+      if (state.selectedInvoiceId) {
+        const url = api.getInvoiceSnapshotUrl(state.selectedInvoiceId);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = '';
+        anchor.rel = 'noopener';
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        showToast('Downloading invoice document.');
+      } else {
+        showToast('Select an invoice to download.');
+      }
+      break;
+    case 'print-invoice':
+      window.print();
+      break;
+    case 'more-actions':
+      if (state.selectedInvoiceId) {
+        window.open(api.getInvoiceSnapshotUrl(state.selectedInvoiceId), '_blank', 'noopener');
+      } else {
+        showToast('Select an invoice first.');
+      }
+      break;
+    case 'prev-invoice':
+      navigateInvoiceBy(-1);
+      break;
+    case 'next-invoice':
+      navigateInvoiceBy(1);
+      break;
+    case 'zoom-in':
+      setInvoiceZoom(invoiceZoom + 0.1);
+      break;
+    case 'zoom-out':
+      setInvoiceZoom(invoiceZoom - 0.1);
+      break;
+    case 'zoom-reset':
+      setInvoiceZoom(1);
+      break;
+    case 'load-more':
+      showToast('All available invoices are already loaded.');
       break;
     case 'open-portal':
       showToast('OpenInvoice portal link is ready.');

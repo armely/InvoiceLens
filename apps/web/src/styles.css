@@ -4191,6 +4191,26 @@ tbody tr:hover {
   stroke-linejoin: round;
 }
 
+.invoices-page .tool-icon-sm {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+}
+
+.invoices-page .tool-icon-sm svg {
+  width: 14px;
+  height: 14px;
+}
+
+.invoices-page .zoom {
+  cursor: pointer;
+}
+
+.invoices-page .zoom:hover {
+  background: #eef4fb;
+  border-color: #b9cbe6;
+}
+
 .invoices-page .toolbar-divider {
   width: 1px;
   height: 28px;
