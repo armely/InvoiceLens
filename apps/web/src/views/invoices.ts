@@ -99,7 +99,6 @@ function renderInvoiceDocument(invoice: InvoiceDetailDto | null, fallbackInvoice
   const total = invoice?.totals?.total ?? fallbackInvoice?.amount ?? 0;
   const serviceLocation = invoice ? `${invoice.billTo.city}, ${invoice.billTo.region}`.trim().replace(/^,|,$/g, '') : 'Pending';
   const headline = 'IL';
-  const tagline = invoice?.vendorContact.email ?? invoice?.paymentTerms ?? 'Finance operations workspace';
   const remitTo = [invoice?.vendorContact.name, invoice?.vendorContact.addressLine1, invoice?.vendorContact.addressLine2, `${invoice?.vendorContact.city ?? ''}, ${invoice?.vendorContact.region ?? ''} ${invoice?.vendorContact.postalCode ?? ''}`.trim()]
     .filter((line): line is string => Boolean(line && line.trim()))
     .map((line) => escapeHtml(line))
@@ -111,11 +110,6 @@ function renderInvoiceDocument(invoice: InvoiceDetailDto | null, fallbackInvoice
       <div class="invoice-top">
         <div class="vendor-brand">
           <div class="logo-mark">${escapeHtml(headline)}</div>
-          <div class="vendor-name">
-            <h2>InvoiceLens</h2>
-            <h3>${escapeHtml(vendor)}</h3>
-            <p>${escapeHtml(tagline)}</p>
-          </div>
         </div>
 
         <div class="invoice-title">INVOICE</div>
