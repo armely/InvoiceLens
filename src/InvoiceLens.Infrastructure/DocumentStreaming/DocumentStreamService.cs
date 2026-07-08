@@ -5,7 +5,7 @@ using InvoiceLens.Infrastructure.LocalInvoices;
 
 namespace InvoiceLens.Infrastructure.DocumentStreaming;
 
-public class DocumentStreamService(IInvoiceQueries invoiceQueries, LocalInvoiceFileReader localInvoiceFileReader) : IDocumentQueries
+public class DocumentStreamService(IInvoiceQueries invoiceQueries, LocalInvoiceComparisonOptions localInvoiceOptions) : IDocumentQueries
 {
     public async Task<DocumentStreamResult?> GetSnapshotAsync(Guid invoiceId, CancellationToken cancellationToken)
     {
@@ -17,7 +17,7 @@ public class DocumentStreamService(IInvoiceQueries invoiceQueries, LocalInvoiceF
 
         // Serve the real saved PDF (named by invoice number) when it exists.
         var fileName = $"{Path.GetFileName(detail.InvoiceNumber)}.pdf";
-        var pdfPath = localInvoiceFileReader.ResolvePdfPath(fileName);
+        var pdfPath = ResolvePdfPath(fileName);
 
         if (!File.Exists(pdfPath))
         {
@@ -33,5 +33,34 @@ public class DocumentStreamService(IInvoiceQueries invoiceQueries, LocalInvoiceF
         var bytes = Encoding.UTF8.GetBytes($"Mock attachment {attachmentId} for invoice {invoiceId}");
         var stream = new MemoryStream(bytes);
         return Task.FromResult<DocumentStreamResult?>(new DocumentStreamResult($"attachment-{attachmentId}.txt", "text/plain", stream));
+    }
+
+    private string ResolvePdfPath(string fileName)
+    {
+        var root = ResolveWorkspaceRoot();
+        var pdfFolder = Path.IsPathRooted(localInvoiceOptions.PdfFolder)
+            ? localInvoiceOptions.PdfFolder
+            : Path.GetFullPath(Path.Combine(root, localInvoiceOptions.PdfFolder));
+        return Path.Combine(pdfFolder, fileName);
+    }
+
+    private static string ResolveWorkspaceRoot()
+    {
+        var candidates = new[]
+        {
+            AppContext.BaseDirectory,
+            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..")),
+            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..")),
+        };
+
+        foreach (var candidate in candidates)
+        {
+            if (File.Exists(Path.Combine(candidate, ".env")) || Directory.Exists(Path.Combine(candidate, "samples")))
+            {
+                return candidate;
+            }
+        }
+
+        return Directory.GetCurrentDirectory();
     }
 }
