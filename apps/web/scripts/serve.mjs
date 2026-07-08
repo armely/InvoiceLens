@@ -7,7 +7,26 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(scriptDir, '..', 'dist');
 const port = Number(process.env.PORT ?? 4200);
 const apiBaseUrl = process.env.API_BASE_URL ?? 'http://localhost:5106';
-const envFileCandidates = [join(scriptDir, '..', '..', '.env'), join(scriptDir, '..', '..', '..', '.env')];
+
+function getEnvOverrideNames() {
+  const environmentName = process.env.DOTNET_ENVIRONMENT ?? process.env.ASPNETCORE_ENVIRONMENT ?? process.env.NODE_ENV ?? 'development';
+  const lower = environmentName.trim().toLowerCase();
+  const names = [`.env.${lower}`];
+
+  if (['development', 'dev', 'local'].includes(lower)) {
+    names.push('.env.local');
+  } else if (['production', 'prod'].includes(lower)) {
+    names.push('.env.prod');
+  } else if (['test', 'testing'].includes(lower)) {
+    names.push('.env.test');
+  }
+
+  return names;
+}
+
+const envFileNames = ['.env', ...getEnvOverrideNames()];
+const envFileCandidates = [join(scriptDir, '..', '..'), join(scriptDir, '..', '..', '..')]
+  .flatMap((baseDir) => envFileNames.map((fileName) => join(baseDir, fileName)));
 
 function loadDotEnvFile() {
   for (const envFilePath of envFileCandidates) {
@@ -58,7 +77,11 @@ const mimeTypes = new Map([
 
 function sendFile(response, filePath) {
   const contentType = mimeTypes.get(extname(filePath)) ?? 'application/octet-stream';
-  response.writeHead(200, { 'Content-Type': contentType });
+  const isCacheable = ['.png', '.jpg', '.jpeg', '.webp', '.ico', '.svg'].includes(extname(filePath));
+  response.writeHead(200, {
+    'Content-Type': contentType,
+    'Cache-Control': isCacheable ? 'public, max-age=3600' : 'no-cache, no-store, must-revalidate',
+  });
   createReadStream(filePath).pipe(response);
 }
 
