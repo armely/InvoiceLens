@@ -54,15 +54,15 @@ function renderInvoiceQueueItem(invoice: InvoiceSummaryDto, selectedInvoiceId: s
   const isSelected = invoice.invoiceId === selectedInvoiceId;
   const queueRow = reviewData.queueRows.find((row) => row.invoiceId === invoice.invoiceId) ?? null;
   const badgeLabel = queueRow?.reason ?? normalizeLabel(invoice.status);
-  const descriptor = queueRow?.reason ?? normalizeLabel(invoice.status);
   const confidenceText = `Conf: ${tone === 'approved' ? '95%' : tone === 'exception' ? '68%' : '82%'}`;
+  const dotClass = tone === 'approved' ? 'good' : tone === 'exception' ? 'warn' : 'good';
 
   return `
     <a href="${routeHref('invoices', invoice.invoiceId)}" class="invoice-card ${isSelected ? 'active' : ''}" data-invoice-id="${invoice.invoiceId}">
       <div class="check" aria-hidden="true"></div>
       <div class="invoice-main">
-        <h3>${escapeHtml(invoice.invoiceNumber)} <span class="queue-title-dot">•</span> <span class="queue-title-detail">${escapeHtml(descriptor)}</span></h3>
-        <p>${escapeHtml(invoice.vendor)}</p>
+        <h3>${escapeHtml(invoice.invoiceNumber)} <span class="queue-title-dot ${dotClass}" aria-hidden="true">&#9679;</span> <span class="queue-title-detail">${escapeHtml(badgeLabel)}</span></h3>
+        <p class="queue-vendor">${escapeHtml(invoice.vendor)}</p>
         <div class="meta">
           <span class="meta-date"><span class="meta-cal" aria-hidden="true"></span>${escapeHtml(formatDate(invoice.createdAtUtc))}</span>
           <span>Ref: ${escapeHtml(invoice.afe)}</span>
