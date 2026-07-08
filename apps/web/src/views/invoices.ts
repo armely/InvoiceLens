@@ -260,6 +260,14 @@ function renderLineItemDetailRow(
   `;
 }
 
+export function renderInvoiceQueueItems(rows: InvoiceSummaryDto[], selectedInvoiceId: string, reviewData: ReviewViewData): string {
+  if (rows.length === 0) {
+    return '<div class="empty-state">No invoices match current filters.</div>';
+  }
+
+  return rows.map((invoice) => renderInvoiceQueueItem(invoice, selectedInvoiceId, reviewData)).join('');
+}
+
 export function renderInvoicesPage(
   invoices: InvoiceSummaryDto[],
   search: string,

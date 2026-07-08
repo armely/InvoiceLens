@@ -32,7 +32,7 @@ import { renderComparisonPage } from './views/comparison.js';
 import { renderComplianceQueuePage } from './views/compliance-queue.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderHelpPage } from './views/help.js';
-import { renderInvoicesPage } from './views/invoices.js';
+import { renderInvoiceQueueItems, renderInvoicesPage } from './views/invoices.js';
 import { renderNotificationsPage } from './views/notifications.js';
 import { renderInvoicePreviewModalRich } from './views/shared.js';
 import { renderValidationSummaryPage } from './views/validation-summary.js';
@@ -168,6 +168,71 @@ function navigateInvoiceBy(delta: number): void {
     invoiceZoom = 1;
     void openInvoicePreview(nextInvoice.invoiceId);
   }
+}
+
+// Partial (ajax-like) update: refresh only the queue list without rebuilding the page.
+// Returns true when handled in place, false when a full render is required.
+function updateInvoiceQueueInPlace(): boolean {
+  if (state.route !== 'invoices') {
+    return false;
+  }
+
+  const listEl = pageHost.querySelector<HTMLElement>('.queue-list');
+  if (!listEl) {
+    return false;
+  }
+
+  const rows = getQueueOrderedInvoices();
+  const selectedStillPresent = rows.some((invoice) => invoice.invoiceId === state.selectedInvoiceId);
+
+  // If the selected invoice was filtered out, the document/insights must change too.
+  if (!selectedStillPresent) {
+    return false;
+  }
+
+  const reviewData = buildReviewViewData();
+  listEl.innerHTML = renderInvoiceQueueItems(rows, state.selectedInvoiceId, reviewData);
+
+  const countEl = pageHost.querySelector<HTMLElement>('.panel.queue .count');
+  if (countEl) {
+    countEl.textContent = String(rows.length);
+  }
+
+  const footerEl = pageHost.querySelector<HTMLElement>('.queue-footer span');
+  if (footerEl) {
+    footerEl.textContent = `Showing 1 - ${rows.length} of ${rows.length}`;
+  }
+
+  return true;
+}
+
+// DOM-only tab switch so toggling panels does not rebuild (and shake) the page.
+function switchInvoicePanelInPlace(panel: InvoicePanelTab): boolean {
+  const insights = pageHost.querySelector<HTMLElement>('.panel.insights');
+  if (!insights) {
+    return false;
+  }
+
+  insights.querySelectorAll<HTMLElement>('.tab').forEach((tab) => {
+    const isActive = tab.getAttribute('data-panel') === panel;
+    tab.classList.toggle('active', isActive);
+    tab.setAttribute('aria-selected', String(isActive));
+  });
+
+  const panels = insights.querySelectorAll<HTMLElement>('.invoice-tab-panel');
+  // First panel = insights, second = details.
+  const activeIndex = panel === 'details' ? 1 : 0;
+  panels.forEach((element, index) => {
+    const isActive = index === activeIndex;
+    element.classList.toggle('is-active', isActive);
+    if (isActive) {
+      element.removeAttribute('aria-hidden');
+    } else {
+      element.setAttribute('aria-hidden', 'true');
+    }
+  });
+
+  return true;
 }
 
 type ChartJsCtor = new (
@@ -1288,11 +1353,21 @@ function setFilter(filter: string, value: string): void {
       return;
   }
 
+  // On the invoices page, update only the queue list (ajax-like) to avoid rebuilding the page.
+  if (state.route === 'invoices' && updateInvoiceQueueInPlace()) {
+    return;
+  }
+
   render();
 }
 
 function handleSearchUpdate(value: string): void {
   state.search = value;
+
+  if (state.route === 'invoices' && updateInvoiceQueueInPlace()) {
+    return;
+  }
+
   render();
 }
 
@@ -1672,7 +1747,10 @@ document.addEventListener('click', (event) => {
         const panel = actionElement.getAttribute('data-panel') as InvoicePanelTab | null;
         if (panel) {
           state.activeInvoicePanel = panel;
-          render();
+          // Toggle panels in place so the page stays still (no rebuild/shake).
+          if (!switchInvoicePanelInPlace(panel)) {
+            render();
+          }
         }
       }
       break;
