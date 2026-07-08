@@ -390,7 +390,7 @@ export function renderInvoicesPage(
             </div>
 
             <div class="document-area">
-              ${renderInvoiceDocument(selectedReviewInvoice, selectedInvoice, selectedInvoice ? `/api/invoices/${encodeURIComponent(selectedInvoice.invoiceId)}/snapshot` : null)}
+              ${renderInvoiceDocument(selectedReviewInvoice, selectedInvoice)}
             </div>
           </section>
 
