@@ -3851,6 +3851,19 @@ tbody tr:hover {
   font-weight: 800;
 }
 
+.invoices-page .queue-header-icon {
+  font-size: 15px;
+  color: #55718f;
+}
+
+.invoices-page .queue-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: #64748b;
+  font-size: 18px;
+}
+
 .invoices-page .count {
   background: #edf2f8;
   color: #42526b;
@@ -3877,6 +3890,12 @@ tbody tr:hover {
   border-bottom: 1px solid #dce4ef;
   font-size: 13px;
   background: #ffffff;
+}
+
+.invoices-page .sortbar-filter-icon {
+  margin-left: auto;
+  color: #64748b;
+  font-size: 16px;
 }
 
 .invoices-page .invoice-sort-select {
@@ -3927,10 +3946,24 @@ tbody tr:hover {
   font-weight: 800;
   margin: 0 0 5px;
   color: #132033;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.invoices-page .queue-title-dot {
+  color: #12a05c;
+  font-size: 11px;
+}
+
+.invoices-page .queue-title-detail {
+  font-weight: 600;
+  color: #334155;
 }
 
 .invoices-page .invoice-main p {
-  font-size: 12px;
+  font-size: 13px;
   color: #475569;
   margin: 0 0 8px;
 }
@@ -3939,8 +3972,15 @@ tbody tr:hover {
   display: flex;
   gap: 14px;
   color: #64748b;
-  font-size: 11px;
+  font-size: 12px;
   margin-bottom: 7px;
+  flex-wrap: wrap;
+}
+
+.invoices-page .queue-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
@@ -3950,7 +3990,7 @@ tbody tr:hover {
   height: 24px;
   padding: 0 10px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
   margin-right: 8px;
 }
@@ -3972,12 +4012,12 @@ tbody tr:hover {
 
 .invoices-page .confidence {
   color: #64748b;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .invoices-page .amount {
   font-weight: 800;
-  font-size: 14px;
+  font-size: 15px;
   margin-top: 4px;
   white-space: nowrap;
   color: #132033;
@@ -4003,7 +4043,7 @@ tbody tr:hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 12px;
+  font-size: 13px;
   color: #64748b;
   background: #fbfdff;
   border-top: 1px solid #dce4ef;
@@ -4132,8 +4172,15 @@ tbody tr:hover {
   margin: 22px 0;
 }
 
+.invoices-page .invoice-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .invoices-page .invoice-table {
   width: 100%;
+  min-width: 640px;
   border-collapse: collapse;
   font-size: 11px;
   margin-bottom: 18px;
@@ -4636,5 +4683,98 @@ tbody tr:hover {
   .invoices-page .invoice-paper {
     width: 100%;
     min-height: auto;
+  }
+
+  .invoices-page .invoice-info,
+  .invoices-page .invoice-bottom {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .invoices-page .details-table {
+    grid-template-columns: 120px 1fr;
+  }
+
+  .invoices-page .totals {
+    width: min(100%, 340px);
+  }
+}
+
+@media (max-width: 760px) {
+  .invoices-page .invoice-paper {
+    padding: 22px 18px;
+  }
+
+  .invoices-page .invoice-top {
+    gap: 14px;
+    align-items: flex-start;
+  }
+
+  .invoices-page .invoice-title {
+    font-size: 18px;
+  }
+
+  .invoices-page .invoice-info {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .invoices-page .details-table {
+    grid-template-columns: 1fr;
+    row-gap: 6px;
+  }
+
+  .invoices-page .details-table strong {
+    margin-top: 4px;
+  }
+
+  .invoices-page .invoice-table {
+    min-width: 0;
+  }
+
+  .invoices-page .invoice-table thead {
+    display: none;
+  }
+
+  .invoices-page .invoice-table,
+  .invoices-page .invoice-table tbody,
+  .invoices-page .invoice-table tr,
+  .invoices-page .invoice-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .invoices-page .invoice-table tr {
+    padding: 10px 0;
+    border-bottom: 1px solid #dce4ef;
+  }
+
+  .invoices-page .invoice-table td {
+    padding: 6px 0 6px 44%;
+    position: relative;
+    text-align: left !important;
+    border-bottom: 0;
+    min-height: 26px;
+  }
+
+  .invoices-page .invoice-table td::before {
+    position: absolute;
+    left: 0;
+    top: 6px;
+    width: 40%;
+    color: #64748b;
+    font-weight: 700;
+    content: '';
+  }
+
+  .invoices-page .invoice-table td:nth-child(1)::before { content: 'Description'; }
+  .invoices-page .invoice-table td:nth-child(2)::before { content: 'Service Dates'; }
+  .invoices-page .invoice-table td:nth-child(3)::before { content: 'Qty'; }
+  .invoices-page .invoice-table td:nth-child(4)::before { content: 'UOM'; }
+  .invoices-page .invoice-table td:nth-child(5)::before { content: 'Unit Price'; }
+  .invoices-page .invoice-table td:nth-child(6)::before { content: 'Amount'; }
+
+  .invoices-page .totals {
+    width: 100%;
   }
 }
