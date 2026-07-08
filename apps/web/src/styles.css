@@ -2061,6 +2061,7 @@ tbody tr:hover {
 
 .invoice-line-item {
   border-bottom: 1px solid var(--line-soft);
+  font-size: 10px;
 }
 
 .invoice-line-item:last-child {
@@ -2074,17 +2075,18 @@ tbody tr:hover {
 
 .invoice-line-description strong {
   color: var(--navy-800);
-  font-size: 14px;
+  font-size: 11px;
 }
 
 .invoice-line-description span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 10px;
 }
 
 .invoice-line-item span,
 .invoice-line-item strong {
   color: var(--navy-800);
+  font-size: 10px;
 }
 
 .invoice-line-item > span,
@@ -3360,7 +3362,7 @@ tbody tr:hover {
 .invoices-page .invoice-document-inline .invoice-line-item span,
 .invoices-page .invoice-document-inline .invoice-line-item strong,
 .invoices-page .invoice-document-inline .invoice-line-description strong {
-  font-size: 10px;
+  font-size: 9px;
 }
 
 .invoices-page .invoice-tabs {
@@ -3826,8 +3828,8 @@ tbody tr:hover {
   grid-template-columns: 360px minmax(0, 1fr) 360px;
   gap: 10px;
   align-items: stretch;
+  height: calc(100vh - var(--topbar-height));
   min-height: 0;
-  max-height: calc(100vh - var(--topbar-height));
 }
 
 .invoices-page .panel {
@@ -3837,13 +3839,7 @@ tbody tr:hover {
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
   overflow: hidden;
   min-height: 0;
-}
-
-/* Insights column defines the benchmark height; queue and viewer match it. */
-.invoices-page .queue,
-.invoices-page .viewer {
-  height: 0;
-  min-height: 100%;
+  height: 100%;
 }
 
 .invoices-page .panel-header {
@@ -4255,7 +4251,7 @@ tbody tr:hover {
   display: grid;
   grid-template-columns: 130px 1fr;
   row-gap: 12px;
-  font-size: 12px;
+  font-size: 10px;
 }
 
 .invoices-page .invoice-line {
@@ -4273,7 +4269,7 @@ tbody tr:hover {
   min-width: 0;
   table-layout: fixed;
   border-collapse: collapse;
-  font-size: 11px;
+  font-size: 10px;
   margin-bottom: 18px;
 }
 
@@ -4291,6 +4287,7 @@ tbody tr:hover {
 .invoices-page .invoice-table td {
   padding: 8px 8px;
   border-bottom: 1px solid #dce4ef;
+  font-size: 10px;
   word-break: break-word;
   overflow-wrap: anywhere;
 }
@@ -4358,8 +4355,9 @@ tbody tr:hover {
 
 .invoices-page .insights {
   display: grid;
-  grid-template-rows: 48px auto;
+  grid-template-rows: 48px minmax(0, 1fr);
   min-height: 0;
+  height: 100%;
 }
 
 .invoices-page .tabs {
@@ -4401,8 +4399,10 @@ tbody tr:hover {
 
 .invoices-page .insights-content {
   padding: 12px;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   min-height: 0;
+  height: 100%;
 }
 
 .invoices-page .insights-content:hover,
