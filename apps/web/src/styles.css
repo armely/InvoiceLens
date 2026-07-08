@@ -2053,9 +2053,9 @@ tbody tr:hover {
   background: linear-gradient(180deg, #f8fbff 0%, #edf4ff 100%);
   border-bottom: 1px solid rgba(47, 125, 246, 0.12);
   color: var(--muted);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 900;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
@@ -3360,7 +3360,7 @@ tbody tr:hover {
 .invoices-page .invoice-document-inline .invoice-line-item span,
 .invoices-page .invoice-document-inline .invoice-line-item strong,
 .invoices-page .invoice-document-inline .invoice-line-description strong {
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .invoices-page .invoice-tabs {
@@ -3825,8 +3825,9 @@ tbody tr:hover {
   display: grid;
   grid-template-columns: 360px minmax(0, 1fr) 360px;
   gap: 10px;
-  height: 100%;
+  align-items: stretch;
   min-height: 0;
+  max-height: calc(100vh - var(--topbar-height));
 }
 
 .invoices-page .panel {
@@ -3836,6 +3837,13 @@ tbody tr:hover {
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
   overflow: hidden;
   min-height: 0;
+}
+
+/* Insights column defines the benchmark height; queue and viewer match it. */
+.invoices-page .queue,
+.invoices-page .viewer {
+  height: 0;
+  min-height: 100%;
 }
 
 .invoices-page .panel-header {
@@ -3884,7 +3892,8 @@ tbody tr:hover {
 
 .invoices-page .queue {
   display: grid;
-  grid-template-rows: 64px 46px 1fr 46px;
+  grid-template-rows: 64px 46px minmax(0, 1fr) 46px;
+  height: 100%;
 }
 
 .invoices-page .sortbar {
@@ -3916,6 +3925,7 @@ tbody tr:hover {
 
 .invoices-page .queue-list {
   overflow-y: auto;
+  min-height: 0;
 }
 
 .invoices-page .invoice-card {
@@ -4133,6 +4143,7 @@ tbody tr:hover {
 .invoices-page .viewer {
   display: grid;
   grid-template-rows: 62px 1fr;
+  height: 100%;
 }
 
 .invoices-page .viewer-toolbar {
@@ -4171,6 +4182,7 @@ tbody tr:hover {
   padding: 8px;
   background: #f1f5f9;
   min-height: 0;
+  height: 100%;
 }
 
 .invoices-page .invoice-paper {
@@ -4270,7 +4282,8 @@ tbody tr:hover {
   color: white;
   text-align: left;
   padding: 8px 8px;
-  font-size: 10px;
+  font-size: 9px;
+  letter-spacing: 0.05em;
   white-space: normal;
   word-break: break-word;
 }
@@ -4345,7 +4358,7 @@ tbody tr:hover {
 
 .invoices-page .insights {
   display: grid;
-  grid-template-rows: 48px 1fr;
+  grid-template-rows: 48px auto;
   min-height: 0;
 }
 
@@ -4388,12 +4401,8 @@ tbody tr:hover {
 
 .invoices-page .insights-content {
   padding: 12px;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
   min-height: 0;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
 }
 
 .invoices-page .insights-content:hover,
