@@ -62,8 +62,8 @@ function renderInvoiceQueueItem(invoice: InvoiceSummaryDto, selectedInvoiceId: s
       <div class="check" aria-hidden="true"></div>
       <div class="invoice-main">
         <h3>${escapeHtml(invoice.invoiceNumber)} <span class="queue-title-dot ${dotClass}" aria-hidden="true">&#9679;</span> <span class="queue-title-detail">${escapeHtml(badgeLabel)}</span></h3>
-        <p class="queue-vendor">${escapeHtml(invoice.vendor)}</p>
         <div class="meta">
+          <span class="queue-vendor">${escapeHtml(invoice.vendor)}</span>
           <span class="meta-date"><span class="meta-cal" aria-hidden="true"></span>${escapeHtml(formatDate(invoice.createdAtUtc))}</span>
           <span>Ref: ${escapeHtml(invoice.afe)}</span>
         </div>
