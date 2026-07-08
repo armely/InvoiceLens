@@ -18,6 +18,7 @@ export type ValidationTone = 'pass' | 'warning' | 'fail';
 export type DateRangeFilter = 'All Time' | 'Last 30 Days' | 'This Week' | 'This Quarter';
 export type InvoiceStatusFilter = 'All Statuses' | 'Pending Review' | 'Sent Back' | 'Approved';
 export type QueueSortFilter = 'Oldest First' | 'Newest First' | 'Highest Amount';
+export type InvoicePanelTab = 'insights' | 'details';
 
 export interface AppState {
   route: Route;
@@ -25,6 +26,7 @@ export interface AppState {
   selectedComparisonLocalInvoiceId: number;
   comparisonDetailFieldIndex: number | null;
   invoicePreviewOpen: boolean;
+  activeInvoicePanel: InvoicePanelTab;
   search: string;
   sidebarCollapsed: boolean;
   dashboardDateRange: DateRangeFilter;
@@ -56,7 +58,42 @@ export interface InvoiceSummaryDto {
   updatedAtUtc: string;
 }
 
-export interface InvoiceDetailDto extends InvoiceSummaryDto {}
+export interface InvoiceContactDto {
+  name: string;
+  addressLine1: string;
+  addressLine2: string | null;
+  city: string;
+  region: string;
+  postalCode: string;
+  email: string;
+  phone: string;
+}
+
+export interface InvoicePreviewLineItemDto {
+  lineNumber: number;
+  description: string | null;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+}
+
+export interface InvoiceTotalsDto {
+  subtotal: number;
+  tax: number;
+  discount: number;
+  total: number;
+}
+
+export interface InvoiceDetailDto extends InvoiceSummaryDto {
+  invoiceDateUtc: string | null;
+  dueDateUtc: string | null;
+  billTo: InvoiceContactDto;
+  vendorContact: InvoiceContactDto;
+  paymentTerms: string | null;
+  notes: string | null;
+  totals: InvoiceTotalsDto;
+  lineItems: InvoicePreviewLineItemDto[];
+}
 
 export interface InvoiceReviewDto {
   invoice: InvoiceDetailDto;
