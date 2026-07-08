@@ -35,16 +35,6 @@ function statusPillClass(status: string): string {
   return 'pending';
 }
 
-function vendorInitials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((part) => part[0] ?? '')
-    .join('')
-    .slice(0, 3)
-    .toUpperCase();
-}
-
 function queueBadgeClass(label: string): string {
   const normalized = label.toLowerCase();
 
@@ -108,7 +98,7 @@ function renderInvoiceDocument(invoice: InvoiceDetailDto | null, fallbackInvoice
   const tax = invoice?.totals?.tax ?? 0;
   const total = invoice?.totals?.total ?? fallbackInvoice?.amount ?? 0;
   const serviceLocation = invoice ? `${invoice.billTo.city}, ${invoice.billTo.region}`.trim().replace(/^,|,$/g, '') : 'Pending';
-  const headline = vendorInitials(vendor);
+  const headline = 'IL';
   const tagline = invoice?.vendorContact.email ?? invoice?.paymentTerms ?? 'Finance operations workspace';
   const remitTo = [invoice?.vendorContact.name, invoice?.vendorContact.addressLine1, invoice?.vendorContact.addressLine2, `${invoice?.vendorContact.city ?? ''}, ${invoice?.vendorContact.region ?? ''} ${invoice?.vendorContact.postalCode ?? ''}`.trim()]
     .filter((line): line is string => Boolean(line && line.trim()))
@@ -122,7 +112,7 @@ function renderInvoiceDocument(invoice: InvoiceDetailDto | null, fallbackInvoice
         <div class="vendor-brand">
           <div class="logo-mark">${escapeHtml(headline)}</div>
           <div class="vendor-name">
-            <h2>${escapeHtml(headline)}</h2>
+            <h2>InvoiceLens</h2>
             <h3>${escapeHtml(vendor)}</h3>
             <p>${escapeHtml(tagline)}</p>
           </div>
@@ -408,7 +398,10 @@ export function renderInvoicesPage(
                   <div class="score-box">
                     <div class="score-title">Confidence Score</div>
                     <div class="score-row">
-                      <div class="score-circle" style="background: radial-gradient(circle at center, white 58%, transparent 59%), conic-gradient(var(--green) 0 ${confidenceScore}%, #e5e7eb ${confidenceScore}% 100%);">${confidenceScore}%</div>
+                      <div class="score-circle">
+                        <canvas class="invoice-score-chart" width="74" height="74" data-score="${confidenceScore}" aria-label="Confidence score chart"></canvas>
+                        <span class="score-circle-label">${confidenceScore}%</span>
+                      </div>
                       <strong>${confidenceScore >= 80 ? 'High Confidence' : confidenceScore >= 60 ? 'Medium Confidence' : 'Needs Review'}</strong>
                     </div>
 
@@ -485,7 +478,15 @@ export function renderInvoicesPage(
 
                   <div class="variance-chart-body">
                     <div class="donut-wrap">
-                      <div class="impact-donut" style="${donutStyle}">
+                      <div class="impact-donut">
+                        <canvas
+                          class="invoice-impact-chart"
+                          width="138"
+                          height="138"
+                          data-rate-cap="${rateCapImpact}"
+                          data-price="${priceImpact}"
+                          data-quantity="${quantityImpact}"
+                          aria-label="Variance impact chart"></canvas>
                         <div class="donut-center">
                           <div>
                             <strong>${formatCurrency(impactTotal, invoiceCurrency)}</strong>

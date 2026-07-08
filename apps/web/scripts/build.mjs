@@ -8,7 +8,27 @@ const rootDir = join(scriptDir, '..');
 const distDir = join(rootDir, 'dist');
 const srcDir = join(rootDir, 'src');
 const publicDir = join(rootDir, 'public');
-const envFileCandidates = [join(scriptDir, '..', '..', '.env'), join(scriptDir, '..', '..', '..', '.env')];
+const vendorDir = join(distDir, 'vendor');
+
+function getEnvOverrideNames() {
+  const environmentName = process.env.DOTNET_ENVIRONMENT ?? process.env.ASPNETCORE_ENVIRONMENT ?? process.env.NODE_ENV ?? 'development';
+  const lower = environmentName.trim().toLowerCase();
+  const names = [`.env.${lower}`];
+
+  if (['development', 'dev', 'local'].includes(lower)) {
+    names.push('.env.local');
+  } else if (['production', 'prod'].includes(lower)) {
+    names.push('.env.prod');
+  } else if (['test', 'testing'].includes(lower)) {
+    names.push('.env.test');
+  }
+
+  return names;
+}
+
+const envFileNames = ['.env', ...getEnvOverrideNames()];
+const envFileCandidates = [join(scriptDir, '..', '..'), join(scriptDir, '..', '..', '..')]
+  .flatMap((baseDir) => envFileNames.map((fileName) => join(baseDir, fileName)));
 
 function loadDotEnvFile() {
   for (const envFilePath of envFileCandidates) {
@@ -47,6 +67,7 @@ loadDotEnvFile();
 
 rmSync(distDir, { recursive: true, force: true });
 mkdirSync(distDir, { recursive: true });
+mkdirSync(vendorDir, { recursive: true });
 
 const tscEntryPoint = join(rootDir, 'node_modules', 'typescript', 'bin', 'tsc');
 
@@ -57,6 +78,7 @@ execFileSync(process.execPath, [tscEntryPoint, '-p', 'tsconfig.json'], {
 
 cpSync(join(srcDir, 'index.html'), join(distDir, 'index.html'));
 cpSync(join(srcDir, 'styles.css'), join(distDir, 'styles.css'));
+cpSync(join(rootDir, 'node_modules', 'chart.js', 'dist', 'chart.umd.js'), join(vendorDir, 'chart.umd.js'));
 
 if (existsSync(publicDir)) {
   cpSync(publicDir, distDir, { recursive: true });

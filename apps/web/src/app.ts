@@ -11,6 +11,7 @@ import {
   InvoiceComparisonResultDto,
   InvoiceComparisonRunDto,
   InvoiceReviewDto,
+  InvoicePanelTab,
   LocalInvoiceFileDto,
   InvoiceSummaryDto,
   QueueItemDto,
@@ -54,6 +55,7 @@ const state: AppState = {
   selectedComparisonLocalInvoiceId: 0,
   comparisonDetailFieldIndex: null,
   invoicePreviewOpen: false,
+  activeInvoicePanel: 'insights',
   search: '',
   sidebarCollapsed: true,
   dashboardDateRange: 'Last 30 Days',
@@ -119,6 +121,95 @@ const toast = toastElement;
 
 let toastTimer: number | undefined;
 let bootstrapping = false;
+let invoiceChartInstances: Array<{ destroy: () => void }> = [];
+
+type ChartJsCtor = new (
+  item: HTMLCanvasElement,
+  config: {
+    type: string;
+    data: { datasets: Array<{ data: number[]; backgroundColor: string[]; borderWidth?: number; hoverOffset?: number }> };
+    options?: Record<string, unknown>;
+  },
+) => { destroy: () => void };
+
+function destroyInvoiceCharts(): void {
+  invoiceChartInstances.forEach((chart) => chart.destroy());
+  invoiceChartInstances = [];
+}
+
+function renderInvoiceCharts(): void {
+  destroyInvoiceCharts();
+
+  const Chart = (window as Window & { Chart?: ChartJsCtor }).Chart;
+  if (!Chart || state.route !== 'invoices') {
+    return;
+  }
+
+  const scoreCanvas = pageHost.querySelector<HTMLCanvasElement>('.invoice-score-chart');
+  if (scoreCanvas) {
+    const score = Number(scoreCanvas.dataset['score'] ?? '0');
+    invoiceChartInstances.push(
+      new Chart(scoreCanvas, {
+        type: 'doughnut',
+        data: {
+          datasets: [
+            {
+              data: [Math.max(0, Math.min(100, score)), Math.max(0, 100 - score)],
+              backgroundColor: ['#16a34a', '#e5e7eb'],
+              borderWidth: 0,
+              hoverOffset: 0,
+            },
+          ],
+        },
+        options: {
+          responsive: false,
+          animation: false,
+          cutout: '72%',
+          plugins: {
+            legend: { display: false },
+            tooltip: { enabled: false },
+          },
+          events: [],
+        },
+      }),
+    );
+  }
+
+  const impactCanvas = pageHost.querySelector<HTMLCanvasElement>('.invoice-impact-chart');
+  if (impactCanvas) {
+    const rateCap = Number(impactCanvas.dataset['rateCap'] ?? '0');
+    const price = Number(impactCanvas.dataset['price'] ?? '0');
+    const quantity = Number(impactCanvas.dataset['quantity'] ?? '0');
+    const values = [rateCap, price, quantity];
+    const fallbackValues = values.every((value) => value <= 0) ? [1, 0, 0] : values;
+
+    invoiceChartInstances.push(
+      new Chart(impactCanvas, {
+        type: 'doughnut',
+        data: {
+          datasets: [
+            {
+              data: fallbackValues,
+              backgroundColor: ['#dc2626', '#f59e0b', '#facc15'],
+              borderWidth: 0,
+              hoverOffset: 0,
+            },
+          ],
+        },
+        options: {
+          responsive: false,
+          animation: false,
+          cutout: '58%',
+          plugins: {
+            legend: { display: false },
+            tooltip: { enabled: false },
+          },
+          events: [],
+        },
+      }),
+    );
+  }
+}
 
 function isAppDebugEnabled(): boolean {
   try {
@@ -371,7 +462,7 @@ function navigateTo(route: Route, selectedInvoiceId = state.selectedInvoiceId, r
   state.invoicePreviewOpen = false;
 
   if (state.route === 'invoices') {
-    state.selectedInvoiceId = selectedInvoiceId || store.invoices[0]?.invoiceId ?? state.selectedInvoiceId;
+    state.selectedInvoiceId = selectedInvoiceId || (store.invoices[0]?.invoiceId ?? state.selectedInvoiceId);
   }
 
   syncBrowserLocation(state.route, state.route === 'invoices' ? state.selectedInvoiceId : '', replace, false);
@@ -802,32 +893,98 @@ function renderDashboardLoadingState(): string {
 
 function renderInvoicesLoadingState(): string {
   return `
-    <section class="page active invoices-layout">
-      <section class="filter-bar invoice-filter-bar">
-        <div class="filter-field invoice-search-field">
-          <span class="skeleton skeleton-line" style="width: 18%;"></span>
-          <span class="skeleton skeleton-block" style="height: 44px;"></span>
-        </div>
-        <div class="invoice-filter-grid" aria-hidden="true">
-          ${Array.from({ length: 4 }, () => `
-            <div class="filter-field">
-              <span class="skeleton skeleton-line" style="width: 28%;"></span>
-              <span class="skeleton skeleton-block" style="height: 42px;"></span>
+    <section class="page active invoices-layout invoices-page">
+      <section class="review-workspace invoice-three-panel-grid invoice-workspace-shell">
+        <section class="review-column invoice-queue-column invoice-pane">
+          <div class="viewer-toolbar invoice-queue-toolbar invoice-pane-header">
+            <div class="invoice-pane-heading">
+              <span class="skeleton skeleton-line" style="width: 26%;"></span>
+              <span class="skeleton skeleton-line" style="width: 42%; height: 20px;"></span>
+              <span class="skeleton skeleton-line" style="width: 78%;"></span>
             </div>
-          `).join('')}
-        </div>
-        <span class="skeleton skeleton-chip invoice-filter-reset"></span>
-      </section>
-      <section class="card results-card">
-        <div class="card-header results-header">
-          <div class="skeleton-stack" style="min-width: 280px; max-width: 540px;">
-            <span class="skeleton skeleton-line" style="width: 26%;"></span>
-            <span class="skeleton skeleton-line" style="width: 54%; height: 18px;"></span>
-            <span class="skeleton skeleton-line" style="width: 82%;"></span>
+            <span class="skeleton skeleton-chip"></span>
           </div>
-          <span class="skeleton skeleton-chip"></span>
-        </div>
-        ${renderInvoiceTableSkeleton(5)}
+          <div class="invoice-queue-controls">
+            <span class="skeleton skeleton-line" style="width: 16%;"></span>
+            <span class="skeleton skeleton-block" style="width: 160px; height: 38px;"></span>
+            <span class="skeleton skeleton-line" style="width: 22%;"></span>
+          </div>
+          <div class="invoice-filter-summary">
+            <span class="skeleton skeleton-chip"></span>
+            <span class="skeleton skeleton-chip"></span>
+            <span class="skeleton skeleton-chip"></span>
+          </div>
+          <div class="queue-page-list invoice-queue-list">
+            ${Array.from({ length: 6 }, () => `
+              <div class="queue-item invoice-queue-item" aria-hidden="true">
+                <span class="invoice-queue-check skeleton skeleton-block" style="width: 18px; height: 18px;"></span>
+                <div class="queue-item-body">
+                  <div class="queue-item-top">
+                    <div class="skeleton-stack" style="flex: 1 1 auto;">
+                      <span class="skeleton skeleton-line" style="width: 42%;"></span>
+                      <span class="skeleton skeleton-line" style="width: 68%; height: 14px;"></span>
+                    </div>
+                    <span class="skeleton skeleton-line" style="width: 18%; height: 18px;"></span>
+                  </div>
+                  <span class="skeleton skeleton-line" style="width: 56%;"></span>
+                  <div class="invoice-queue-item-footer">
+                    <span class="skeleton skeleton-chip"></span>
+                    <span class="skeleton skeleton-block" style="width: 10px; height: 10px; border-radius: 50%;"></span>
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+          <div class="invoice-queue-footer">
+            <span class="skeleton skeleton-line" style="width: 36%;"></span>
+            <span class="skeleton skeleton-chip"></span>
+          </div>
+        </section>
+        <section class="viewer-panel invoice-preview-column invoice-pane invoice-preview-pane">
+          <div class="viewer-toolbar invoice-document-toolbar">
+            <div class="viewer-tools">
+              <span class="skeleton skeleton-chip"></span>
+              <span class="skeleton skeleton-chip"></span>
+              <span class="skeleton skeleton-chip"></span>
+              <span class="skeleton skeleton-chip"></span>
+            </div>
+            <div class="viewer-tools">
+              <span class="skeleton skeleton-chip"></span>
+              <span class="skeleton skeleton-chip"></span>
+              <span class="skeleton skeleton-chip"></span>
+            </div>
+          </div>
+          <div class="invoice-document-frame">
+            <div class="skeleton-card-grid">
+              <div class="skeleton-card">
+                <span class="skeleton skeleton-line" style="width: 30%;"></span>
+                <span class="skeleton skeleton-block" style="height: 180px;"></span>
+                <span class="skeleton skeleton-block" style="height: 240px;"></span>
+                <span class="skeleton skeleton-block" style="height: 120px;"></span>
+              </div>
+            </div>
+          </div>
+        </section>
+        <aside class="validation-panel invoice-insights-column invoice-pane invoice-insights-pane">
+          <section class="invoice-tabs">
+            <span class="skeleton skeleton-line" style="width: 30%; height: 18px;"></span>
+            <span class="skeleton skeleton-line" style="width: 34%; height: 18px;"></span>
+          </section>
+          ${Array.from({ length: 5 }, () => `
+            <section class="card invoice-insight-card">
+              <div class="card-header">
+                <div class="skeleton-stack" style="min-width: 200px;">
+                  <span class="skeleton skeleton-line" style="width: 36%;"></span>
+                  <span class="skeleton skeleton-line" style="width: 64%; height: 18px;"></span>
+                </div>
+                <span class="skeleton skeleton-chip"></span>
+              </div>
+              <div class="skeleton-card-grid">
+                <div class="skeleton-card"><span class="skeleton skeleton-block" style="height: 92px;"></span></div>
+              </div>
+            </section>
+          `).join('')}
+        </aside>
       </section>
     </section>
   `;
@@ -928,6 +1085,7 @@ function renderLoading(route = state.route): void {
 }
 
 function renderAuthGate(message?: string): void {
+  destroyInvoiceCharts();
   setAuthState(false);
   pageHost.innerHTML = `
     <section class="auth-gate">
@@ -953,6 +1111,8 @@ function renderAuthGate(message?: string): void {
 }
 
 function render(): void {
+  destroyInvoiceCharts();
+
   if (isWorkspaceLocked()) {
     renderAuthGate();
     return;
@@ -985,6 +1145,7 @@ function render(): void {
         state.queueSort,
         state.selectedInvoiceId,
         reviewData,
+        state.activeInvoicePanel,
       ),
     'compliance-queue': () =>
       renderComplianceQueuePage(
@@ -1016,6 +1177,7 @@ function render(): void {
   globalSearch.value = state.search;
   updateNavState();
   updateQueueCount();
+  renderInvoiceCharts();
   document.body.classList.toggle('modal-open', state.invoicePreviewOpen || (state.route === 'comparison' && state.comparisonDetailFieldIndex !== null));
   syncProfile();
 
@@ -1352,6 +1514,7 @@ async function reloadData(selectedInvoiceId = state.selectedInvoiceId): Promise<
 async function openInvoicePreview(invoiceId: string): Promise<void> {
   state.route = 'invoices';
   state.selectedInvoiceId = invoiceId;
+  state.activeInvoicePanel = 'insights';
   state.invoicePreviewOpen = false;
   syncBrowserLocation('invoices', '', false, false);
   await loadReviewBundle(invoiceId);
@@ -1447,6 +1610,15 @@ document.addEventListener('click', (event) => {
         const invoiceId = actionElement.getAttribute('data-invoice-id');
         if (invoiceId) {
           void openInvoicePreview(invoiceId);
+        }
+      }
+      break;
+    case 'switch-invoice-panel':
+      {
+        const panel = actionElement.getAttribute('data-panel') as InvoicePanelTab | null;
+        if (panel) {
+          state.activeInvoicePanel = panel;
+          render();
         }
       }
       break;
