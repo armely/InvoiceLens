@@ -9,7 +9,6 @@ interface ContractVendorRow {
   totalAmount: number;
   approvedCount: number;
   posture: string;
-  nextReview: string;
 }
 
 function escapeHtml(value: string): string {
@@ -50,7 +49,6 @@ function buildVendorRows(invoices: InvoiceSummaryDto[], queueRows: QueueRow[]): 
       const queueCount = queueCounts.get(vendor) ?? 0;
       const approvedCount = vendorInvoices.filter((invoice) => normalizeLabel(invoice.status) === 'Approved').length;
       const posture = queueCount > 0 ? 'Review Required' : approvedCount === vendorInvoices.length ? 'Stable' : 'Monitored';
-      const nextReview = new Date(Date.UTC(2026, (index % 12) + 1, Math.min(28, 7 + index * 3)));
 
       return {
         vendor,
@@ -59,7 +57,6 @@ function buildVendorRows(invoices: InvoiceSummaryDto[], queueRows: QueueRow[]): 
         totalAmount,
         approvedCount,
         posture,
-        nextReview: formatDateTime(nextReview.toISOString()),
       };
     })
     .sort((left, right) => right.totalAmount - left.totalAmount)
@@ -81,7 +78,6 @@ function renderVendorTable(rows: ContractVendorRow[]): string {
             <th>Queue</th>
             <th>Total Spend</th>
             <th>Posture</th>
-            <th>Next Review</th>
           </tr>
         </thead>
         <tbody>
@@ -99,7 +95,6 @@ function renderVendorTable(rows: ContractVendorRow[]): string {
                   <td>${row.queueCount}</td>
                   <td>${formatCurrency(row.totalAmount, 'USD')}</td>
                   <td>${statusChip(row.queueCount > 0 ? 'Warning' : row.approvedCount === row.invoiceCount ? 'Approved' : 'Pending')}</td>
-                  <td>${escapeHtml(row.nextReview)}</td>
                 </tr>
               `,
             )

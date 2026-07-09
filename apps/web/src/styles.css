@@ -897,7 +897,7 @@ a:hover { text-decoration: underline; }
   border-radius: 18px;
   background: #fff;
 }
-table { width: 100%; border-collapse: collapse; min-width: 900px; }
+table { width: 100%; border-collapse: collapse; min-width: 760px; }
 th {
   text-align: left;
   color: #6f86a3;
@@ -2684,6 +2684,15 @@ tbody tr:hover {
 .contracts-page .summary-card,
 .vendors-page .summary-card {
   min-width: 0;
+}
+
+.contracts-page .table-wrap table {
+  min-width: 620px;
+}
+
+.contracts-page .table-wrap th,
+.contracts-page .table-wrap td {
+  white-space: normal;
 }
 
 .contracts-page .page-grid {
