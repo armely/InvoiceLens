@@ -66,6 +66,9 @@ const state: AppState = {
   dashboardDateRange: 'Last 30 Days',
   dashboardDateFrom: '',
   dashboardDateTo: '',
+  reportsDateRange: 'Last 30 Days',
+  reportsDateFrom: '',
+  reportsDateTo: '',
   invoiceStatusFilter: 'All Statuses',
   invoiceDateRange: 'All Time',
   invoiceDateFrom: '',
@@ -722,6 +725,10 @@ function getActiveInvoicePaper(): HTMLElement | null {
   return pageHost.querySelector<HTMLElement>('.invoices-page .document-area .invoice-paper');
 }
 
+function getActiveReportsPage(): HTMLElement | null {
+  return pageHost.querySelector<HTMLElement>('.reports-page');
+}
+
 function sanitizeFileName(value: string): string {
   const cleaned = value
     .trim()
@@ -839,6 +846,49 @@ async function printInvoiceWithCurrentDesign(): Promise<void> {
   }, { once: true });
 
   // Fallback for browsers that may not emit load on document.write content.
+  window.setTimeout(runPrint, 300);
+}
+
+function buildReportsPrintTitle(): string {
+  const hasCustomRange = Boolean(state.reportsDateFrom || state.reportsDateTo);
+  if (hasCustomRange) {
+    const from = state.reportsDateFrom || 'start';
+    const to = state.reportsDateTo || 'today';
+    return `reports-${from}-to-${to}`;
+  }
+
+  return `reports-${state.reportsDateRange.toLowerCase().replace(/\s+/g, '-')}`;
+}
+
+async function printReportWithCurrentDesign(): Promise<void> {
+  const reportsRoot = getActiveReportsPage();
+  if (!reportsRoot) {
+    showToast('Open Reports page to print the report.');
+    return;
+  }
+
+  const reportClone = cloneWithInlineStyles(reportsRoot);
+  const html = buildInvoiceStandaloneHtml(reportClone.outerHTML, buildReportsPrintTitle());
+  const printWindow = window.open('', '_blank', 'noopener,noreferrer');
+
+  if (!printWindow) {
+    showToast('Enable pop-ups to print the report.');
+    return;
+  }
+
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
+
+  const runPrint = () => {
+    printWindow.focus();
+    printWindow.print();
+  };
+
+  printWindow.addEventListener('load', () => {
+    window.setTimeout(runPrint, 120);
+  }, { once: true });
+
   window.setTimeout(runPrint, 300);
 }
 
@@ -1532,7 +1582,27 @@ function render(): void {
     analytics: () => renderAnalyticsPage(store.invoices, store.queueRows, dashboardData.validationAlerts, store.syncStatus),
     contracts: () => renderContractsPage(store.invoices, store.queueRows, dashboardData.validationAlerts, store.syncStatus),
     vendors: () => renderVendorsPage(store.invoices, store.queueRows, dashboardData.validationAlerts, store.syncStatus),
-    reports: () => renderReportsPage(store.invoices, store.queueRows, dashboardData.validationAlerts, store.syncStatus),
+    reports: () => {
+      const reportsInvoices = applyInvoiceFilters(store.invoices, {
+        dateRange: state.reportsDateRange,
+        dateFrom: state.reportsDateFrom,
+        dateTo: state.reportsDateTo,
+        sort: 'Newest First',
+      });
+      const reportInvoiceIds = new Set(reportsInvoices.map((invoice) => invoice.invoiceId));
+      const reportsQueueRows = store.queueRows.filter((row) => reportInvoiceIds.has(row.invoiceId));
+      const reportsValidationAlerts = buildDashboardValidationAlerts(reportsInvoices);
+
+      return renderReportsPage(
+        reportsInvoices,
+        reportsQueueRows,
+        reportsValidationAlerts,
+        store.syncStatus,
+        state.reportsDateRange,
+        state.reportsDateFrom,
+        state.reportsDateTo,
+      );
+    },
     notifications: () => renderNotificationsPage(store.queueRows, getNotificationsFeed(), [...readNotificationIds]),
     help: () => renderHelpPage(),
     admin: () => renderAdminPage(buildAdminData()),
@@ -1587,6 +1657,15 @@ function setFilter(filter: string, value: string): void {
       break;
     case 'dashboard-date-to':
       state.dashboardDateTo = value;
+      break;
+    case 'reports-date-range':
+      state.reportsDateRange = value as AppState['reportsDateRange'];
+      break;
+    case 'reports-date-from':
+      state.reportsDateFrom = value;
+      break;
+    case 'reports-date-to':
+      state.reportsDateTo = value;
       break;
     case 'invoice-status':
       state.invoiceStatusFilter = value as AppState['invoiceStatusFilter'];
@@ -1892,6 +1971,9 @@ document.addEventListener('click', (event) => {
       break;
     case 'print-invoice':
       void printInvoiceWithCurrentDesign();
+      break;
+    case 'print-report':
+      void printReportWithCurrentDesign();
       break;
     case 'more-actions':
       if (state.selectedInvoiceId) {

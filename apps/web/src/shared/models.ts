@@ -32,6 +32,9 @@ export interface AppState {
   dashboardDateRange: DateRangeFilter;
   dashboardDateFrom: string;
   dashboardDateTo: string;
+  reportsDateRange: DateRangeFilter;
+  reportsDateFrom: string;
+  reportsDateTo: string;
   invoiceStatusFilter: InvoiceStatusFilter;
   invoiceDateRange: DateRangeFilter;
   invoiceDateFrom: string;

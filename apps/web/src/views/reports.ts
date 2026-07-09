@@ -1,6 +1,6 @@
-import { InvoiceSummaryDto, QueueRow, SyncStatusDto, ValidationAlert, VendorBar } from '../shared/models.js';
+import { DateRangeFilter, InvoiceSummaryDto, QueueRow, SyncStatusDto, ValidationAlert, VendorBar } from '../shared/models.js';
 import { formatCurrency, formatDateTime, normalizeLabel } from '../shared/utils.js';
-import { pageHeader, renderAlertCards, renderInvoiceTable, renderVendorBars, statusChip } from './shared.js';
+import { pageHeader } from './shared.js';
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (character) => {
@@ -40,6 +40,74 @@ function buildVendorBars(queueRows: QueueRow[]): VendorBar[] {
     }));
 }
 
+type ReportSignalRow = {
+  signal: string;
+  value: string;
+  notes: string;
+  route: 'dashboard' | 'vendors' | 'notifications';
+};
+
+function buildReportSignalRows(queueRows: QueueRow[], validationAlerts: ValidationAlert[], vendorBars: VendorBar[]): ReportSignalRow[] {
+  const topVendors = vendorBars.slice(0, 3).map((bar) => `${bar.name} (${bar.count})`).join(', ');
+
+  return [
+    {
+      signal: 'Queue Health',
+      value: `${queueRows.length} items`,
+      notes: queueRows.length > 0 ? 'Invoices currently waiting for reviewer action.' : 'No open queue records in this period.',
+      route: 'dashboard',
+    },
+    {
+      signal: 'Vendor Mix',
+      value: `${vendorBars.length} ranked`,
+      notes: topVendors || 'No vendor concentration data in this period.',
+      route: 'vendors',
+    },
+    {
+      signal: 'Exceptions',
+      value: `${validationAlerts.length} alerts`,
+      notes: validationAlerts.length > 0 ? 'Open validation alerts needing follow-up.' : 'No active validation alerts in this period.',
+      route: 'notifications',
+    },
+  ];
+}
+
+function renderReportSignalsTable(rows: ReportSignalRow[]): string {
+  return `
+    <div class="table-wrap report-signals-table-wrap">
+      <table aria-label="Report signals table">
+        <thead>
+          <tr>
+            <th>Signal</th>
+            <th>Value</th>
+            <th>Notes</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows
+            .map(
+              (row) => `
+                <tr>
+                  <td><strong>${escapeHtml(row.signal)}</strong></td>
+                  <td>${escapeHtml(row.value)}</td>
+                  <td>${escapeHtml(row.notes)}</td>
+                  <td>
+                    <div class="report-table-actions">
+                      <a class="button ghost" href="/${row.route === 'dashboard' ? '' : row.route}" data-route="${row.route}">Open</a>
+                      <button class="button ghost" type="button" data-action="print-report">Print</button>
+                    </div>
+                  </td>
+                </tr>
+              `,
+            )
+            .join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
 function renderReportCard(title: string, description: string, stat: string, link: string, route: 'dashboard' | 'invoices' | 'vendors' | 'notifications', status: string): string {
   return `
     <article class="card">
@@ -50,20 +118,12 @@ function renderReportCard(title: string, description: string, stat: string, link
         </div>
         <span class="status-chip ${status}">${escapeHtml(normalizeLabel(status))}</span>
       </div>
-      <div class="settings-list">
-        <div class="settings-row">
-          <div>
-            <strong>${escapeHtml(stat)}</strong>
-            <small>Derived from the current invoice workspace</small>
-          </div>
+      <div class="report-card-body">
+        <div class="report-card-stat">
+          <strong>${escapeHtml(stat)}</strong>
+          <small>Derived from the current invoice workspace</small>
         </div>
-        <div class="settings-row">
-          <div>
-            <strong>Open report</strong>
-            <small>Use the linked page or invoice list to inspect details</small>
-          </div>
-          <a class="button ghost" href="${link}" data-route="${route}">View -></a>
-        </div>
+        <a class="button ghost" href="${link}" data-route="${route}">Open</a>
       </div>
     </article>
   `;
@@ -74,8 +134,12 @@ export function renderReportsPage(
   queueRows: QueueRow[],
   validationAlerts: ValidationAlert[],
   syncStatus: SyncStatusDto | null,
+  reportsDateRange: DateRangeFilter,
+  reportsDateFrom: string,
+  reportsDateTo: string,
 ): string {
   const vendorBars = buildVendorBars(queueRows);
+  const signalRows = buildReportSignalRows(queueRows, validationAlerts, vendorBars);
   const totalAmount = invoices.reduce((sum, invoice) => sum + invoice.amount, 0);
   const approvedCount = invoices.filter((invoice) => normalizeLabel(invoice.status) === 'Approved').length;
   const lastSync = syncStatus ? formatDateTime(syncStatus.lastSuccessfulRunUtc) : 'Pending';
@@ -83,7 +147,17 @@ export function renderReportsPage(
   return `
     <section class="page active reports-page">
       ${pageHeader('Reports', 'Ready-to-share operational summaries with links back into the invoice workspace.', `
-        <span class="status-chip approved">Updated ${escapeHtml(lastSync)}</span>
+        <div class="date-range-controls reports-date-controls">
+          <select class="select-field" data-filter="reports-date-range" aria-label="Report date range">
+            ${['All Time', 'Last 30 Days', 'This Week', 'This Quarter']
+              .map((option) => `<option value="${option}" ${reportsDateRange === option ? 'selected' : ''}>${option}</option>`)
+              .join('')}
+          </select>
+          <input class="input-field" type="date" data-filter="reports-date-from" value="${escapeHtml(reportsDateFrom)}" aria-label="Report from date" />
+          <input class="input-field" type="date" data-filter="reports-date-to" value="${escapeHtml(reportsDateTo)}" aria-label="Report to date" />
+          <button class="button primary" type="button" data-action="print-report">Print Report</button>
+          <span class="status-chip approved">Updated ${escapeHtml(lastSync)}</span>
+        </div>
       `)}
 
       <section class="summary-strip reports-summary-strip">
@@ -112,74 +186,25 @@ export function renderReportsPage(
       <section class="reports-section">
         <div class="reports-section-header">
           <div>
-            <h2>Report Packs</h2>
-            <p>Shortcuts to the views that feed the shared reporting workflow.</p>
+            <h2>Quick Views</h2>
+            <p>The most useful report shortcuts in one place.</p>
           </div>
         </div>
-        <div class="reports-pack-grid">
-          ${renderReportCard('Monthly close pack', 'A fast summary of invoices, totals, and approval state.', `${invoices.length} invoices`, '/invoices', 'invoices', 'approved')}
-          ${renderReportCard('Operational dashboard', 'A live workspace view for current invoice activity.', `${queueRows.length} queue items`, '/', 'dashboard', 'warning')}
-          ${renderReportCard('Vendor performance report', 'Shows supplier concentration and approval patterns.', `${vendorBars.length} ranked vendors`, '/vendors', 'vendors', 'approved')}
-          ${renderReportCard('Notifications digest', 'A short list of current alerts and queue activity.', `${validationAlerts.length} active alerts`, '/notifications', 'notifications', 'exception')}
+        <div class="reports-pack-grid reports-pack-grid--compact">
+          ${renderReportCard('Monthly close pack', 'Invoice totals and approval state.', `${invoices.length} invoices`, '/invoices', 'invoices', 'approved')}
+          ${renderReportCard('Operational dashboard', 'Live invoice activity and queue pressure.', `${queueRows.length} queue items`, '/', 'dashboard', 'warning')}
+          ${renderReportCard('Notifications digest', 'Current alerts and queue signals.', `${validationAlerts.length} active alerts`, '/notifications', 'notifications', 'exception')}
         </div>
       </section>
 
       <section class="reports-section">
         <div class="reports-section-header">
           <div>
-            <h2>Supporting Sections</h2>
-            <p>Vendor concentration, exceptions, and operational notes each have their own card.</p>
+            <h2>Current Signals</h2>
+            <p>Actionable report signals in one table with quick actions.</p>
           </div>
         </div>
-        <div class="reports-support-grid">
-          <section class="card">
-            <div class="card-header">
-              <h2>Vendor Mix</h2>
-              <span class="status-chip pending-neutral">Ranked</span>
-            </div>
-            ${renderVendorBars(vendorBars)}
-          </section>
-
-          <section class="card">
-            <div class="card-header">
-              <h2>Exceptions</h2>
-              <span class="status-chip exception">${validationAlerts.length}</span>
-            </div>
-            <div class="alert-list">${renderAlertCards(validationAlerts.slice(0, 4))}</div>
-          </section>
-
-          <section class="card reports-notes-card">
-            <div class="card-header">
-              <h2>Report Notes</h2>
-              <span class="status-chip pending-neutral">Live</span>
-            </div>
-            <div class="settings-list">
-              <div class="settings-row">
-                <div>
-                  <strong>Export friendly</strong>
-                  <small>The report pages are designed to be readable and scannable</small>
-                </div>
-              </div>
-              <div class="settings-row">
-                <div>
-                  <strong>Always current</strong>
-                  <small>Report values come from the same workspace data used elsewhere</small>
-                </div>
-              </div>
-            </div>
-          </section>
-        </div>
-      </section>
-
-      <section class="card reports-snapshot-card">
-        <div class="card-header">
-          <div>
-            <h2>Recent Invoice Snapshot</h2>
-            <p>Source data that feeds the reporting views.</p>
-          </div>
-          <a class="button ghost" href="/invoices">Open invoices -></a>
-        </div>
-        ${renderInvoiceTable(invoices.slice(0, 6))}
+        ${renderReportSignalsTable(signalRows)}
       </section>
     </section>
   `;
