@@ -426,7 +426,7 @@ export function renderInvoicesPage(
                   <p class="invoice-actions-copy">Run validation and move the selected invoice through review states.</p>
                   <div class="invoice-actions-row">
                     <button class="button" type="button" data-action="validate-invoice" ${canRunActions ? '' : 'disabled'}>Validate</button>
-                    <button class="button primary" type="button" data-action="approve-invoice" ${canRunActions ? '' : 'disabled'}>Approve</button>
+                    <button class="button success" type="button" data-action="approve-invoice" ${canRunActions ? '' : 'disabled'}>Approve</button>
                     <button class="button danger" type="button" data-action="send-back" ${canRunActions ? '' : 'disabled'}>Send Back</button>
                   </div>
                 </section>

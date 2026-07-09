@@ -3591,7 +3591,7 @@ tbody tr:hover {
 .invoices-page .invoice-actions-row .button {
   min-height: 34px;
   padding-inline: 10px;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .invoices-page .invoice-tab.is-active {
