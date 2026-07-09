@@ -3590,7 +3590,7 @@ tbody tr:hover {
 .invoices-page .invoice-actions-row .button {
   min-height: 34px;
   padding-inline: 10px;
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .invoices-page .invoice-tab.is-active {
@@ -4020,11 +4020,65 @@ tbody tr:hover {
 
 .invoices-page .workspace {
   display: grid;
-  grid-template-columns: 360px minmax(0, 1fr) 360px;
-  gap: 10px;
+  grid-template-columns: var(--invoice-queue-width, 360px) 10px minmax(0, 1fr) 10px var(--invoice-insights-width, 360px);
+  gap: 0;
   align-items: stretch;
   height: calc(100vh - var(--topbar-height));
   min-height: 0;
+}
+
+.invoices-page .panel.queue {
+  grid-column: 1;
+}
+
+.invoices-page .panel.viewer {
+  grid-column: 3;
+}
+
+.invoices-page .panel.insights {
+  grid-column: 5;
+}
+
+.invoices-page .invoice-column-resizer {
+  position: relative;
+  width: 10px;
+  height: 100%;
+  cursor: col-resize;
+  border: 0;
+  background: transparent;
+}
+
+.invoices-page .invoice-column-resizer[data-resizer='queue'] {
+  grid-column: 2;
+}
+
+.invoices-page .invoice-column-resizer[data-resizer='insights'] {
+  grid-column: 4;
+}
+
+.invoices-page .invoice-column-resizer::before {
+  content: '';
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: rgba(66, 82, 107, 0.16);
+  transition: background var(--transition), box-shadow var(--transition);
+}
+
+.invoices-page .invoice-column-resizer:hover::before,
+.invoices-page .invoice-column-resizer:focus-visible::before {
+  background: rgba(29, 95, 216, 0.5);
+  box-shadow: 0 0 0 3px rgba(47, 125, 246, 0.14);
+}
+
+body.invoice-resizing,
+body.invoice-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
 }
 
 .invoices-page .panel {
@@ -4053,6 +4107,10 @@ tbody tr:hover {
   gap: 10px;
   font-size: 18px;
   font-weight: 800;
+}
+
+.invoices-page .panel.queue .title {
+  font-size: 16px;
 }
 
 .invoices-page .queue-header-icon {
@@ -4153,7 +4211,7 @@ tbody tr:hover {
 }
 
 .invoices-page .invoice-main h3 {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
   margin: 0 0 4px;
   color: #132033;
@@ -5083,7 +5141,8 @@ tbody tr:hover {
 
 @media (max-width: 1400px) {
   .invoices-page .workspace {
-    grid-template-columns: 320px minmax(0, 1fr) 320px;
+    --invoice-queue-width: 320px;
+    --invoice-insights-width: 320px;
   }
 
   .invoices-page .summary-grid {
@@ -5108,7 +5167,8 @@ tbody tr:hover {
 
 @media (max-width: 1100px) {
   .invoices-page .workspace {
-    grid-template-columns: 280px minmax(0, 1fr) 300px;
+    --invoice-queue-width: 280px;
+    --invoice-insights-width: 300px;
   }
 
   .invoices-page .tabs {
@@ -5148,6 +5208,16 @@ tbody tr:hover {
   .invoices-page .workspace {
     grid-template-columns: 1fr;
     height: auto;
+  }
+
+  .invoices-page .panel.queue,
+  .invoices-page .panel.viewer,
+  .invoices-page .panel.insights {
+    grid-column: 1;
+  }
+
+  .invoices-page .invoice-column-resizer {
+    display: none;
   }
 
   .invoices-page .panel {
