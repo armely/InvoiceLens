@@ -83,8 +83,10 @@ body[data-auth-state="signed-out"] .topbar {
 body[data-bootstrap-state="pending"] {
   overflow: hidden;
 }
-body[data-bootstrap-state="pending"] .app-shell {
-  visibility: hidden;
+body[data-bootstrap-state="pending"] .sidebar,
+body[data-bootstrap-state="pending"] .nav-item,
+body[data-bootstrap-state="pending"] .collapse-button {
+  transition: none;
 }
 body[data-bootstrap-state="ready"] .bootstrap-overlay {
   opacity: 0;
@@ -94,8 +96,43 @@ body[data-bootstrap-state="ready"] .bootstrap-overlay {
   position: fixed;
   inset: 0;
   z-index: 120;
-  background: transparent;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(47, 125, 246, 0.14), transparent 38%),
+    radial-gradient(circle at 82% 82%, rgba(32, 199, 217, 0.12), transparent 40%),
+    var(--background);
   transition: opacity var(--transition);
+}
+.bootstrap-overlay::before {
+  content: "Loading InvoiceLens...";
+  color: var(--navy-900);
+  font-family: 'Space Grotesk', 'Plus Jakarta Sans', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.01em;
+  padding: 16px 20px 16px 48px;
+  border: 1px solid rgba(7, 31, 67, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 12px 30px rgba(7, 31, 67, 0.14);
+  position: relative;
+}
+.bootstrap-overlay::after {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(11, 45, 97, 0.2);
+  border-top-color: var(--blue-600);
+  animation: bootstrap-spin 700ms linear infinite;
+  margin-left: -140px;
+}
+@keyframes bootstrap-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 .skeleton {
   position: relative;
