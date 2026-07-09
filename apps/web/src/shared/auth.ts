@@ -2,9 +2,11 @@ import { AuthProfile } from './models.js';
 import { getRuntimeConfig } from './runtime-config.js';
 
 const authStateStorageKey = 'InvoiceLens:auth-state';
+const authStateBackupStorageKey = 'InvoiceLens:auth-state-backup';
 const authProfileStorageKey = 'InvoiceLens:auth-profile';
 const authTokensStorageKey = 'InvoiceLens:auth-tokens';
 const authRouteStorageKey = 'InvoiceLens:auth-post-login-route';
+const authRouteBackupStorageKey = 'InvoiceLens:auth-post-login-route-backup';
 const authDebugStorageKey = 'InvoiceLens:debug-auth';
 
 type TokenResponse = {
@@ -21,6 +23,13 @@ type AuthState = {
   state: string;
   codeVerifier: string;
 };
+
+type MicrosoftSessionProfileResult = {
+  profile: AuthProfile | null;
+  unavailableMessage: string | null;
+};
+
+type MicrosoftAuthBootstrapResult = MicrosoftSessionProfileResult;
 
 function base64UrlEncode(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
@@ -159,6 +168,51 @@ function getAuthConfig() {
   return getRuntimeConfig().auth;
 }
 
+function readStorageItem(key: string): string | null {
+  try {
+    const value = window.sessionStorage.getItem(key);
+    if (value !== null) {
+      return value;
+    }
+  } catch {
+    // Ignore storage access failures and fall back to localStorage.
+  }
+
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeStorageItem(key: string, value: string): void {
+  try {
+    window.sessionStorage.setItem(key, value);
+  } catch {
+    // Ignore storage access failures and keep trying the backup store.
+  }
+
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Ignore storage access failures and keep the session copy if available.
+  }
+}
+
+function removeStorageItem(key: string): void {
+  try {
+    window.sessionStorage.removeItem(key);
+  } catch {
+    // Ignore storage access failures and continue with the backup store.
+  }
+
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Ignore storage access failures.
+  }
+}
+
 function isConfigured(): boolean {
   const config = getAuthConfig();
   return Boolean(config.clientId && config.tenantId && config.redirectUri);
@@ -187,6 +241,9 @@ function readStoredProfile(): AuthProfile | null {
       initials: parsed.initials,
       email: parsed.email ?? '',
       photoDataUrl: parsed.photoDataUrl ?? null,
+      jobTitle: parsed.jobTitle ?? null,
+      department: parsed.department ?? null,
+      officeLocation: parsed.officeLocation ?? null,
     };
     authDebug('Loaded auth profile from storage.', {
       displayName: profile.displayName,
@@ -245,6 +302,9 @@ function extractProfileFromClaims(claims: Record<string, unknown>): AuthProfile 
     email,
     initials: buildInitials(displayName),
     photoDataUrl: null,
+    jobTitle: typeof claims['jobTitle'] === 'string' ? claims['jobTitle'].trim() : null,
+    department: typeof claims['department'] === 'string' ? claims['department'].trim() : null,
+    officeLocation: typeof claims['officeLocation'] === 'string' ? claims['officeLocation'].trim() : null,
   };
 }
 
@@ -302,36 +362,52 @@ async function fetchMicrosoftProfilePhoto(accessToken: string): Promise<string |
   }
 }
 
-async function fetchMicrosoftSessionProfile(): Promise<AuthProfile | null> {
+async function fetchMicrosoftSessionProfile(): Promise<MicrosoftSessionProfileResult> {
   authDebug('Fetching Microsoft session profile from the API.');
-  const response = await fetch('/api/auth/me', {
-    headers: {
-      Accept: 'application/json',
-    },
-    credentials: 'include',
-  });
-
-  if (response.status === 401) {
-    authDebug('No Microsoft session is active.');
-    return null;
-  }
-
-  if (!response.ok) {
-    authDebug('Microsoft session profile request failed.', {
-      status: response.status,
-      statusText: response.statusText,
+  try {
+    const response = await fetch('/api/auth/me', {
+      headers: {
+        Accept: 'application/json',
+      },
+      credentials: 'include',
     });
-    return null;
-  }
 
-  const profile = (await response.json()) as AuthProfile;
-  authDebug('Microsoft session profile received.', {
-    displayName: profile.displayName,
-    initials: profile.initials,
-    hasEmail: Boolean(profile.email),
-    hasPhoto: Boolean(profile.photoDataUrl),
-  });
-  return profile;
+    if (response.status === 401) {
+      authDebug('No Microsoft session is active.');
+      return { profile: null, unavailableMessage: null };
+    }
+
+    if (!response.ok) {
+      const backendUnavailable = [502, 503, 504].includes(response.status);
+      const unavailableMessage = backendUnavailable
+        ? 'The InvoiceLens API is unavailable right now. Start the API, make sure SQL Server is reachable, and refresh the page.'
+        : 'InvoiceLens could not verify the Microsoft session right now. Please refresh the page and try again.';
+
+      authDebug('Microsoft session profile request failed.', {
+        status: response.status,
+        statusText: response.statusText,
+        backendUnavailable,
+      });
+      return { profile: null, unavailableMessage };
+    }
+
+    const profile = (await response.json()) as AuthProfile;
+    authDebug('Microsoft session profile received.', {
+      displayName: profile.displayName,
+      initials: profile.initials,
+      hasEmail: Boolean(profile.email),
+      hasPhoto: Boolean(profile.photoDataUrl),
+    });
+    return { profile, unavailableMessage: null };
+  } catch (error) {
+    authDebug('Microsoft session profile request could not reach the API.', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return {
+      profile: null,
+      unavailableMessage: 'InvoiceLens could not reach the API. Start the backend and refresh the page.',
+    };
+  }
 }
 
 async function createMicrosoftSession(idToken: string, accessToken?: string): Promise<AuthProfile> {
@@ -348,12 +424,16 @@ async function createMicrosoftSession(idToken: string, accessToken?: string): Pr
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => '');
+    const backendUnavailable = [502, 503, 504].includes(response.status);
+    const failureMessage = backendUnavailable
+      ? 'Microsoft session could not be established because the InvoiceLens API is unavailable. Start the API and make sure SQL Server is reachable, then try signing in again.'
+      : `Microsoft session could not be established (${response.status} ${response.statusText}).`;
     authDebug('Microsoft session creation failed.', {
       status: response.status,
       statusText: response.statusText,
       errorText: truncateForLog(errorText),
     });
-    throw new Error(`Microsoft session could not be established (${response.status} ${response.statusText}).`);
+    throw new Error(failureMessage);
   }
 
   const profile = (await response.json()) as AuthProfile;
@@ -368,9 +448,9 @@ async function createMicrosoftSession(idToken: string, accessToken?: string): Pr
 
 function readAuthState(): AuthState | null {
   try {
-    const raw = window.sessionStorage.getItem(authStateStorageKey);
+    const raw = readStorageItem(authStateStorageKey) ?? readStorageItem(authStateBackupStorageKey);
     if (!raw) {
-      authDebug('No auth state found in sessionStorage.');
+      authDebug('No auth state found in storage.');
       return null;
     }
 
@@ -387,16 +467,18 @@ function readAuthState(): AuthState | null {
       state: parsed.state,
       codeVerifier: parsed.codeVerifier,
     };
-    authDebug('Loaded auth state from sessionStorage.');
+    authDebug('Loaded auth state from storage.');
     return authState;
   } catch {
-    authDebug('Failed to parse auth state from sessionStorage.');
+    authDebug('Failed to parse auth state from storage.');
     return null;
   }
 }
 
 function persistAuthState(state: AuthState): void {
-  window.sessionStorage.setItem(authStateStorageKey, JSON.stringify(state));
+  const raw = JSON.stringify(state);
+  writeStorageItem(authStateStorageKey, raw);
+  writeStorageItem(authStateBackupStorageKey, raw);
   authDebug('Persisted auth state.', {
     stateLength: state.state.length,
     codeVerifierLength: state.codeVerifier.length,
@@ -404,25 +486,28 @@ function persistAuthState(state: AuthState): void {
 }
 
 function clearAuthState(): void {
-  window.sessionStorage.removeItem(authStateStorageKey);
+  removeStorageItem(authStateStorageKey);
+  removeStorageItem(authStateBackupStorageKey);
   authDebug('Cleared auth state.');
 }
 
 function persistPostLoginRoute(pathname: string): void {
-  window.sessionStorage.setItem(authRouteStorageKey, pathname);
+  writeStorageItem(authRouteStorageKey, pathname);
+  writeStorageItem(authRouteBackupStorageKey, pathname);
   authDebug('Persisted post-login route.', { pathname });
 }
 
 function readPostLoginRoute(): string | null {
-  const route = window.sessionStorage.getItem(authRouteStorageKey);
-  authDebug(route ? 'Loaded post-login route from sessionStorage.' : 'No post-login route found in sessionStorage.', {
+  const route = readStorageItem(authRouteStorageKey) ?? readStorageItem(authRouteBackupStorageKey);
+  authDebug(route ? 'Loaded post-login route from storage.' : 'No post-login route found in storage.', {
     pathname: route ?? '',
   });
   return route;
 }
 
 function clearPostLoginRoute(): void {
-  window.sessionStorage.removeItem(authRouteStorageKey);
+  removeStorageItem(authRouteStorageKey);
+  removeStorageItem(authRouteBackupStorageKey);
   authDebug('Cleared post-login route.');
 }
 
@@ -491,7 +576,7 @@ export function getCurrentAuthProfile(): AuthProfile | null {
   return readStoredProfile();
 }
 
-export async function initializeMicrosoftAuth(): Promise<AuthProfile | null> {
+export async function initializeMicrosoftAuth(): Promise<MicrosoftAuthBootstrapResult> {
   if (!isConfigured()) {
     authDebug('Microsoft auth is not configured; reading stored profile only.');
     return fetchMicrosoftSessionProfile();
@@ -515,6 +600,28 @@ export async function initializeMicrosoftAuth(): Promise<AuthProfile | null> {
         hasStoredState: Boolean(storedState),
         hasState: Boolean(state),
       });
+      const sessionProfile = await fetchMicrosoftSessionProfile();
+      if (sessionProfile.profile) {
+        persistProfile(sessionProfile.profile);
+        clearAuthState();
+        clearPostLoginRoute();
+        url.searchParams.delete('code');
+        url.searchParams.delete('state');
+        url.searchParams.delete('session_state');
+        window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+        authDebug('Recovered Microsoft auth from existing session cookie after callback state mismatch.', {
+          displayName: sessionProfile.profile.displayName,
+          initials: sessionProfile.profile.initials,
+          hasEmail: Boolean(sessionProfile.profile.email),
+          hasPhoto: Boolean(sessionProfile.profile.photoDataUrl),
+        });
+        return sessionProfile;
+      }
+
+      if (sessionProfile.unavailableMessage) {
+        return sessionProfile;
+      }
+
       throw new Error('Microsoft sign-in state could not be validated.');
     }
 
@@ -546,18 +653,23 @@ export async function initializeMicrosoftAuth(): Promise<AuthProfile | null> {
       hasEmail: Boolean(profile.email),
       hasPhoto: Boolean(profile.photoDataUrl),
     });
-    return profile;
+    return { profile, unavailableMessage: null };
   }
 
   authDebug('No auth callback present; reading stored profile.');
-  const profile = await fetchMicrosoftSessionProfile();
-  if (profile) {
-    persistProfile(profile);
-    return profile;
+  const sessionProfile = await fetchMicrosoftSessionProfile();
+  if (sessionProfile.profile) {
+    persistProfile(sessionProfile.profile);
+    return sessionProfile;
+  }
+
+  if (sessionProfile.unavailableMessage) {
+    clearProfile();
+    return sessionProfile;
   }
 
   clearProfile();
-  return null;
+  return sessionProfile;
 }
 
 export async function startMicrosoftSignIn(): Promise<void> {

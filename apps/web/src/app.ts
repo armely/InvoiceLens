@@ -4,15 +4,10 @@ import {
   AdminViewData,
   AppState,
   AuditEntryDto,
-  ComparisonFieldViewModel,
-  ComparisonViewData,
   DashboardMetric,
   DashboardViewData,
-  InvoiceComparisonResultDto,
-  InvoiceComparisonRunDto,
   InvoiceReviewDto,
   InvoicePanelTab,
-  LocalInvoiceFileDto,
   InvoiceSummaryDto,
   QueueItemDto,
   QueueRow,
@@ -28,14 +23,15 @@ import {
 } from './shared/models.js';
 import { applyInvoiceFilters, formatCurrency, formatDateTime, invoiceStatusTone, normalizeLabel } from './shared/utils.js';
 import { renderAdminPage } from './views/admin.js';
-import { renderComparisonPage } from './views/comparison.js';
-import { renderComplianceQueuePage } from './views/compliance-queue.js';
+import { renderAnalyticsPage } from './views/analytics.js';
+import { renderContractsPage } from './views/contracts.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderHelpPage } from './views/help.js';
 import { renderInvoiceQueueItems, renderInvoicesPage } from './views/invoices.js';
 import { renderNotificationsPage } from './views/notifications.js';
 import { renderInvoicePreviewModalRich } from './views/shared.js';
-import { renderValidationSummaryPage } from './views/validation-summary.js';
+import { renderReportsPage } from './views/reports.js';
+import { renderVendorsPage } from './views/vendors.js';
 
 type ReviewBundle = {
   review: InvoiceReviewDto | null;
@@ -46,14 +42,11 @@ type ReviewBundle = {
 const api = new InvoiceLensApiClient(window.location.origin);
 const compactTypographyStorageKey = 'InvoiceLens:compactTypography';
 const queueAutoScrollStorageKey = 'InvoiceLens:queueAutoScroll';
-const comparisonSelectionStorageKey = 'InvoiceLens:selectedComparisonLocalInvoiceId';
 const userRoleLabel = 'Finance Operations';
 
 const state: AppState = {
   route: 'dashboard',
   selectedInvoiceId: '',
-  selectedComparisonLocalInvoiceId: 0,
-  comparisonDetailFieldIndex: null,
   invoicePreviewOpen: false,
   activeInvoicePanel: 'insights',
   search: '',
@@ -68,28 +61,25 @@ const state: AppState = {
   queueSort: 'Oldest First',
   compactTypography: true,
   queueAutoScroll: true,
-  comparisonLoading: false,
-  comparisonError: null,
   loading: true,
   error: null,
 };
 
 const store = {
   invoices: [] as InvoiceSummaryDto[],
-  localInvoices: [] as LocalInvoiceFileDto[],
   queue: [] as QueueItemDto[],
   queueRows: [] as QueueRow[],
   syncStatus: null as SyncStatusDto | null,
-  comparisonRun: null as InvoiceComparisonRunDto | null,
   selected: new Map<string, ReviewBundle>(),
 };
 
 const routePaths: Record<Route, string> = {
   dashboard: '/',
   invoices: '/invoices',
-  comparison: '/comparison',
-  'compliance-queue': '/compliance-queue',
-  'validation-summary': '/validation-summary',
+  analytics: '/analytics',
+  contracts: '/contracts',
+  vendors: '/vendors',
+  reports: '/reports',
   notifications: '/notifications',
   help: '/help',
   admin: '/admin',
@@ -404,7 +394,6 @@ function persistBooleanSetting(storageKey: string, value: boolean): void {
 function loadWorkspaceSettings(): void {
   state.compactTypography = readBooleanSetting(compactTypographyStorageKey, true);
   state.queueAutoScroll = readBooleanSetting(queueAutoScrollStorageKey, true);
-  state.selectedComparisonLocalInvoiceId = readNumberSetting(comparisonSelectionStorageKey, 0);
 }
 
 function applyWorkspaceSettings(): void {
@@ -415,7 +404,6 @@ function applyWorkspaceSettings(): void {
 function persistWorkspaceSettings(): void {
   persistBooleanSetting(compactTypographyStorageKey, state.compactTypography);
   persistBooleanSetting(queueAutoScrollStorageKey, state.queueAutoScroll);
-  persistNumberSetting(comparisonSelectionStorageKey, state.selectedComparisonLocalInvoiceId);
   applyWorkspaceSettings();
 }
 
@@ -474,7 +462,7 @@ function syncProfile(profile = getCurrentAuthProfile()): void {
       profileAvatar.setAttribute('aria-label', `${profile.displayName} initials`);
     }
     profileName.textContent = profile.displayName;
-    profileRole.textContent = profile.email || userRoleLabel;
+    profileRole.textContent = profile.jobTitle || userRoleLabel;
     profileButton.setAttribute('aria-label', `Signed in as ${profile.displayName}`);
   } else {
     setAuthState(false);
@@ -515,14 +503,6 @@ function readRouteFromLocation(): {
       route: 'invoices',
       selectedInvoiceId: selected,
       invoicePreviewOpen: Boolean(selected),
-    };
-  }
-
-  if (pathname === '/comparison') {
-    return {
-      route: 'comparison',
-      selectedInvoiceId: '',
-      invoicePreviewOpen: false,
     };
   }
 
@@ -579,18 +559,6 @@ function navigateTo(route: Route, selectedInvoiceId = state.selectedInvoiceId, r
 
   syncBrowserLocation(state.route, state.route === 'invoices' ? state.selectedInvoiceId : '', replace, false);
   render();
-
-  if (state.route === 'comparison') {
-    const selectedComparisonInvoice = getSelectedComparisonInvoice();
-    if (selectedComparisonInvoice) {
-      persistComparisonSelection(selectedComparisonInvoice.localInvoiceFileId);
-      void loadComparisonRun(selectedComparisonInvoice.localInvoiceFileId).then(() => {
-        if (!state.loading && !state.error) {
-          render();
-        }
-      });
-    }
-  }
 }
 
 globalSearchForm?.addEventListener('submit', (event) => {
@@ -850,6 +818,7 @@ function buildAdminData(): AdminViewData {
     lastUpdated: selectedInvoice ? formatDateTime(selectedInvoice.updatedAtUtc) : 'Pending',
     compactTypography: state.compactTypography,
     queueAutoScroll: state.queueAutoScroll,
+    profile: getCurrentAuthProfile(),
   };
 }
 
@@ -1192,9 +1161,6 @@ function renderLoading(route = state.route): void {
     case 'invoices':
       pageHost.innerHTML = renderInvoicesLoadingState();
       return;
-    case 'compliance-queue':
-      pageHost.innerHTML = renderQueueLoadingState();
-      return;
     default:
       pageHost.innerHTML = renderGenericLoadingState();
       return;
@@ -1247,7 +1213,6 @@ function render(): void {
 
   const dashboardData = buildDashboardData();
   const reviewData = buildReviewViewData();
-  const comparisonData = buildComparisonViewData();
 
   const routeRenderers: Record<Route, () => string> = {
     dashboard: () => renderDashboard(dashboardData),
@@ -1264,18 +1229,10 @@ function render(): void {
         reviewData,
         state.activeInvoicePanel,
       ),
-    'compliance-queue': () =>
-      renderComplianceQueuePage(
-        store.queueRows,
-        state.search,
-        state.selectedInvoiceId,
-        state.queueSort,
-        dashboardData.queueSummary,
-        dashboardData.validationAlerts,
-        buildReviewViewData().review,
-      ),
-    comparison: () => renderComparisonPage(comparisonData),
-    'validation-summary': () => renderValidationSummaryPage(buildValidationViewData()),
+    analytics: () => renderAnalyticsPage(store.invoices, store.queueRows, dashboardData.validationAlerts, store.syncStatus),
+    contracts: () => renderContractsPage(store.invoices, store.queueRows, dashboardData.validationAlerts, store.syncStatus),
+    vendors: () => renderVendorsPage(store.invoices, store.queueRows, dashboardData.validationAlerts, store.syncStatus),
+    reports: () => renderReportsPage(store.invoices, store.queueRows, dashboardData.validationAlerts, store.syncStatus),
     notifications: () => renderNotificationsPage(store.queueRows, dashboardData.validationAlerts, state.selectedInvoiceId),
     help: () => renderHelpPage(),
     admin: () => renderAdminPage(buildAdminData()),
@@ -1296,15 +1253,8 @@ function render(): void {
   updateQueueCount();
   renderInvoiceCharts();
   applyInvoiceZoom();
-  document.body.classList.toggle('modal-open', state.invoicePreviewOpen || (state.route === 'comparison' && state.comparisonDetailFieldIndex !== null));
+  document.body.classList.toggle('modal-open', state.invoicePreviewOpen);
   syncProfile();
-
-  if (state.queueAutoScroll && state.route === 'compliance-queue') {
-    window.requestAnimationFrame(() => {
-      const selectedItem = document.querySelector<HTMLElement>('.queue-item.selected');
-      selectedItem?.scrollIntoView({ block: 'nearest' });
-    });
-  }
 }
 
 function clearSearch(): void {

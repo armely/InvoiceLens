@@ -1,6 +1,50 @@
-import { AdminViewData } from '../shared/models.js';
+import { AdminViewData, AuthProfile } from '../shared/models.js';
 import { formatDateTime, normalizeLabel } from '../shared/utils.js';
 import { pageHeader } from './shared.js';
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function detailRow(label: string, value: string | null | undefined, fallback = 'Not provided'): string {
+  const display = value && value.trim() ? escapeHtml(value.trim()) : fallback;
+  return `
+            <div class="settings-row">
+              <div>
+                <strong>${label}</strong>
+                <small>${display}</small>
+              </div>
+            </div>`;
+}
+
+function renderUserDetails(profile: AuthProfile | null): string {
+  const body = profile
+    ? `
+            ${detailRow('Full name', profile.displayName)}
+            ${detailRow('Email', profile.email)}
+            ${detailRow('Role / Position', profile.jobTitle)}
+            ${detailRow('Department', profile.department)}
+            ${detailRow('Office', profile.officeLocation)}`
+    : `
+            <div class="settings-row">
+              <div>
+                <strong>Not signed in</strong>
+                <small>Sign in with your Microsoft account to see your full profile details.</small>
+              </div>
+            </div>`;
+
+  return `
+        <article class="card">
+          <div class="card-header"><h2>User Details</h2><p>Your full Microsoft account profile.</p></div>
+          <div class="settings-list">${body}
+          </div>
+        </article>`;
+}
 
 export function renderAdminPage(data: AdminViewData): string {
   return `
@@ -17,6 +61,8 @@ export function renderAdminPage(data: AdminViewData): string {
       </section>
 
       <section class="settings-grid">
+        ${renderUserDetails(data.profile)}
+
         <article class="card">
           <div class="card-header"><h2>Sync Status</h2><p>Live status from the backend service.</p></div>
           <div class="settings-list">

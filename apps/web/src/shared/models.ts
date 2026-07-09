@@ -1,9 +1,10 @@
 export type Route =
   | 'dashboard'
   | 'invoices'
-  | 'comparison'
-  | 'compliance-queue'
-  | 'validation-summary'
+  | 'analytics'
+  | 'contracts'
+  | 'vendors'
+  | 'reports'
   | 'notifications'
   | 'help'
   | 'admin';
@@ -23,8 +24,6 @@ export type InvoicePanelTab = 'insights' | 'details';
 export interface AppState {
   route: Route;
   selectedInvoiceId: string;
-  selectedComparisonLocalInvoiceId: number;
-  comparisonDetailFieldIndex: number | null;
   invoicePreviewOpen: boolean;
   activeInvoicePanel: InvoicePanelTab;
   search: string;
@@ -39,8 +38,6 @@ export interface AppState {
   queueSort: QueueSortFilter;
   compactTypography: boolean;
   queueAutoScroll: boolean;
-  comparisonLoading: boolean;
-  comparisonError: string | null;
   loading: boolean;
   error: string | null;
 }
@@ -153,28 +150,6 @@ export interface NormalizedInvoice {
   lineItems: InvoiceLineItemDto[];
 }
 
-export interface InvoiceComparisonResultDto {
-  ruleCode: string;
-  label: string;
-  status: string;
-  severity: string;
-  localValue: string | null;
-  systemValue: string | null;
-  message: string | null;
-}
-
-export interface InvoiceComparisonRunDto {
-  comparisonRunId: number;
-  localInvoiceFile: LocalInvoiceFileDto;
-  systemInvoiceId: string | null;
-  matchStatus: string;
-  overallStatus: string;
-  matchScore: number | null;
-  createdAtUtc: string;
-  systemInvoice: NormalizedInvoice | null;
-  results: InvoiceComparisonResultDto[];
-}
-
 export interface ValidationCheckDto {
   ruleName: string;
   status: string;
@@ -267,35 +242,6 @@ export interface DashboardViewData {
   dashboardDateTo: string;
 }
 
-export interface ComparisonFieldViewModel {
-  ruleCode: string;
-  label: string;
-  scope: string;
-  status: string;
-  category: 'Match' | 'Warning' | 'Mismatch' | 'Missing from SQL' | 'Missing from vendor/OpenInvoice side' | 'Not enough data to compare';
-  localValue: string;
-  systemValue: string;
-  message: string;
-  severity: string;
-}
-
-export interface ComparisonViewData {
-  localInvoices: LocalInvoiceFileDto[];
-  selectedLocalInvoice: LocalInvoiceFileDto | null;
-  comparisonRun: InvoiceComparisonRunDto | null;
-  fields: ComparisonFieldViewModel[];
-  selectedFieldIndex: number | null;
-  selectedField: ComparisonFieldViewModel | null;
-  groupedResults: {
-    header: ComparisonFieldViewModel[];
-    lineItems: ComparisonFieldViewModel[];
-    guardrails: ComparisonFieldViewModel[];
-  };
-  pdfUrl: string | null;
-  loading: boolean;
-  error: string | null;
-}
-
 export interface ReviewViewData {
   queueRows: QueueRow[];
   review: InvoiceReviewDto | null;
@@ -321,6 +267,7 @@ export interface AdminViewData {
   lastUpdated: string;
   compactTypography: boolean;
   queueAutoScroll: boolean;
+  profile: AuthProfile | null;
 }
 
 export interface AuthProfile {
@@ -328,6 +275,9 @@ export interface AuthProfile {
   initials: string;
   email: string;
   photoDataUrl?: string | null;
+  jobTitle?: string | null;
+  department?: string | null;
+  officeLocation?: string | null;
 }
 
 export interface RuntimeAuthConfig {
