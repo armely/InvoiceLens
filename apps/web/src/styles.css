@@ -962,6 +962,97 @@ tbody tr:hover {
 .summary-card-sentback::before { background: linear-gradient(90deg, var(--red), #ff8492); }
 .summary-card-approved::before { background: linear-gradient(90deg, var(--green), #5de0a0); }
 
+.notifications-page .workspace {
+  display: grid;
+  gap: 16px;
+}
+
+.notifications-page .notifications-card {
+  padding: 0;
+}
+
+.notifications-page .notifications-list {
+  display: grid;
+  gap: 0;
+}
+
+.notifications-page .notification-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.notifications-page .notification-item:first-child {
+  border-top: 0;
+}
+
+.notifications-page .notification-item.is-read {
+  background: #fafcff;
+}
+
+.notifications-page .notification-main {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.notifications-page .notification-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.notifications-page .notification-title-row strong {
+  font-size: 14px;
+}
+
+.notifications-page .notification-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.notifications-page .notification-dot.critical {
+  background: var(--red);
+}
+
+.notifications-page .notification-dot.warning {
+  background: var(--amber);
+}
+
+.notifications-page .notification-dot.info {
+  background: var(--blue-600);
+}
+
+.notifications-page .notification-main p {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.notifications-page .notification-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.notifications-page .notification-actions {
+  flex: 0 0 auto;
+}
+
+.notifications-page .notification-actions .button {
+  min-height: 30px;
+  font-size: 12px;
+  padding: 0 10px;
+}
+
 .results-card {
   border-radius: 24px;
   background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%);

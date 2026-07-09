@@ -52,6 +52,7 @@ const api = new InvoiceLensApiClient(window.location.origin);
 const compactTypographyStorageKey = 'InvoiceLens:compactTypography';
 const queueAutoScrollStorageKey = 'InvoiceLens:queueAutoScroll';
 const invoiceColumnLayoutStorageKey = 'InvoiceLens:invoice-columns';
+const notificationReadStorageKey = 'InvoiceLens:notification-read';
 const userRoleLabel = 'Finance Operations';
 
 const state: AppState = {
@@ -125,6 +126,7 @@ let bootstrapping = false;
 let invoiceChartInstances: Array<{ destroy: () => void }> = [];
 let invoiceZoom = 1;
 let invoiceMutationInFlight = false;
+const readNotificationIds = new Set<string>();
 
 const invoiceColumnDefaults: InvoiceColumnLayout = {
   queueWidth: 360,
@@ -157,6 +159,45 @@ function persistInvoiceColumnLayout(layout: InvoiceColumnLayout): void {
     window.localStorage.setItem(invoiceColumnLayoutStorageKey, JSON.stringify(layout));
   } catch {
     // Ignore storage failures and keep session-only sizing.
+  }
+}
+
+function notificationId(alert: ValidationAlert): string {
+  return `${alert.invoiceId}:${alert.title}`;
+}
+
+function getNotificationsFeed(): ValidationAlert[] {
+  return buildDashboardValidationAlerts(store.invoices);
+}
+
+function loadNotificationReadState(): void {
+  try {
+    const raw = window.localStorage.getItem(notificationReadStorageKey);
+    if (!raw) {
+      return;
+    }
+
+    const parsed = JSON.parse(raw) as string[];
+    if (!Array.isArray(parsed)) {
+      return;
+    }
+
+    readNotificationIds.clear();
+    parsed.forEach((id) => {
+      if (typeof id === 'string') {
+        readNotificationIds.add(id);
+      }
+    });
+  } catch {
+    // Ignore storage failures and keep in-memory defaults.
+  }
+}
+
+function persistNotificationReadState(): void {
+  try {
+    window.localStorage.setItem(notificationReadStorageKey, JSON.stringify([...readNotificationIds]));
+  } catch {
+    // Ignore storage failures and keep session-only state.
   }
 }
 
@@ -968,11 +1009,11 @@ function updateQueueCount(): void {
 }
 
 function updateNotificationCount(): void {
-  const count = store.queueRows.length;
+  const unreadCount = getNotificationsFeed().filter((alert) => !readNotificationIds.has(notificationId(alert))).length;
 
   document.querySelectorAll<HTMLElement>('[data-count="notifications"]').forEach((item) => {
-    item.textContent = String(count);
-    item.hidden = count === 0;
+    item.textContent = String(unreadCount);
+    item.hidden = unreadCount === 0;
   });
 }
 
@@ -1368,7 +1409,7 @@ function render(): void {
     contracts: () => renderContractsPage(store.invoices, store.queueRows, dashboardData.validationAlerts, store.syncStatus),
     vendors: () => renderVendorsPage(store.invoices, store.queueRows, dashboardData.validationAlerts, store.syncStatus),
     reports: () => renderReportsPage(store.invoices, store.queueRows, dashboardData.validationAlerts, store.syncStatus),
-    notifications: () => renderNotificationsPage(store.queueRows, dashboardData.validationAlerts, state.selectedInvoiceId),
+    notifications: () => renderNotificationsPage(store.queueRows, getNotificationsFeed(), [...readNotificationIds]),
     help: () => renderHelpPage(),
     admin: () => renderAdminPage(buildAdminData()),
   };
@@ -1788,6 +1829,31 @@ document.addEventListener('click', (event) => {
       syncProfile();
       showToast('Settings saved.');
       break;
+    case 'mark-notification-read':
+      {
+        const id = actionElement.getAttribute('data-notification-id');
+        if (id) {
+          readNotificationIds.add(id);
+          persistNotificationReadState();
+          updateNotificationCount();
+          if (state.route === 'notifications') {
+            render();
+          }
+        }
+      }
+      break;
+    case 'mark-all-notifications-read':
+      {
+        getNotificationsFeed().forEach((alert) => {
+          readNotificationIds.add(notificationId(alert));
+        });
+        persistNotificationReadState();
+        updateNotificationCount();
+        if (state.route === 'notifications') {
+          render();
+        }
+      }
+      break;
     case 'toggle-switch':
       {
         const setting = actionElement.getAttribute('data-setting');
@@ -1948,6 +2014,7 @@ async function start(): Promise<void> {
 
   bootstrapping = true;
   loadWorkspaceSettings();
+  loadNotificationReadState();
   setBootstrapState(false);
   appDebug('App bootstrap started.', {
     pathname: window.location.pathname,
