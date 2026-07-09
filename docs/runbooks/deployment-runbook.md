@@ -26,6 +26,14 @@ az account set --subscription <your-subscription-id-or-name>
 Run from repository root:
 
 ```powershell
+.\infra\bicep\scripts\deploy-all-dev.ps1
+```
+
+That single command performs infra deploy, image builds, app image rollout, and endpoint verification.
+
+If you need the expanded steps, use the sequence below.
+
+```powershell
 # 1) Deploy infrastructure
 .\infra\bicep\scripts\deploy-dev.ps1
 
