@@ -632,8 +632,14 @@ export function getCurrentAuthProfile(): AuthProfile | null {
 }
 
 export async function initializeMicrosoftAuth(): Promise<MicrosoftAuthBootstrapResult> {
+  const cachedProfile = readStoredProfile();
+
   if (!isConfigured()) {
     authDebug('Microsoft auth is not configured; reading stored profile only.');
+    if (cachedProfile) {
+      return { profile: cachedProfile, unavailableMessage: null };
+    }
+
     return fetchMicrosoftSessionProfile();
   }
 
@@ -715,7 +721,26 @@ export async function initializeMicrosoftAuth(): Promise<MicrosoftAuthBootstrapR
     return { profile, unavailableMessage: null };
   }
 
-  authDebug('No auth callback present; reading stored profile.');
+  authDebug('No auth callback present; checking session state.');
+
+  if (cachedProfile) {
+    // Prefer instant UI hydration from cached profile and verify the real session in the background.
+    void fetchMicrosoftSessionProfile()
+      .then((sessionProfile) => {
+        if (sessionProfile.profile) {
+          persistProfile(sessionProfile.profile);
+          return;
+        }
+
+        clearProfile();
+      })
+      .catch(() => {
+        // Ignore background verification failures; runtime API calls will enforce session state.
+      });
+
+    return { profile: cachedProfile, unavailableMessage: null };
+  }
+
   const sessionProfile = await fetchMicrosoftSessionProfile();
   if (sessionProfile.profile) {
     persistProfile(sessionProfile.profile);
