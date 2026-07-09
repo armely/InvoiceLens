@@ -12,7 +12,203 @@ import {
   ValidationSummaryDto,
   VendorBar,
 } from '../shared/models.js';
-import { formatCurrency, formatDateTime, initials, normalizeLabel } from '../shared/utils.js';
+import { formatCurrency, formatDate, formatDateTime, initials, normalizeLabel } from '../shared/utils.js';
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? '').replace(/[&<>"']/g, (character) => {
+    switch (character) {
+      case '&':
+        return '&amp;';
+      case '<':
+        return '&lt;';
+      case '>':
+        return '&gt;';
+      case '"':
+        return '&quot;';
+      case '\'':
+        return '&#39;';
+      default:
+        return character;
+    }
+  });
+}
+
+export function renderInvoicePreviewModalRich(review: InvoiceReviewDto | null, loading = false): string {
+  const invoice = review?.invoice ?? null;
+  const isApproved = normalizeLabel(invoice?.status).toLowerCase() === 'approved';
+  const lineItems = invoice?.lineItems ?? [];
+  const totals = invoice?.totals ?? null;
+  const invoiceCurrency = invoice?.currency ?? 'USD';
+  const invoiceDate = invoice?.invoiceDateUtc ? formatDate(invoice.invoiceDateUtc) : 'Pending';
+  const dueDate = invoice?.dueDateUtc ? formatDate(invoice.dueDateUtc) : 'Pending';
+  const updatedAt = invoice?.updatedAtUtc ? formatDateTime(invoice.updatedAtUtc) : 'Pending';
+  const paymentTerms = invoice?.paymentTerms ?? '';
+  const notes = invoice?.notes ?? 'Thank you for your business. We appreciate the opportunity to support your team.';
+
+  const formatLines = (lines: Array<string | null | undefined>): string =>
+    lines
+      .filter((line): line is string => Boolean(line && line.trim()))
+      .map((line) => escapeHtml(line))
+      .join('<br />');
+
+  const renderPartyCard = (title: string, name: string, lines: Array<string | null | undefined>, className = ''): string => `
+    <article class="invoice-summary-party invoice-summary-party--compact ${className}">
+      <h3>${escapeHtml(title)}</h3>
+      <strong>${escapeHtml(name)}</strong>
+      <p>${formatLines(lines)}</p>
+    </article>
+  `;
+
+  return `
+    <div class="invoice-modal-backdrop invoice-modal-backdrop--rich" data-action="close-invoice-preview">
+      <section class="invoice-modal-shell invoice-modal-shell--rich" data-action="modal-shell" role="dialog" aria-modal="true" aria-labelledby="invoicePreviewTitle">
+        <header class="invoice-modal-header invoice-modal-header--rich">
+          <div class="invoice-modal-header-left">
+            <div class="invoice-preview-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+                <path d="M7 3.75h6.5L19.25 9v10.25A1.75 1.75 0 0 1 17.5 21h-10A1.75 1.75 0 0 1 5.75 19.25v-13.5A1.75 1.75 0 0 1 7.5 4h-.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
+                <path d="M13.25 3.75V9H19.25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M8.5 13.25h7M8.5 16.25h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+              </svg>
+            </div>
+            <div class="invoice-modal-header-copy">
+              <p class="modal-kicker">Invoice Preview</p>
+              <h2 id="invoicePreviewTitle">${invoice ? escapeHtml(invoice.invoiceNumber) : 'Invoice preview'}</h2>
+              <p class="invoice-modal-header-subtitle">${invoice ? `${escapeHtml(invoice.vendor)} <span aria-hidden="true">&bull;</span> ${escapeHtml(normalizeLabel(invoice.status))}` : loading ? 'Loading invoice details...' : 'Select an invoice to inspect.'}</p>
+            </div>
+          </div>
+          <div class="invoice-modal-header-badges">
+            ${invoice ? statusChip(normalizeLabel(invoice.status)) : '<span class="status-chip pending-neutral">Pending</span>'}
+            <button class="icon-button modal-close-button" type="button" aria-label="Close preview" data-action="close-invoice-preview">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+        </header>
+        <div class="invoice-modal-body invoice-modal-body--rich">
+          ${
+            invoice
+              ? `
+                <div class="invoice-document invoice-document--rich">
+                  <div class="invoice-document-hero">
+                    <section class="invoice-summary-brand">
+                      <div class="invoice-brand-header">
+                        <span class="brand-mark invoice-brand-mark" aria-hidden="true"></span>
+                        <div>
+                          <strong>InvoiceLens</strong>
+                          <span>Finance operations workspace</span>
+                        </div>
+                      </div>
+                      <div class="invoice-summary-contact">
+                        <strong>InvoiceLens LLC</strong>
+                        <p>500 Market Street, Suite 800<br />San Francisco, CA 94105<br />billing@invoicelens.com<br />(415) 555-0134</p>
+                      </div>
+                    </section>
+                    <section class="invoice-summary-meta invoice-summary-meta--hero">
+                      <div class="invoice-summary-title-row">
+                        <h3>Invoice</h3>
+                        ${statusChip(normalizeLabel(invoice.status))}
+                      </div>
+                      <div class="invoice-summary-panels">
+                        <article class="invoice-summary-party invoice-summary-party--compact invoice-summary-party--invoice">
+                          <h3>Invoice #</h3>
+                          <strong>${escapeHtml(invoice.invoiceNumber)}</strong>
+                          <div class="invoice-meta-list">
+                            <div class="invoice-meta-row">
+                              <span>Invoice Date</span>
+                              <strong>${escapeHtml(invoiceDate)}</strong>
+                            </div>
+                            <div class="invoice-meta-row">
+                              <span>Updated</span>
+                              <strong>${escapeHtml(updatedAt)}</strong>
+                            </div>
+                            <div class="invoice-meta-row">
+                              <span>Due Date</span>
+                              <strong>${escapeHtml(dueDate)}${paymentTerms ? ` <small>(${escapeHtml(paymentTerms)})</small>` : ''}</strong>
+                            </div>
+                          </div>
+                        </article>
+                        ${renderPartyCard('Bill To', invoice.billTo.name, [invoice.billTo.addressLine1, invoice.billTo.addressLine2, `${invoice.billTo.city}, ${invoice.billTo.region} ${invoice.billTo.postalCode}`.trim(), invoice.billTo.email, invoice.billTo.phone])}
+                        ${renderPartyCard('Vendor', invoice.vendorContact.name, [invoice.vendorContact.addressLine1, invoice.vendorContact.addressLine2, `${invoice.vendorContact.city}, ${invoice.vendorContact.region} ${invoice.vendorContact.postalCode}`.trim(), invoice.vendorContact.email])}
+                      </div>
+                    </section>
+                  </div>
+
+                  <div class="invoice-line-items">
+                    <div class="invoice-line-items-head">
+                      <span>Description</span>
+                      <span>Qty</span>
+                      <span>Rate</span>
+                      <span>Amount</span>
+                    </div>
+                    ${
+                      lineItems.length > 0
+                        ? lineItems
+                            .map(
+                              (line) => `
+                                <div class="invoice-line-item">
+                                  <div class="invoice-line-description">
+                                    <span class="invoice-line-badge">${line.lineNumber}</span>
+                                    <div>
+                                      <strong>${escapeHtml(line.description ?? 'Line item')}</strong>
+                                      <span>Line ${line.lineNumber}</span>
+                                    </div>
+                                  </div>
+                                  <span>${line.quantity}</span>
+                                  <span>${formatCurrency(line.unitPrice, invoiceCurrency)}</span>
+                                  <strong>${formatCurrency(line.amount, invoiceCurrency)}</strong>
+                                </div>
+                              `,
+                            )
+                            .join('')
+                        : `<div class="empty-state">No line items available.</div>`
+                    }
+                  </div>
+
+                  <div class="invoice-summary-footer">
+                    <section class="invoice-notes">
+                      <h3>Notes</h3>
+                      <p>${escapeHtml(notes)}</p>
+                    </section>
+                    <section class="invoice-totals">
+                      <div class="invoice-total-row">
+                        <span>Subtotal</span>
+                        <strong>${totals ? formatCurrency(totals.subtotal, invoiceCurrency) : formatCurrency(invoice.amount, invoiceCurrency)}</strong>
+                      </div>
+                      <div class="invoice-total-row">
+                        <span>Sales Tax${totals && totals.subtotal > 0 ? ` (${((totals.tax / totals.subtotal) * 100).toFixed(2)}%)` : ''}</span>
+                        <strong>${totals ? formatCurrency(totals.tax, invoiceCurrency) : formatCurrency(0, invoiceCurrency)}</strong>
+                      </div>
+                      <div class="invoice-total-row">
+                        <span>Discount</span>
+                        <strong>${totals ? formatCurrency(totals.discount, invoiceCurrency) : formatCurrency(0, invoiceCurrency)}</strong>
+                      </div>
+                      <div class="invoice-total-row invoice-total-row--grand">
+                        <span>Total</span>
+                        <strong>${totals ? formatCurrency(totals.total, invoiceCurrency) : formatCurrency(invoice.amount, invoiceCurrency)} <small>${escapeHtml(invoiceCurrency)}</small></strong>
+                      </div>
+                    </section>
+                  </div>
+                </div>
+              `
+              : `<div class="empty-state">${loading ? 'Loading invoice preview...' : 'No invoice selected.'}</div>`
+          }
+        </div>
+        <footer class="invoice-modal-footer invoice-modal-footer--rich">
+          <div class="modal-footer-copy">
+            <span class="status-chip ${isApproved ? 'approved' : 'pending-neutral'}">${invoice ? normalizeLabel(invoice.status) : 'Pending'}</span>
+            <span>${invoice ? (isApproved ? 'This invoice has been approved.' : 'Review the invoice details before approving.') : 'Select an invoice to inspect.'}</span>
+          </div>
+          <div class="modal-footer-actions">
+            <button class="button" type="button" data-action="download-pdf">Download PDF</button>
+            <button class="button" type="button" data-action="open-portal">Open Portal</button>
+            <button class="button success${isApproved ? ' is-complete' : ''}" type="button" data-action="approve-invoice" ${isApproved ? 'disabled aria-disabled="true"' : ''}>${isApproved ? 'Approved' : 'Approve'}</button>
+            <button class="button danger" type="button" data-action="send-back">Send Back</button>
+          </div>
+        </footer>
+      </section>
+    </div>
+  `;
+}
 
 function toneClass(value: string): string {
   const normalized = value.toLowerCase();
@@ -50,12 +246,14 @@ export function routeHref(route: Route, invoiceId?: string): string {
       return '/';
     case 'invoices':
       return invoiceId ? `/invoices/${encodeURIComponent(invoiceId)}` : '/invoices';
-    case 'comparison':
-      return '/comparison';
-    case 'compliance-queue':
-      return '/compliance-queue';
-    case 'validation-summary':
-      return '/validation-summary';
+    case 'analytics':
+      return '/analytics';
+    case 'contracts':
+      return '/contracts';
+    case 'vendors':
+      return '/vendors';
+    case 'reports':
+      return '/reports';
     case 'notifications':
       return '/notifications';
     case 'help':
@@ -513,6 +711,176 @@ export function renderAuditTrail(entries: AuditEntryDto[]): string {
           `,
         )
         .join('')}
+    </div>
+  `;
+}
+
+export function renderRichInvoiceModal(review: InvoiceReviewDto | null, loading = false): string {
+  const invoice = review?.invoice ?? null;
+  const isApproved = normalizeLabel(invoice?.status).toLowerCase() === 'approved';
+  const lineItems = invoice?.lineItems ?? [];
+  const totals = invoice?.totals ?? null;
+  const billToLines = invoice
+    ? [
+        invoice.billTo.name,
+        invoice.billTo.addressLine1,
+        invoice.billTo.addressLine2,
+        `${invoice.billTo.city}, ${invoice.billTo.region} ${invoice.billTo.postalCode}`.trim(),
+        invoice.billTo.email,
+        invoice.billTo.phone,
+      ].filter((line) => Boolean(line && line.trim()))
+    : [];
+  const vendorLines = invoice
+    ? [
+        invoice.vendorContact.name,
+        invoice.vendorContact.addressLine1,
+        invoice.vendorContact.addressLine2,
+        `${invoice.vendorContact.city}, ${invoice.vendorContact.region} ${invoice.vendorContact.postalCode}`.trim(),
+        invoice.vendorContact.email,
+      ].filter((line) => Boolean(line && line.trim()))
+    : [];
+  const invoiceDate = invoice?.invoiceDateUtc ? formatDateTime(invoice.invoiceDateUtc) : 'Pending';
+  const dueDate = invoice?.dueDateUtc ? formatDateTime(invoice.dueDateUtc) : 'Pending';
+  const notes = invoice?.notes ?? 'Thank you for your business. We appreciate the opportunity to support your team.';
+
+  return `
+    <div class="invoice-modal-backdrop invoice-modal-backdrop--rich" data-action="close-invoice-preview">
+      <section class="invoice-modal-shell invoice-modal-shell--rich" data-action="modal-shell" role="dialog" aria-modal="true" aria-labelledby="invoicePreviewTitle">
+        <header class="invoice-modal-header invoice-modal-header--rich">
+          <div class="invoice-modal-header-copy">
+            <p class="modal-kicker">Invoice Preview</p>
+            <h2 id="invoicePreviewTitle">${invoice ? invoice.invoiceNumber : 'Invoice preview'}</h2>
+            <p>${invoice ? `${invoice.vendor} • ${normalizeLabel(invoice.status)}` : loading ? 'Loading invoice details...' : 'Select an invoice to inspect.'}</p>
+          </div>
+          <div class="invoice-modal-header-badges">
+            ${invoice ? statusChip(normalizeLabel(invoice.status)) : '<span class="status-chip pending-neutral">Pending</span>'}
+            <button class="icon-button modal-close-button" type="button" aria-label="Close preview" data-action="close-invoice-preview">
+              <span aria-hidden="true">×</span>
+            </button>
+          </div>
+        </header>
+        <div class="invoice-modal-body invoice-modal-body--rich">
+          ${
+            invoice
+              ? `
+                <div class="invoice-document invoice-document--rich">
+                  <div class="invoice-summary-grid">
+                    <section class="invoice-summary-brand">
+                      <div class="invoice-brand-header">
+                        <div class="invoice-brand-badge">IL</div>
+                        <div>
+                          <strong>InvoiceLens LLC</strong>
+                          <span>Finance operations workspace</span>
+                        </div>
+                      </div>
+                      <p>500 Market Street, Suite 800<br />San Francisco, CA 94105<br />billing@invoicelens.com<br />(415) 555-0134</p>
+                    </section>
+                    <section class="invoice-summary-meta">
+                      <div class="invoice-summary-title-row">
+                        <h3>Invoice</h3>
+                        ${statusChip(normalizeLabel(invoice.status))}
+                      </div>
+                      <div class="invoice-summary-meta-grid">
+                        <div class="invoice-summary-meta-item">
+                          <small>Invoice #</small>
+                          <strong>${invoice.invoiceNumber}</strong>
+                        </div>
+                        <div class="invoice-summary-meta-item">
+                          <small>Invoice Date</small>
+                          <strong>${invoiceDate}</strong>
+                        </div>
+                        <div class="invoice-summary-meta-item">
+                          <small>Updated</small>
+                          <strong>${formatDateTime(invoice.updatedAtUtc)}</strong>
+                        </div>
+                        <div class="invoice-summary-meta-item">
+                          <small>Due Date</small>
+                          <strong>${dueDate}</strong>
+                        </div>
+                      </div>
+                    </section>
+                    <section class="invoice-summary-party">
+                      <h3>Bill To</h3>
+                      <strong>${invoice.billTo.name}</strong>
+                      <p>${billToLines.slice(1).join('<br />')}</p>
+                    </section>
+                    <section class="invoice-summary-party">
+                      <h3>Vendor</h3>
+                      <strong>${invoice.vendor}</strong>
+                      <p>${vendorLines.slice(1).join('<br />')}</p>
+                    </section>
+                  </div>
+
+                  <div class="invoice-line-items">
+                    <div class="invoice-line-items-head">
+                      <span>Description</span>
+                      <span>Qty</span>
+                      <span>Rate</span>
+                      <span>Amount</span>
+                    </div>
+                    ${
+                      lineItems.length > 0
+                        ? lineItems
+                            .map(
+                              (line) => `
+                                <div class="invoice-line-item">
+                                  <div class="invoice-line-description">
+                                    <strong>${line.description ?? 'Line item'}</strong>
+                                    <span>Line ${line.lineNumber}</span>
+                                  </div>
+                                  <span>${line.quantity}</span>
+                                  <span>${formatCurrency(line.unitPrice, invoice.currency)}</span>
+                                  <strong>${formatCurrency(line.amount, invoice.currency)}</strong>
+                                </div>
+                              `,
+                            )
+                            .join('')
+                        : `<div class="empty-state">No line items available.</div>`
+                    }
+                  </div>
+
+                  <div class="invoice-summary-footer">
+                    <section class="invoice-notes">
+                      <h3>Notes</h3>
+                      <p>${notes}</p>
+                    </section>
+                    <section class="invoice-totals">
+                      <div class="invoice-total-row">
+                        <span>Subtotal</span>
+                        <strong>${totals ? formatCurrency(totals.subtotal, invoice.currency) : formatCurrency(invoice.amount, invoice.currency)}</strong>
+                      </div>
+                      <div class="invoice-total-row">
+                        <span>Sales Tax</span>
+                        <strong>${totals ? formatCurrency(totals.tax, invoice.currency) : formatCurrency(0, invoice.currency)}</strong>
+                      </div>
+                      <div class="invoice-total-row">
+                        <span>Discount</span>
+                        <strong>${totals ? formatCurrency(totals.discount, invoice.currency) : formatCurrency(0, invoice.currency)}</strong>
+                      </div>
+                      <div class="invoice-total-row invoice-total-row--grand">
+                        <span>Total</span>
+                        <strong>${totals ? formatCurrency(totals.total, invoice.currency) : formatCurrency(invoice.amount, invoice.currency)} <small>${invoice.currency}</small></strong>
+                      </div>
+                    </section>
+                  </div>
+                </div>
+              `
+              : `<div class="empty-state">${loading ? 'Loading invoice preview...' : 'No invoice selected.'}</div>`
+          }
+        </div>
+        <footer class="invoice-modal-footer invoice-modal-footer--rich">
+          <div class="modal-footer-copy">
+            <span class="status-chip ${isApproved ? 'approved' : 'pending-neutral'}">${invoice ? normalizeLabel(invoice.status) : 'Pending'}</span>
+            <span>${invoice ? 'This invoice is fully seeded with vendor, billing, line item, and totals data.' : 'Select an invoice to inspect.'}</span>
+          </div>
+          <div class="modal-footer-actions">
+            <button class="button" type="button" data-action="download-pdf">Download PDF</button>
+            <button class="button" type="button" data-action="open-portal">Open Portal</button>
+            <button class="button success${isApproved ? ' is-complete' : ''}" type="button" data-action="approve-invoice" ${isApproved ? 'disabled aria-disabled="true"' : ''}>${isApproved ? 'Approved' : 'Approve'}</button>
+            <button class="button danger" type="button" data-action="send-back">Send Back</button>
+          </div>
+        </footer>
+      </section>
     </div>
   `;
 }

@@ -95,3 +95,29 @@ BEGIN
     CREATE INDEX IX_Invoice_OpenInvoiceDocumentId
         ON dbo.Invoice(OpenInvoiceDocumentId);
 END
+
+IF COL_LENGTH('dbo.Invoice', 'InvoiceDateUtc') IS NULL
+BEGIN
+    ALTER TABLE dbo.Invoice
+    ADD InvoiceDateUtc DATETIME2 NULL,
+        DueDateUtc DATETIME2 NULL,
+        BillToName NVARCHAR(150) NULL,
+        BillToAddressLine1 NVARCHAR(200) NULL,
+        BillToAddressLine2 NVARCHAR(200) NULL,
+        BillToCity NVARCHAR(100) NULL,
+        BillToRegion NVARCHAR(50) NULL,
+        BillToPostalCode NVARCHAR(20) NULL,
+        BillToEmail NVARCHAR(150) NULL,
+        BillToPhone NVARCHAR(40) NULL,
+        VendorAddressLine1 NVARCHAR(200) NULL,
+        VendorAddressLine2 NVARCHAR(200) NULL,
+        VendorCity NVARCHAR(100) NULL,
+        VendorRegion NVARCHAR(50) NULL,
+        VendorPostalCode NVARCHAR(20) NULL,
+        VendorEmail NVARCHAR(150) NULL,
+        PaymentTerms NVARCHAR(50) NULL,
+        Notes NVARCHAR(MAX) NULL,
+        SubtotalAmount DECIMAL(18,2) NULL,
+        TaxAmount DECIMAL(18,2) NULL,
+        DiscountAmount DECIMAL(18,2) NULL;
+END

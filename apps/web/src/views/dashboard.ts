@@ -62,7 +62,6 @@ export function renderDashboard(data: DashboardViewData): string {
             <article class="card">
               <div class="card-header">
                 <h2>Queue Snapshot</h2>
-                <a class="button ghost" href="${routeHref('compliance-queue')}" data-route="compliance-queue">Open queue -></a>
               </div>
               ${renderQueueSummary(data.queueSummary)}
               <div style="height: 18px"></div>
@@ -75,7 +74,6 @@ export function renderDashboard(data: DashboardViewData): string {
           <section class="card">
             <div class="card-header">
               <h2>Validation Signals</h2>
-              <a class="button ghost" href="${routeHref('validation-summary')}" data-route="validation-summary">Open details -></a>
             </div>
             <div class="alert-list">${renderAlertCards(data.validationAlerts)}</div>
           </section>

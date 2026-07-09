@@ -1,72 +1,114 @@
+using System.Text;
 using Microsoft.Data.SqlClient;
 
 namespace InvoiceLens.Infrastructure.Persistence;
 
 public sealed class InvoiceComparisonSchemaInitializer
 {
+    private static readonly (string Name, string Definition)[] InvoiceColumnDefinitions =
+    [
+        ("OpenInvoiceDocumentId", "NVARCHAR(120) NULL"),
+        ("InvoiceDateUtc", "DATETIME2 NULL"),
+        ("DueDateUtc", "DATETIME2 NULL"),
+        ("BillToName", "NVARCHAR(150) NULL"),
+        ("BillToAddressLine1", "NVARCHAR(200) NULL"),
+        ("BillToAddressLine2", "NVARCHAR(200) NULL"),
+        ("BillToCity", "NVARCHAR(100) NULL"),
+        ("BillToRegion", "NVARCHAR(50) NULL"),
+        ("BillToPostalCode", "NVARCHAR(20) NULL"),
+        ("BillToEmail", "NVARCHAR(150) NULL"),
+        ("BillToPhone", "NVARCHAR(40) NULL"),
+        ("VendorAddressLine1", "NVARCHAR(200) NULL"),
+        ("VendorAddressLine2", "NVARCHAR(200) NULL"),
+        ("VendorCity", "NVARCHAR(100) NULL"),
+        ("VendorRegion", "NVARCHAR(50) NULL"),
+        ("VendorPostalCode", "NVARCHAR(20) NULL"),
+        ("VendorEmail", "NVARCHAR(150) NULL"),
+        ("PaymentTerms", "NVARCHAR(50) NULL"),
+        ("Notes", "NVARCHAR(MAX) NULL"),
+        ("SubtotalAmount", "DECIMAL(18,2) NULL"),
+        ("TaxAmount", "DECIMAL(18,2) NULL"),
+        ("DiscountAmount", "DECIMAL(18,2) NULL"),
+    ];
+
+    private static readonly string[] SchemaScriptPathCandidates =
+    [
+        Path.Combine(AppContext.BaseDirectory, "database", "scripts", "create-schema.sql"),
+        Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "database", "scripts", "create-schema.sql")),
+        Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "database", "scripts", "create-schema.sql")),
+    ];
+
+    private static readonly string[] SeedScriptPathCandidates =
+    [
+        Path.Combine(AppContext.BaseDirectory, "database", "scripts", "seed-local-data.sql"),
+        Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "database", "scripts", "seed-local-data.sql")),
+        Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "database", "scripts", "seed-local-data.sql")),
+    ];
+
     public async Task EnsureAsync(CancellationToken cancellationToken = default)
     {
         await using var connection = SqlConnectionFactory.CreateConnection();
         await connection.OpenAsync(cancellationToken);
 
+        await ExecuteScriptAsync(connection, ResolveScriptPath(SchemaScriptPathCandidates, "database/scripts/create-schema.sql"), cancellationToken);
+        await EnsureLegacyInvoiceColumnsAsync(connection, cancellationToken);
+        await ExecuteScriptAsync(connection, ResolveScriptPath(SeedScriptPathCandidates, "database/scripts/seed-local-data.sql"), cancellationToken);
+    }
+
+    private static async Task EnsureLegacyInvoiceColumnsAsync(SqlConnection connection, CancellationToken cancellationToken)
+    {
+        await using var tableCheck = connection.CreateCommand();
+        tableCheck.CommandText = "SELECT CASE WHEN OBJECT_ID('dbo.Invoice', 'U') IS NULL THEN 0 ELSE 1 END;";
+
+        var tableExists = Convert.ToInt32(await tableCheck.ExecuteScalarAsync(cancellationToken)) == 1;
+        if (!tableExists)
+        {
+            return;
+        }
+
+        // Older databases can have dbo.Invoice created without later OpenInvoice columns.
+        foreach (var (name, definition) in InvoiceColumnDefinitions)
+        {
+            await AddColumnIfMissingAsync(connection, name, definition, cancellationToken);
+        }
+    }
+
+    private static async Task AddColumnIfMissingAsync(
+        SqlConnection connection,
+        string columnName,
+        string columnDefinition,
+        CancellationToken cancellationToken)
+    {
         await using var command = connection.CreateCommand();
-        command.CommandText = """
-            IF OBJECT_ID('dbo.LocalInvoiceFiles', 'U') IS NULL
+        command.CommandText = $"""
+            IF COL_LENGTH('dbo.Invoice', '{columnName}') IS NULL
             BEGIN
-                CREATE TABLE dbo.LocalInvoiceFiles (
-                    LocalInvoiceFileId INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-                    FileName NVARCHAR(255) NOT NULL,
-                    FilePath NVARCHAR(1000) NOT NULL,
-                    MetadataPath NVARCHAR(1000) NULL,
-                    InvoiceNumber NVARCHAR(100) NULL,
-                    SupplierNumber NVARCHAR(100) NULL,
-                    SupplierName NVARCHAR(255) NULL,
-                    TotalAmount DECIMAL(18,2) NULL,
-                    LoadedAtUtc DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
-                );
-            END;
-
-            IF OBJECT_ID('dbo.InvoiceComparisonRuns', 'U') IS NULL
-            BEGIN
-                CREATE TABLE dbo.InvoiceComparisonRuns (
-                    ComparisonRunId INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-                    LocalInvoiceFileId INT NOT NULL,
-                    SystemInvoiceId UNIQUEIDENTIFIER NULL,
-                    MatchStatus NVARCHAR(50) NOT NULL,
-                    OverallStatus NVARCHAR(50) NOT NULL,
-                    MatchScore DECIMAL(5,2) NULL,
-                    CreatedAtUtc DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
-                    CONSTRAINT FK_InvoiceComparisonRuns_LocalInvoiceFiles FOREIGN KEY (LocalInvoiceFileId) REFERENCES dbo.LocalInvoiceFiles(LocalInvoiceFileId) ON DELETE CASCADE,
-                    CONSTRAINT FK_InvoiceComparisonRuns_Invoice FOREIGN KEY (SystemInvoiceId) REFERENCES dbo.Invoice(InvoiceId) ON DELETE SET NULL
-                );
-            END;
-
-            IF OBJECT_ID('dbo.InvoiceComparisonResults', 'U') IS NULL
-            BEGIN
-                CREATE TABLE dbo.InvoiceComparisonResults (
-                    ComparisonResultId INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-                    ComparisonRunId INT NOT NULL,
-                    RuleCode NVARCHAR(100) NOT NULL,
-                    Label NVARCHAR(255) NOT NULL,
-                    Status NVARCHAR(50) NOT NULL,
-                    Severity NVARCHAR(50) NOT NULL,
-                    LocalValue NVARCHAR(1000) NULL,
-                    SystemValue NVARCHAR(1000) NULL,
-                    Message NVARCHAR(2000) NULL,
-                    CONSTRAINT FK_InvoiceComparisonResults_ComparisonRuns FOREIGN KEY (ComparisonRunId) REFERENCES dbo.InvoiceComparisonRuns(ComparisonRunId) ON DELETE CASCADE
-                );
-            END;
-
-            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UX_LocalInvoiceFiles_FileName' AND object_id = OBJECT_ID('dbo.LocalInvoiceFiles'))
-                CREATE UNIQUE INDEX UX_LocalInvoiceFiles_FileName ON dbo.LocalInvoiceFiles(FileName);
-
-            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_InvoiceComparisonRuns_LocalInvoiceFileId_CreatedAtUtc' AND object_id = OBJECT_ID('dbo.InvoiceComparisonRuns'))
-                CREATE INDEX IX_InvoiceComparisonRuns_LocalInvoiceFileId_CreatedAtUtc ON dbo.InvoiceComparisonRuns(LocalInvoiceFileId, CreatedAtUtc DESC);
-
-            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_InvoiceComparisonResults_ComparisonRunId' AND object_id = OBJECT_ID('dbo.InvoiceComparisonResults'))
-                CREATE INDEX IX_InvoiceComparisonResults_ComparisonRunId ON dbo.InvoiceComparisonResults(ComparisonRunId);
+                ALTER TABLE dbo.Invoice ADD [{columnName}] {columnDefinition};
+            END
             """;
 
         await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task ExecuteScriptAsync(SqlConnection connection, string scriptPath, CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = await File.ReadAllTextAsync(scriptPath, Encoding.UTF8, cancellationToken);
+        command.CommandTimeout = 180;
+
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static string ResolveScriptPath(IEnumerable<string> candidatePaths, string logicalName)
+    {
+        foreach (var path in candidatePaths.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (File.Exists(path))
+            {
+                return path;
+            }
+        }
+
+        throw new FileNotFoundException($"Unable to locate {logicalName} for schema initialization.");
     }
 }

@@ -40,7 +40,7 @@ SyncSchedule__ReconciliationMinutes=240
 SyncSchedule__RetryMinutes=30
 ```
 
-The API and worker build `ConnectionStrings:InvoiceLensDb` from those values at startup. For local dev, keep the values in [`.env`](../../.env). For Azure, set the same keys in App Service application settings or your deployment pipeline secret store.
+The API builds `ConnectionStrings:InvoiceLensDb` from those values at startup. For local dev, keep the values in [`.env`](../../.env). For Azure, set the same keys in the API App Service application settings or your deployment pipeline secret store.
 
 ## Database scripts
 

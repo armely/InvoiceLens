@@ -35,7 +35,7 @@
             <path d="M15 17H9a3 3 0 0 1-3-3V11a6 6 0 1 1 12 0v3a3 3 0 0 1-3 3Z"></path>
             <path d="M10 17a2 2 0 0 0 4 0"></path>
           </svg>
-          <span class="notify-badge">6</span>
+          <span class="notify-badge" data-count="notifications" hidden>0</span>
         </button>
         <button class="icon-button" type="button" data-route="help" aria-label="Help">
           <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
@@ -85,32 +85,44 @@
           </span>
           <span class="nav-label">Invoices</span>
         </a>
-        <a class="nav-item" href="/comparison" data-route="comparison">
+        <a class="nav-item" href="/analytics" data-route="analytics">
           <span class="nav-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" focusable="false">
-              <path d="M7 5h10M7 12h10M7 19h10"></path>
-              <path d="M5 7l2-2 2 2M5 14l2-2 2 2M5 21l2-2 2 2"></path>
+              <path d="M5 19V9"></path>
+              <path d="M12 19V5"></path>
+              <path d="M19 19v-8"></path>
             </svg>
           </span>
-          <span class="nav-label">Comparison</span>
+          <span class="nav-label">Analytics</span>
         </a>
-        <a class="nav-item" href="/compliance-queue" data-route="compliance-queue">
+        <a class="nav-item" href="/contracts" data-route="contracts">
           <span class="nav-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" focusable="false">
-              <rect x="4" y="4" width="16" height="16" rx="2"></rect>
-              <path d="m8.2 12.4 2.2 2.2 5.5-6"></path>
+              <rect x="4" y="5" width="16" height="14" rx="2"></rect>
+              <path d="M8 9h8M8 13h5"></path>
             </svg>
           </span>
-          <span class="nav-label">Review Queue</span>
-          <span class="nav-count" data-count="queue">0</span>
+          <span class="nav-label">Contracts</span>
         </a>
-        <a class="nav-item" href="/validation-summary" data-route="validation-summary">
+        <a class="nav-item" href="/vendors" data-route="vendors">
           <span class="nav-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" focusable="false">
-              <path d="M5 12.5 9.2 17 19 7"></path>
+              <circle cx="9" cy="9" r="3"></circle>
+              <circle cx="16" cy="10" r="2.5"></circle>
+              <path d="M4.8 18a4.2 4.2 0 0 1 8.4 0"></path>
+              <path d="M13.6 18a3.7 3.7 0 0 1 6 0"></path>
             </svg>
           </span>
-          <span class="nav-label">Validation Summary</span>
+          <span class="nav-label">Vendors</span>
+        </a>
+        <a class="nav-item" href="/reports" data-route="reports">
+          <span class="nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <path d="M7 4h7l4 4v12H7z"></path>
+              <path d="M10 12h4M10 16h4M10 8h2"></path>
+            </svg>
+          </span>
+          <span class="nav-label">Reports</span>
         </a>
         <a class="nav-item" href="/admin" data-route="admin">
           <span class="nav-icon" aria-hidden="true">
@@ -135,6 +147,6 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="/runtime-config.js"></script>
   <script src="/vendor/chart.umd.js"></script>
-  <script type="module" src="/main.js?v=20260702"></script>
+  <script type="module" src="/main.js?v=20260708"></script>
 </body>
 </html>

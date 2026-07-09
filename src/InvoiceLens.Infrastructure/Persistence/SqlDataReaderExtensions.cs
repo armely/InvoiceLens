@@ -25,6 +25,12 @@ internal static class SqlDataReaderExtensions
         return reader.GetDecimal(reader.GetOrdinal(name));
     }
 
+    public static decimal? GetNullableDecimalValue(this SqlDataReader reader, string name)
+    {
+        var ordinal = reader.GetOrdinal(name);
+        return reader.IsDBNull(ordinal) ? null : reader.GetDecimal(ordinal);
+    }
+
     public static int GetInt32Value(this SqlDataReader reader, string name)
     {
         return reader.GetInt32(reader.GetOrdinal(name));

@@ -118,79 +118,75 @@ export function renderVendorsPage(
 
   return `
     <section class="page active vendors-page">
-      <div class="page-grid">
-        <div class="workspace">
-          ${pageHeader('Vendors', 'Supplier performance, queue exposure, and spend concentration from the current invoice set.', `
-            <span class="status-chip pending-neutral">${syncStatus ? normalizeLabel(syncStatus.status) : 'Pending sync'}</span>
-          `)}
+      ${pageHeader('Vendors', 'Supplier performance, queue exposure, and spend concentration from the current invoice set.', `
+        <span class="status-chip pending-neutral">${syncStatus ? normalizeLabel(syncStatus.status) : 'Pending sync'}</span>
+      `)}
 
-          <section class="summary-strip">
-            <div class="summary-card summary-card-total">
-              <small>Tracked Vendors</small>
-              <strong>${vendorRows.length}</strong>
-              <span>Top suppliers active in the workspace</span>
-            </div>
-            <div class="summary-card summary-card-pending">
-              <small>Total Spend</small>
-              <strong>${formatCurrency(totalSpend, 'USD')}</strong>
-              <span>Concentrated across the displayed vendor set</span>
-            </div>
-            <div class="summary-card summary-card-sentback">
-              <small>Queue Exposure</small>
-              <strong>${queueRows.length}</strong>
-              <span>Invoices waiting on vendor review</span>
-            </div>
-            <div class="summary-card summary-card-approved">
-              <small>Approved Share</small>
-              <strong>${approvedShare}%</strong>
-              <span>${syncStatus ? `Updated ${formatDateTime(syncStatus.lastSuccessfulRunUtc)}` : 'Sync details pending'}</span>
-            </div>
-          </section>
+      <section class="vendors-top-grid">
+        <section class="summary-strip vendors-summary-strip">
+          <div class="summary-card summary-card-total">
+            <small>Tracked Vendors</small>
+            <strong>${vendorRows.length}</strong>
+            <span>Top suppliers active in the workspace</span>
+          </div>
+          <div class="summary-card summary-card-pending">
+            <small>Total Spend</small>
+            <strong>${formatCurrency(totalSpend, 'USD')}</strong>
+            <span>Concentrated across the displayed vendor set</span>
+          </div>
+          <div class="summary-card summary-card-sentback">
+            <small>Queue Exposure</small>
+            <strong>${queueRows.length}</strong>
+            <span>Invoices waiting on vendor review</span>
+          </div>
+          <div class="summary-card summary-card-approved">
+            <small>Approved Share</small>
+            <strong>${approvedShare}%</strong>
+            <span>${syncStatus ? `Updated ${formatDateTime(syncStatus.lastSuccessfulRunUtc)}` : 'Sync details pending'}</span>
+          </div>
+        </section>
 
-          <section class="content-row">
-            <article class="card">
-              <div class="card-header">
-                <div>
-                  <h2>Vendor Scorecard</h2>
-                  <p>Spend, queue, and approval signals sorted by supplier value.</p>
-                </div>
-                <span class="status-chip pending-neutral">${vendorRows.length} vendors</span>
-              </div>
-              ${renderVendorTable(vendorRows)}
-            </article>
+        <section class="card vendors-alerts-card">
+          <div class="card-header">
+            <div>
+              <h2>Validation Alerts</h2>
+              <p>Open exceptions tied to the current vendor set.</p>
+            </div>
+            <span class="status-chip exception">${validationAlerts.length}</span>
+          </div>
+          <div class="alert-list">${renderAlertCards(validationAlerts.slice(0, 4))}</div>
+        </section>
+      </section>
 
-            <article class="card">
-              <div class="card-header">
-                <div>
-                  <h2>Top Supplier Mix</h2>
-                  <p>Invoice volume distribution across active vendors.</p>
-                </div>
-                <span class="status-chip approved">Ranked</span>
-              </div>
-              ${renderVendorBars(vendorBars)}
-            </article>
-          </section>
-
-          <section class="card">
+      <section class="page-section">
+        <div class="page-section-header">
+          <div>
+            <h2>Vendor Performance</h2>
+            <p>Scorecard, supplier mix, and notes arranged in three clean columns.</p>
+          </div>
+        </div>
+        <div class="vendors-three-column-grid">
+          <article class="card">
             <div class="card-header">
               <div>
-                <h2>Vendor Invoices</h2>
-                <p>Recent invoices that feed the vendor view.</p>
+                <h2>Vendor Scorecard</h2>
+                <p>Spend, queue, and approval signals sorted by supplier value.</p>
               </div>
-              <a class="button ghost" href="/invoices">Open invoices -></a>
+              <span class="status-chip pending-neutral">${vendorRows.length} vendors</span>
             </div>
-            ${renderInvoiceTable(invoices.slice(0, 6))}
-          </section>
-        </div>
+            ${renderVendorTable(vendorRows)}
+          </article>
 
-        <aside class="side-panel">
-          <section class="card">
+          <article class="card">
             <div class="card-header">
-              <h2>Validation Alerts</h2>
-              <span class="status-chip exception">${validationAlerts.length}</span>
+              <div>
+                <h2>Top Supplier Mix</h2>
+                <p>Invoice volume distribution across active vendors.</p>
+              </div>
+              <span class="status-chip approved">Ranked</span>
             </div>
-            <div class="alert-list">${renderAlertCards(validationAlerts.slice(0, 4))}</div>
-          </section>
+            ${renderVendorBars(vendorBars)}
+          </article>
 
           <section class="card">
             <div class="card-header">
@@ -218,8 +214,19 @@ export function renderVendorsPage(
               </div>
             </div>
           </section>
-        </aside>
-      </div>
+        </div>
+      </section>
+
+      <section class="card page-snapshot-card">
+        <div class="card-header">
+          <div>
+            <h2>Vendor Invoices</h2>
+            <p>Recent invoices that feed the vendor view.</p>
+          </div>
+          <a class="button ghost" href="/invoices">Open invoices -></a>
+        </div>
+        ${renderInvoiceTable(invoices.slice(0, 6))}
+      </section>
     </section>
   `;
 }

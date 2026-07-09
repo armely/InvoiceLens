@@ -4,16 +4,9 @@ namespace InvoiceLens.Infrastructure.Configuration;
 
 public static class DotEnvLoader
 {
-    private static readonly string[] CandidatePaths =
-    [
-        Path.Combine(AppContext.BaseDirectory, ".env"),
-        Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".env")),
-        Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", ".env")),
-    ];
-
     public static void Load()
     {
-        foreach (var path in CandidatePaths.Distinct(StringComparer.OrdinalIgnoreCase))
+        foreach (var path in GetCandidatePaths())
         {
             if (!File.Exists(path))
             {
@@ -21,6 +14,63 @@ public static class DotEnvLoader
             }
 
             LoadFile(path);
+        }
+    }
+
+    private static IEnumerable<string> GetCandidatePaths()
+    {
+        var environmentName = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT")
+            ?? Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")
+            ?? "Production";
+
+        var fileNames = new List<string> { ".env" };
+        foreach (var fileName in GetEnvironmentOverrideNames(environmentName))
+        {
+            if (!fileNames.Contains(fileName, StringComparer.OrdinalIgnoreCase))
+            {
+                fileNames.Add(fileName);
+            }
+        }
+
+        var baseDirectories = new[]
+        {
+            AppContext.BaseDirectory,
+            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..")),
+            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..")),
+        };
+
+        return baseDirectories
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .SelectMany(baseDirectory => fileNames.Select(fileName => Path.Combine(baseDirectory, fileName)))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static IEnumerable<string> GetEnvironmentOverrideNames(string environmentName)
+    {
+        var normalized = environmentName.Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            yield break;
+        }
+
+        var lower = normalized.ToLowerInvariant();
+        yield return $".env.{lower}";
+
+        if (lower is "development" or "dev" or "local")
+        {
+            yield return ".env.local";
+            yield break;
+        }
+
+        if (lower is "production" or "prod")
+        {
+            yield return ".env.prod";
+            yield break;
+        }
+
+        if (lower is "test" or "testing")
+        {
+            yield return ".env.test";
         }
     }
 

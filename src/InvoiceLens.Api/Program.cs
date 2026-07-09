@@ -93,19 +93,36 @@ using (var scope = app.Services.CreateScope())
     }
     catch (SqlException exception)
     {
-        Console.Error.WriteLine("""
-            InvoiceLens cannot start because SQL Server is unreachable.
+        if (exception.Number == 207)
+        {
+            Console.Error.WriteLine("""
+                InvoiceLens cannot start because the SQL schema is missing required columns.
 
-            Check the root .env values for:
-            - InvoiceLens__Sql__ServerHost
-            - InvoiceLens__Sql__DatabaseName
-            - InvoiceLens__Sql__Username
-            - InvoiceLens__Sql__Password
+                This usually means the database was created from older scripts.
+                Run the latest initialization scripts from:
+                - database/scripts/create-schema.sql
+                - database/scripts/seed-local-data.sql
 
-            If you are using SQL Server Express, the host usually looks like localhost\SQLEXPRESS.
-            If you are using Docker or local SQL Server, the host is often localhost,1433.
-            If you are using Azure SQL, the host usually looks like your-server.database.windows.net.
-            """);
+                Then start the API again.
+                """);
+        }
+        else
+        {
+            Console.Error.WriteLine("""
+                InvoiceLens cannot start because SQL Server is unreachable.
+
+                Check the root .env values for:
+                - InvoiceLens__Sql__ServerHost
+                - InvoiceLens__Sql__DatabaseName
+                - InvoiceLens__Sql__Username
+                - InvoiceLens__Sql__Password
+
+                If you are using SQL Server Express, the host usually looks like localhost\SQLEXPRESS.
+                If you are using Docker or local SQL Server, the host is often localhost,1433.
+                If you are using Azure SQL, the host usually looks like your-server.database.windows.net.
+                """);
+        }
+
         Console.Error.WriteLine(exception.Message);
         Environment.ExitCode = 1;
         return;

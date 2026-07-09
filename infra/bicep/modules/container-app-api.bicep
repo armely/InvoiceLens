@@ -3,6 +3,8 @@ param location string
 param environmentId string
 param acrServer string
 param apiImage string
+param openInvoiceBaseUrl string = ''
+param openInvoiceHmacSigningKey string = ''
 
 resource app 'Microsoft.App/containerApps@2024-03-01' = {
   name: name
@@ -22,6 +24,16 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
         {
           name: 'api'
           image: '${acrServer}/${apiImage}'
+          env: [
+            {
+              name: 'OpenInvoice__BaseUrl'
+              value: openInvoiceBaseUrl
+            }
+            {
+              name: 'OpenInvoice__HmacSigningKey'
+              value: openInvoiceHmacSigningKey
+            }
+          ]
           resources: {
             cpu: json('0.5')
             memory: '1Gi'

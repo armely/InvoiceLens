@@ -128,101 +128,102 @@ export function renderContractsPage(
 
   return `
     <section class="page active contracts-page">
-      <div class="page-grid">
-        <div class="workspace">
-          ${pageHeader('Contracts', 'Contract posture, vendor coverage, and review status pulled from the current workspace records.', `
-            <span class="status-chip ${syncStatus ? (syncLabel.toLowerCase().includes('healthy') ? 'approved' : 'warning') : 'pending-neutral'}">${escapeHtml(syncLabel)}</span>
-          `)}
+      ${pageHeader('Contracts', 'Contract posture, vendor coverage, and review status pulled from the current workspace records.', `
+        <span class="status-chip ${syncStatus ? (syncLabel.toLowerCase().includes('healthy') ? 'approved' : 'warning') : 'pending-neutral'}">${escapeHtml(syncLabel)}</span>
+      `)}
 
-          <section class="summary-strip">
-            <div class="summary-card summary-card-total">
-              <small>Active Vendors</small>
-              <strong>${vendorRows.length}</strong>
-              <span>Highest spend relationships in the current set</span>
-            </div>
-            <div class="summary-card summary-card-pending">
-              <small>Queue Linked</small>
-              <strong>${queueRows.length}</strong>
-              <span>Records carrying a review reason</span>
-            </div>
-            <div class="summary-card summary-card-sentback">
-              <small>Exceptions</small>
-              <strong>${validationAlerts.length}</strong>
-              <span>Validation signals tied to contract checks</span>
-            </div>
-            <div class="summary-card summary-card-approved">
-              <small>Sync State</small>
-              <strong>${syncLabel}</strong>
-              <span>${syncStatus ? `Last synced ${formatDateTime(syncStatus.lastSuccessfulRunUtc)}` : 'Sync details pending'}</span>
-            </div>
-          </section>
+      <section class="summary-strip contracts-summary-strip">
+        <div class="summary-card summary-card-total">
+          <small>Active Vendors</small>
+          <strong>${vendorRows.length}</strong>
+          <span>Highest spend relationships in the current set</span>
+        </div>
+        <div class="summary-card summary-card-pending">
+          <small>Queue Linked</small>
+          <strong>${queueRows.length}</strong>
+          <span>Records carrying a review reason</span>
+        </div>
+        <div class="summary-card summary-card-sentback">
+          <small>Exceptions</small>
+          <strong>${validationAlerts.length}</strong>
+          <span>Validation signals tied to contract checks</span>
+        </div>
+        <div class="summary-card summary-card-approved">
+          <small>Sync State</small>
+          <strong>${syncLabel}</strong>
+          <span>${syncStatus ? `Last synced ${formatDateTime(syncStatus.lastSuccessfulRunUtc)}` : 'Sync details pending'}</span>
+        </div>
+      </section>
 
-          <section class="content-row">
-            <article class="card">
-              <div class="card-header">
-                <div>
-                  <h2>Contract Coverage Matrix</h2>
-                  <p>Vendor-level totals, queue pressure, and review posture.</p>
-                </div>
-                <span class="status-chip pending-neutral">Top 6</span>
-              </div>
-              ${renderVendorTable(vendorRows)}
-            </article>
-
-            <article class="card">
-              <div class="card-header">
-                <div>
-                  <h2>Guardrails</h2>
-                  <p>What the workspace is checking against each invoice.</p>
-                </div>
-                <span class="status-chip approved">Policy</span>
-              </div>
-              <div class="settings-list">
-                <div class="settings-row">
-                  <div>
-                    <strong>MSA rate caps</strong>
-                    <small>Comparing billed rates with the contract ceiling</small>
-                  </div>
-                  <span class="status-chip warning">Active</span>
-                </div>
-                <div class="settings-row">
-                  <div>
-                    <strong>Tax validation</strong>
-                    <small>Ensuring totals stay aligned with the tax profile</small>
-                  </div>
-                  <span class="status-chip approved">Active</span>
-                </div>
-                <div class="settings-row">
-                  <div>
-                    <strong>Insurance and W-9</strong>
-                    <small>Vendor registration records are checked automatically</small>
-                  </div>
-                  <span class="status-chip approved">Active</span>
-                </div>
-                <div class="settings-row">
-                  <div>
-                    <strong>Duplicate invoice detection</strong>
-                    <small>Matching invoice identifiers before approval</small>
-                  </div>
-                  <span class="status-chip warning">Active</span>
-                </div>
-              </div>
-            </article>
-          </section>
-
-          <section class="card">
+      <section class="page-section">
+        <div class="page-section-header">
+          <div>
+            <h2>Coverage and Guardrails</h2>
+            <p>Contract coverage on one side and the rules that enforce it on the other.</p>
+          </div>
+        </div>
+        <div class="page-section-grid">
+          <article class="card">
             <div class="card-header">
               <div>
-                <h2>Contract-Linked Invoices</h2>
-                <p>Recent invoice records that help support contract review.</p>
+                <h2>Contract Coverage Matrix</h2>
+                <p>Vendor-level totals, queue pressure, and review posture.</p>
               </div>
-              <a class="button ghost" href="/invoices">Open invoices -></a>
+              <span class="status-chip pending-neutral">Top 6</span>
             </div>
-            ${renderInvoiceTable(contractLinkedInvoices)}
-          </section>
-        </div>
+            ${renderVendorTable(vendorRows)}
+          </article>
 
-        <aside class="side-panel">
+          <article class="card">
+            <div class="card-header">
+              <div>
+                <h2>Guardrails</h2>
+                <p>What the workspace is checking against each invoice.</p>
+              </div>
+              <span class="status-chip approved">Policy</span>
+            </div>
+            <div class="settings-list">
+              <div class="settings-row">
+                <div>
+                  <strong>MSA rate caps</strong>
+                  <small>Comparing billed rates with the contract ceiling</small>
+                </div>
+                <span class="status-chip warning">Active</span>
+              </div>
+              <div class="settings-row">
+                <div>
+                  <strong>Tax validation</strong>
+                  <small>Ensuring totals stay aligned with the tax profile</small>
+                </div>
+                <span class="status-chip approved">Active</span>
+              </div>
+              <div class="settings-row">
+                <div>
+                  <strong>Insurance and W-9</strong>
+                  <small>Vendor registration records are checked automatically</small>
+                </div>
+                <span class="status-chip approved">Active</span>
+              </div>
+              <div class="settings-row">
+                <div>
+                  <strong>Duplicate invoice detection</strong>
+                  <small>Matching invoice identifiers before approval</small>
+                </div>
+                <span class="status-chip warning">Active</span>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="page-section">
+        <div class="page-section-header">
+          <div>
+            <h2>Supporting Views</h2>
+            <p>Concentration and validation signals separated into their own cards.</p>
+          </div>
+        </div>
+        <div class="page-support-grid">
           <section class="card">
             <div class="card-header">
               <h2>Vendor Concentration</h2>
@@ -238,8 +239,19 @@ export function renderContractsPage(
             </div>
             <div class="alert-list">${renderAlertCards(validationAlerts.slice(0, 4))}</div>
           </section>
-        </aside>
-      </div>
+        </div>
+      </section>
+
+      <section class="card page-snapshot-card">
+        <div class="card-header">
+          <div>
+            <h2>Contract-Linked Invoices</h2>
+            <p>Recent invoice records that help support contract review.</p>
+          </div>
+          <a class="button ghost" href="/invoices">Open invoices -></a>
+        </div>
+        ${renderInvoiceTable(contractLinkedInvoices)}
+      </section>
     </section>
   `;
 }

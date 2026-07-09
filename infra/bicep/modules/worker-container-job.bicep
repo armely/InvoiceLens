@@ -3,6 +3,8 @@ param location string
 param managedEnvironmentId string
 param acrServer string
 param workerImage string
+param openInvoiceBaseUrl string = ''
+param openInvoiceHmacSigningKey string = ''
 
 resource job 'Microsoft.App/jobs@2024-03-01' = {
   name: name
@@ -11,6 +13,7 @@ resource job 'Microsoft.App/jobs@2024-03-01' = {
     environmentId: managedEnvironmentId
     configuration: {
       triggerType: 'Schedule'
+      replicaTimeout: 1800
       scheduleTriggerConfig: {
         cronExpression: '0 */1 * * *'
         parallelism: 1
@@ -24,6 +27,16 @@ resource job 'Microsoft.App/jobs@2024-03-01' = {
         {
           name: 'worker'
           image: '${acrServer}/${workerImage}'
+          env: [
+            {
+              name: 'OpenInvoice__BaseUrl'
+              value: openInvoiceBaseUrl
+            }
+            {
+              name: 'OpenInvoice__HmacSigningKey'
+              value: openInvoiceHmacSigningKey
+            }
+          ]
           resources: {
             cpu: json('0.5')
             memory: '1Gi'

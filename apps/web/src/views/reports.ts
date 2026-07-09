@@ -82,55 +82,56 @@ export function renderReportsPage(
 
   return `
     <section class="page active reports-page">
-      <div class="page-grid">
-        <div class="workspace">
-          ${pageHeader('Reports', 'Ready-to-share operational summaries with links back into the invoice workspace.', `
-            <span class="status-chip approved">Updated ${escapeHtml(lastSync)}</span>
-          `)}
+      ${pageHeader('Reports', 'Ready-to-share operational summaries with links back into the invoice workspace.', `
+        <span class="status-chip approved">Updated ${escapeHtml(lastSync)}</span>
+      `)}
 
-          <section class="summary-strip">
-            <div class="summary-card summary-card-total">
-              <small>Report-Ready Invoices</small>
-              <strong>${invoices.length}</strong>
-              <span>Source data available for export</span>
-            </div>
-            <div class="summary-card summary-card-pending">
-              <small>Queue Items</small>
-              <strong>${queueRows.length}</strong>
-              <span>Built into the current report pack</span>
-            </div>
-            <div class="summary-card summary-card-sentback">
-              <small>Validation Alerts</small>
-              <strong>${validationAlerts.length}</strong>
-              <span>Exceptions included in the review summary</span>
-            </div>
-            <div class="summary-card summary-card-approved">
-              <small>Total Spend</small>
-              <strong>${formatCurrency(totalAmount, 'USD')}</strong>
-              <span>${approvedCount} approved invoices in the current set</span>
-            </div>
-          </section>
-
-          <section class="settings-grid">
-            ${renderReportCard('Monthly close pack', 'A fast summary of invoices, totals, and approval state.', `${invoices.length} invoices`, '/invoices', 'invoices', 'approved')}
-            ${renderReportCard('Operational dashboard', 'A live workspace view for current invoice activity.', `${queueRows.length} queue items`, '/', 'dashboard', 'warning')}
-            ${renderReportCard('Vendor performance report', 'Shows supplier concentration and approval patterns.', `${vendorBars.length} ranked vendors`, '/vendors', 'vendors', 'approved')}
-            ${renderReportCard('Notifications digest', 'A short list of current alerts and queue activity.', `${validationAlerts.length} active alerts`, '/notifications', 'notifications', 'exception')}
-          </section>
-
-          <section class="card">
-            <div class="card-header">
-              <div>
-                <h2>Recent Invoice Snapshot</h2>
-                <p>Source data that feeds the reporting views.</p>
-              </div>
-              <a class="button ghost" href="/invoices">Open invoices -></a>
-            </div>
-            ${renderInvoiceTable(invoices.slice(0, 6))}
-          </section>
+      <section class="summary-strip reports-summary-strip">
+        <div class="summary-card summary-card-total">
+          <small>Report-Ready Invoices</small>
+          <strong>${invoices.length}</strong>
+          <span>Source data available for export</span>
         </div>
+        <div class="summary-card summary-card-pending">
+          <small>Queue Items</small>
+          <strong>${queueRows.length}</strong>
+          <span>Built into the current report pack</span>
+        </div>
+        <div class="summary-card summary-card-sentback">
+          <small>Validation Alerts</small>
+          <strong>${validationAlerts.length}</strong>
+          <span>Exceptions included in the review summary</span>
+        </div>
+        <div class="summary-card summary-card-approved">
+          <small>Total Spend</small>
+          <strong>${formatCurrency(totalAmount, 'USD')}</strong>
+          <span>${approvedCount} approved invoices in the current set</span>
+        </div>
+      </section>
 
-        <aside class="side-panel">
+      <section class="reports-section">
+        <div class="reports-section-header">
+          <div>
+            <h2>Report Packs</h2>
+            <p>Shortcuts to the views that feed the shared reporting workflow.</p>
+          </div>
+        </div>
+        <div class="reports-pack-grid">
+          ${renderReportCard('Monthly close pack', 'A fast summary of invoices, totals, and approval state.', `${invoices.length} invoices`, '/invoices', 'invoices', 'approved')}
+          ${renderReportCard('Operational dashboard', 'A live workspace view for current invoice activity.', `${queueRows.length} queue items`, '/', 'dashboard', 'warning')}
+          ${renderReportCard('Vendor performance report', 'Shows supplier concentration and approval patterns.', `${vendorBars.length} ranked vendors`, '/vendors', 'vendors', 'approved')}
+          ${renderReportCard('Notifications digest', 'A short list of current alerts and queue activity.', `${validationAlerts.length} active alerts`, '/notifications', 'notifications', 'exception')}
+        </div>
+      </section>
+
+      <section class="reports-section">
+        <div class="reports-section-header">
+          <div>
+            <h2>Supporting Sections</h2>
+            <p>Vendor concentration, exceptions, and operational notes each have their own card.</p>
+          </div>
+        </div>
+        <div class="reports-support-grid">
           <section class="card">
             <div class="card-header">
               <h2>Vendor Mix</h2>
@@ -147,7 +148,7 @@ export function renderReportsPage(
             <div class="alert-list">${renderAlertCards(validationAlerts.slice(0, 4))}</div>
           </section>
 
-          <section class="card">
+          <section class="card reports-notes-card">
             <div class="card-header">
               <h2>Report Notes</h2>
               <span class="status-chip pending-neutral">Live</span>
@@ -167,8 +168,19 @@ export function renderReportsPage(
               </div>
             </div>
           </section>
-        </aside>
-      </div>
+        </div>
+      </section>
+
+      <section class="card reports-snapshot-card">
+        <div class="card-header">
+          <div>
+            <h2>Recent Invoice Snapshot</h2>
+            <p>Source data that feeds the reporting views.</p>
+          </div>
+          <a class="button ghost" href="/invoices">Open invoices -></a>
+        </div>
+        ${renderInvoiceTable(invoices.slice(0, 6))}
+      </section>
     </section>
   `;
 }

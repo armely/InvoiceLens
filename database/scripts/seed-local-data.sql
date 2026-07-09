@@ -13,7 +13,28 @@ DECLARE @InvoiceSeed TABLE
     Afe NVARCHAR(50) NOT NULL,
     TotalAmount DECIMAL(18,2) NOT NULL,
     Currency NVARCHAR(10) NOT NULL,
-    Status NVARCHAR(30) NOT NULL
+    Status NVARCHAR(30) NOT NULL,
+    InvoiceDateUtc DATETIME2 NULL,
+    DueDateUtc DATETIME2 NULL,
+    BillToName NVARCHAR(150) NULL,
+    BillToAddressLine1 NVARCHAR(200) NULL,
+    BillToAddressLine2 NVARCHAR(200) NULL,
+    BillToCity NVARCHAR(100) NULL,
+    BillToRegion NVARCHAR(50) NULL,
+    BillToPostalCode NVARCHAR(20) NULL,
+    BillToEmail NVARCHAR(150) NULL,
+    BillToPhone NVARCHAR(40) NULL,
+    VendorAddressLine1 NVARCHAR(200) NULL,
+    VendorAddressLine2 NVARCHAR(200) NULL,
+    VendorCity NVARCHAR(100) NULL,
+    VendorRegion NVARCHAR(50) NULL,
+    VendorPostalCode NVARCHAR(20) NULL,
+    VendorEmail NVARCHAR(150) NULL,
+    PaymentTerms NVARCHAR(50) NULL,
+    Notes NVARCHAR(MAX) NULL,
+    SubtotalAmount DECIMAL(18,2) NULL,
+    TaxAmount DECIMAL(18,2) NULL,
+    DiscountAmount DECIMAL(18,2) NULL
 );
 
 INSERT INTO @InvoiceSeed (InvoiceId, InvoiceNumber, Vendor, Company, Afe, TotalAmount, Currency, Status)
@@ -36,7 +57,7 @@ VALUES
     (NEWID(), 'INV-260701-0016', 'NorthStar Water', 'Services', 'AFE-1016', 16780.00, 'USD', 'PendingReview'),
     (NEWID(), 'INV-260701-0017', 'RedRock Fabrication', 'Maintenance', 'AFE-1017', 74250.00, 'USD', 'Approved'),
     (NEWID(), 'INV-260701-0018', 'Falcon Safety', 'Compliance', 'AFE-1018', 23690.00, 'USD', 'PendingReview'),
-    (NEWID(), 'INV-260701-0019', 'Mesa Consulting', 'Corporate', 'AFE-1019', 41830.00, 'USD', 'SentBack'),
+    (NEWID(), 'INV-260701-0019', 'Mesa Consulting', 'Corporate', 'AFE-1019', 41830.00, 'USD', 'Approved'),
     (NEWID(), 'INV-260701-0020', 'Sierra Parts', 'Procurement', 'AFE-1020', 59870.00, 'USD', 'PendingReview'),
     (NEWID(), 'INV-260701-0021', 'High Plains Services', 'North Ops', 'AFE-1021', 27420.00, 'USD', 'Approved'),
     (NEWID(), 'INV-260701-0022', 'Iron Mesa Logistics', 'Logistics', 'AFE-1022', 48210.00, 'USD', 'PendingReview'),
@@ -79,6 +100,36 @@ VALUES
     ('Audit completeness', 'Info', 'Audit trail should record the review action.'),
     ('Exception routing', 'Medium', 'Exception routing should assign the right queue.');
 
+UPDATE @InvoiceSeed
+SET
+    InvoiceDateUtc = CASE WHEN InvoiceNumber = 'INV-260701-0019' THEN '2026-07-01T00:00:00' ELSE DATEADD(day, -RowNum, CAST(SYSUTCDATETIME() AS datetime2)) END,
+    DueDateUtc = CASE WHEN InvoiceNumber = 'INV-260701-0019' THEN '2026-07-31T00:00:00' ELSE DATEADD(day, 30, DATEADD(day, -RowNum, CAST(SYSUTCDATETIME() AS datetime2))) END,
+    BillToName = Company,
+    BillToAddressLine1 = CASE WHEN InvoiceNumber = 'INV-260701-0019' THEN '123 Business Blvd.' ELSE CONCAT(100 + RowNum, ' Main Street') END,
+    BillToAddressLine2 = NULL,
+    BillToCity = CASE WHEN InvoiceNumber = 'INV-260701-0019' THEN 'New York' ELSE CASE WHEN RowNum % 2 = 0 THEN 'Austin' ELSE 'Dallas' END END,
+    BillToRegion = CASE WHEN InvoiceNumber = 'INV-260701-0019' THEN 'NY' ELSE 'TX' END,
+    BillToPostalCode = CASE WHEN InvoiceNumber = 'INV-260701-0019' THEN '10001' ELSE RIGHT(CONCAT('00000', CAST(90000 + RowNum AS nvarchar(10))), 5) END,
+    BillToEmail = CASE WHEN InvoiceNumber = 'INV-260701-0019' THEN 'billing@corporate.com' ELSE LOWER(REPLACE(Company, ' ', '')) + '@invoicelens.local' END,
+    BillToPhone = CASE WHEN InvoiceNumber = 'INV-260701-0019' THEN '(212) 555-0100' ELSE '(415) 555-' + RIGHT(CONCAT('0000', CAST(1000 + RowNum AS nvarchar(10))), 4) END,
+    VendorAddressLine1 = CASE WHEN InvoiceNumber = 'INV-260701-0019' THEN '500 Market Street, Suite 800' ELSE CONCAT(500 + RowNum, ' Commerce Way') END,
+    VendorAddressLine2 = NULL,
+    VendorCity = CASE WHEN InvoiceNumber = 'INV-260701-0019' THEN 'San Francisco' ELSE CASE WHEN RowNum % 2 = 0 THEN 'Houston' ELSE 'Chicago' END END,
+    VendorRegion = CASE WHEN InvoiceNumber = 'INV-260701-0019' THEN 'CA' ELSE 'IL' END,
+    VendorPostalCode = CASE WHEN InvoiceNumber = 'INV-260701-0019' THEN '94105' ELSE RIGHT(CONCAT('00000', CAST(60000 + RowNum AS nvarchar(10))), 5) END,
+    VendorEmail = CASE WHEN InvoiceNumber = 'INV-260701-0019' THEN 'vendor@mesaconsulting.com' ELSE LOWER(REPLACE(Vendor, ' ', '')) + '@example.com' END,
+    PaymentTerms = CASE WHEN InvoiceNumber = 'INV-260701-0019' THEN 'Net 30' ELSE 'Net 15' END,
+    Notes = CASE WHEN InvoiceNumber = 'INV-260701-0019'
+        THEN 'Thank you for your business. We appreciate the opportunity to support your team.'
+        ELSE CONCAT('Seeded invoice for ', Vendor, ' with standard supporting documentation.')
+    END,
+    SubtotalAmount = CASE WHEN InvoiceNumber = 'INV-260701-0019' THEN 44550.00 ELSE ROUND(TotalAmount * 1.06, 2) END;
+
+UPDATE @InvoiceSeed
+SET
+    TaxAmount = ROUND(SubtotalAmount * 0.0725, 2),
+    DiscountAmount = ROUND(SubtotalAmount + ROUND(SubtotalAmount * 0.0725, 2) - TotalAmount, 2);
+
 DECLARE @BatchSeed TABLE
 (
     RowNum INT IDENTITY(1,1) NOT NULL,
@@ -103,7 +154,39 @@ SELECT
 FROM @InvoiceSeed AS i;
 
 INSERT INTO dbo.Invoice
-    (InvoiceId, InvoiceNumber, VendorCode, CompanyCode, AfeCode, TotalAmount, CurrencyCode, Status, UpdatedAtUtc, CreatedAtUtc)
+    (
+        InvoiceId,
+        InvoiceNumber,
+        VendorCode,
+        CompanyCode,
+        AfeCode,
+        TotalAmount,
+        CurrencyCode,
+        Status,
+        InvoiceDateUtc,
+        DueDateUtc,
+        BillToName,
+        BillToAddressLine1,
+        BillToAddressLine2,
+        BillToCity,
+        BillToRegion,
+        BillToPostalCode,
+        BillToEmail,
+        BillToPhone,
+        VendorAddressLine1,
+        VendorAddressLine2,
+        VendorCity,
+        VendorRegion,
+        VendorPostalCode,
+        VendorEmail,
+        PaymentTerms,
+        Notes,
+        SubtotalAmount,
+        TaxAmount,
+        DiscountAmount,
+        UpdatedAtUtc,
+        CreatedAtUtc
+    )
 SELECT
     InvoiceId,
     InvoiceNumber,
@@ -113,6 +196,27 @@ SELECT
     TotalAmount,
     Currency,
     Status,
+    InvoiceDateUtc,
+    DueDateUtc,
+    BillToName,
+    BillToAddressLine1,
+    BillToAddressLine2,
+    BillToCity,
+    BillToRegion,
+    BillToPostalCode,
+    BillToEmail,
+    BillToPhone,
+    VendorAddressLine1,
+    VendorAddressLine2,
+    VendorCity,
+    VendorRegion,
+    VendorPostalCode,
+    VendorEmail,
+    PaymentTerms,
+    Notes,
+    SubtotalAmount,
+    TaxAmount,
+    DiscountAmount,
     DATEADD(minute, -5 * RowNum, SYSUTCDATETIME()),
     DATEADD(minute, -5 * RowNum, SYSUTCDATETIME())
 FROM @InvoiceSeed;
@@ -125,10 +229,32 @@ SELECT
     1,
     CONCAT(Vendor, ' service line'),
     1.0000,
-    TotalAmount,
-    TotalAmount,
+    SubtotalAmount,
+    SubtotalAmount,
     DATEADD(minute, -5 * RowNum, SYSUTCDATETIME())
-FROM @InvoiceSeed;
+FROM @InvoiceSeed
+WHERE InvoiceNumber <> 'INV-260701-0019';
+
+INSERT INTO dbo.InvoiceLine
+    (InvoiceLineId, InvoiceId, LineNumber, Description, Quantity, UnitPrice, Amount, CreatedAtUtc)
+SELECT
+    NEWID(),
+    i.InvoiceId,
+    line.LineNumber,
+    line.Description,
+    line.Quantity,
+    line.UnitPrice,
+    line.Amount,
+    DATEADD(minute, -5 * i.RowNum, SYSUTCDATETIME())
+FROM @InvoiceSeed AS i
+CROSS APPLY (
+    SELECT 1 AS LineNumber, 'Business Process Consulting' AS Description, CAST(40.0000 AS decimal(18,4)) AS Quantity, CAST(250.00 AS decimal(18,4)) AS UnitPrice, CAST(10000.00 AS decimal(18,2)) AS Amount
+    UNION ALL SELECT 2, 'Financial Reporting & Dashboard Development', CAST(60.0000 AS decimal(18,4)), CAST(225.00 AS decimal(18,4)), CAST(13500.00 AS decimal(18,2))
+    UNION ALL SELECT 3, 'Implementation Support', CAST(50.0000 AS decimal(18,4)), CAST(225.00 AS decimal(18,4)), CAST(11250.00 AS decimal(18,2))
+    UNION ALL SELECT 4, 'InvoiceLens Software Subscription', CAST(1.0000 AS decimal(18,4)), CAST(6000.00 AS decimal(18,4)), CAST(6000.00 AS decimal(18,2))
+    UNION ALL SELECT 5, 'Project Management & Coordination', CAST(20.0000 AS decimal(18,4)), CAST(190.00 AS decimal(18,4)), CAST(3800.00 AS decimal(18,2))
+) AS line
+WHERE i.InvoiceNumber = 'INV-260701-0019';
 
 INSERT INTO dbo.InvoiceAttachmentReference
     (AttachmentId, InvoiceId, ExternalAttachmentId, FileName, ContentType, CreatedAtUtc)
@@ -140,6 +266,18 @@ SELECT
     'application/pdf',
     DATEADD(minute, -5 * RowNum, SYSUTCDATETIME())
 FROM @InvoiceSeed;
+
+INSERT INTO dbo.InvoiceAttachmentReference
+    (AttachmentId, InvoiceId, ExternalAttachmentId, FileName, ContentType, CreatedAtUtc)
+SELECT
+    NEWID(),
+    InvoiceId,
+    CONCAT('ATT-', InvoiceNumber, '-SUPPORT'),
+    CONCAT(InvoiceNumber, '-supporting-notes.pdf'),
+    'application/pdf',
+    DATEADD(minute, -4 * RowNum, SYSUTCDATETIME())
+FROM @InvoiceSeed
+WHERE InvoiceNumber = 'INV-260701-0019';
 
 INSERT INTO dbo.ValidationRule
     (ValidationRuleId, RuleName, Severity, Description, IsActive, CreatedAtUtc, UpdatedAtUtc)

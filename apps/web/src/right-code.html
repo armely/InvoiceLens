@@ -1,0 +1,1288 @@
+<style>
+  :root {
+    --navy: #061b3a;
+    --blue: #1769e0;
+    --blue-soft: #eaf2ff;
+    --bg: #f4f7fb;
+    --card: #ffffff;
+    --border: #dce4ef;
+    --text: #132033;
+    --muted: #64748b;
+    --green: #16a34a;
+    --green-soft: #dff7ea;
+    --red: #dc2626;
+    --red-soft: #fff1f2;
+    --orange: #f59e0b;
+    --orange-soft: #fff4dc;
+    --yellow: #facc15;
+    --shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    font-family: Inter, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  .invoice-lens-page {
+    min-height: 100vh;
+    padding: 14px;
+    background: var(--bg);
+  }
+
+  .workspace {
+    display: grid;
+    grid-template-columns: 420px 1fr 440px;
+    gap: 12px;
+    height: calc(100vh - 28px);
+  }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  .panel-header {
+    height: 64px;
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: #fbfdff;
+  }
+
+  .title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 18px;
+    font-weight: 800;
+  }
+
+  .count {
+    background: #edf2f8;
+    color: #42526b;
+    font-size: 13px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-weight: 700;
+  }
+
+  .muted {
+    color: var(--muted);
+  }
+
+  .queue {
+    display: grid;
+    grid-template-rows: 64px 46px 1fr 46px;
+  }
+
+  .sortbar {
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    background: #ffffff;
+  }
+
+  .queue-list {
+    overflow-y: auto;
+  }
+
+  .invoice-card {
+    min-height: 112px;
+    border-bottom: 1px solid var(--border);
+    padding: 14px 14px 12px 18px;
+    display: grid;
+    grid-template-columns: 24px 1fr auto 26px;
+    gap: 10px;
+    background: white;
+  }
+
+  .invoice-card.active {
+    background: #f6faff;
+    outline: 2px solid #3b82f6;
+    outline-offset: -2px;
+    border-radius: 6px;
+    margin: 0 4px;
+  }
+
+  .check {
+    width: 17px;
+    height: 17px;
+    border: 1px solid #b9c4d0;
+    border-radius: 4px;
+    margin-top: 5px;
+  }
+
+  .invoice-main h3 {
+    font-size: 14px;
+    font-weight: 800;
+    margin: 0 0 5px;
+  }
+
+  .invoice-main p {
+    font-size: 13px;
+    color: #475569;
+    margin: 0 0 8px;
+  }
+
+  .dot {
+    color: #16a34a;
+    font-size: 8px;
+    margin: 0 7px;
+  }
+
+  .meta {
+    display: flex;
+    gap: 14px;
+    color: #64748b;
+    font-size: 12px;
+    margin-bottom: 7px;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    height: 24px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 800;
+    margin-right: 8px;
+  }
+
+  .badge.blue {
+    background: var(--blue-soft);
+    color: #1d5fd1;
+  }
+
+  .badge.green {
+    background: var(--green-soft);
+    color: #16803b;
+  }
+
+  .badge.orange {
+    background: var(--orange-soft);
+    color: #bd6500;
+  }
+
+  .confidence {
+    color: #64748b;
+    font-size: 12px;
+  }
+
+  .amount {
+    font-weight: 800;
+    font-size: 15px;
+    margin-top: 4px;
+    white-space: nowrap;
+  }
+
+  .status-icon {
+    display: grid;
+    place-items: center;
+    margin-top: 4px;
+    font-size: 18px;
+  }
+
+  .status-icon.good {
+    color: var(--green);
+  }
+
+  .status-icon.warn {
+    color: var(--red);
+  }
+
+  .queue-footer {
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    color: #64748b;
+    background: #fbfdff;
+    border-top: 1px solid var(--border);
+  }
+
+  .load-more {
+    color: #135fd0;
+    font-weight: 700;
+  }
+
+  .viewer {
+    display: grid;
+    grid-template-rows: 62px 1fr;
+  }
+
+  .viewer-toolbar {
+    padding: 0 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: white;
+    color: #334155;
+    font-size: 14px;
+  }
+
+  .tool-group {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .toolbar-divider {
+    width: 1px;
+    height: 28px;
+    background: var(--border);
+  }
+
+  .zoom {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-weight: 700;
+    background: #fbfdff;
+  }
+
+  .document-area {
+    overflow: auto;
+    padding: 14px;
+    background: #f1f5f9;
+  }
+
+  .invoice-paper {
+    background: white;
+    max-width: 820px;
+    min-height: 960px;
+    margin: 0 auto;
+    padding: 42px 36px;
+    border: 1px solid #d8e0ea;
+    box-shadow: 0 10px 26px rgba(15, 23, 42, 0.1);
+  }
+
+  .invoice-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 34px;
+  }
+
+  .vendor-brand {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+  }
+
+  .logo-mark {
+    width: 54px;
+    height: 54px;
+    background: #092e66;
+    color: white;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    font-weight: 900;
+    font-size: 22px;
+  }
+
+  .vendor-name h2 {
+    color: #092e66;
+    font-size: 34px;
+    letter-spacing: -1px;
+    line-height: 0.9;
+    margin: 0;
+  }
+
+  .vendor-name h3 {
+    color: #092e66;
+    font-size: 14px;
+    line-height: 1.2;
+    margin: 0;
+  }
+
+  .vendor-name p {
+    margin-top: 8px;
+    color: #44607d;
+    font-size: 13px;
+  }
+
+  .invoice-title {
+    color: #092e66;
+    font-size: 42px;
+    font-weight: 800;
+    letter-spacing: 1px;
+  }
+
+  .invoice-info {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 40px;
+    margin-bottom: 28px;
+  }
+
+  .bill-to h4,
+  .details-table strong {
+    color: #10223d;
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  .bill-to p {
+    margin-top: 10px;
+    line-height: 1.55;
+    font-size: 13px;
+  }
+
+  .details-table {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    row-gap: 12px;
+    font-size: 13px;
+  }
+
+  .invoice-line {
+    border-top: 2px solid #16437d;
+    margin: 22px 0;
+  }
+
+  .invoice-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-bottom: 18px;
+  }
+
+  .invoice-table th {
+    background: #092e66;
+    color: white;
+    text-align: left;
+    padding: 11px 14px;
+    font-size: 12px;
+  }
+
+  .invoice-table td {
+    padding: 11px 14px;
+    border-bottom: 1px solid #dce4ef;
+  }
+
+  .invoice-table td:nth-child(3),
+  .invoice-table td:nth-child(5),
+  .invoice-table td:nth-child(6) {
+    text-align: right;
+  }
+
+  .totals {
+    width: 340px;
+    margin-left: auto;
+    border: 1px solid #dce4ef;
+    border-radius: 4px;
+    overflow: hidden;
+    font-size: 13px;
+  }
+
+  .totals-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 11px 14px;
+    border-bottom: 1px solid #dce4ef;
+    font-weight: 600;
+  }
+
+  .totals-row.total {
+    background: #092e66;
+    color: white;
+    font-size: 15px;
+    font-weight: 800;
+    border-bottom: 0;
+  }
+
+  .invoice-bottom {
+    margin-top: 90px;
+    padding-top: 20px;
+    border-top: 2px solid #16437d;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 26px;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  .invoice-bottom h4 {
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: #10223d;
+  }
+
+  .insights {
+    display: grid;
+    grid-template-rows: 48px 1fr;
+  }
+
+  .tabs {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--border);
+    background: white;
+  }
+
+  .tab {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    color: #475569;
+    font-size: 13px;
+    font-weight: 700;
+    position: relative;
+  }
+
+  .tab.active {
+    color: #135fd0;
+  }
+
+  .tab.active::after {
+    content: "";
+    height: 3px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    position: absolute;
+    background: #2f8cff;
+    border-radius: 999px;
+  }
+
+  .insights-content {
+    padding: 12px;
+    overflow-y: auto;
+  }
+
+  .info-card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+  }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 16px;
+  }
+
+  .card-title {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 14px;
+    font-weight: 800;
+    margin-bottom: 14px;
+    color: #172033;
+  }
+
+  .summary-list {
+    display: grid;
+    grid-template-columns: 115px 1fr;
+    gap: 10px;
+    font-size: 12px;
+  }
+
+  .summary-list span:nth-child(odd) {
+    color: #64748b;
+    font-weight: 600;
+  }
+
+  .score-box {
+    border-left: 1px solid var(--border);
+    padding-left: 18px;
+  }
+
+  .score-title {
+    font-size: 12px;
+    font-weight: 800;
+    margin-bottom: 12px;
+  }
+
+  .score-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .score-circle {
+    width: 74px;
+    height: 74px;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at center, white 58%, transparent 59%),
+      conic-gradient(var(--green) 0 82%, #e5e7eb 82% 100%);
+    display: grid;
+    place-items: center;
+    font-weight: 800;
+    color: #172033;
+  }
+
+  .metric-row {
+    margin-top: 12px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+  }
+
+  .metric-row strong {
+    font-size: 14px;
+  }
+
+  .red {
+    color: var(--red);
+  }
+
+  .validation-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .passed {
+    color: var(--green);
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  .validation-list {
+    display: grid;
+    gap: 10px;
+    font-size: 13px;
+  }
+
+  .valid-row {
+    display: grid;
+    grid-template-columns: 22px 1fr auto;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .valid-row i,
+  .valid-row .ok {
+    color: var(--green);
+  }
+
+  .valid-row strong {
+    color: var(--green);
+    font-size: 12px;
+  }
+
+  .alert-card {
+    border-radius: 9px;
+    border: 2px solid #ef233c;
+    background: white;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+
+  .alert-title {
+    background: linear-gradient(90deg, #ef233c, #d90429);
+    color: white;
+    padding: 15px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 17px;
+    font-weight: 800;
+  }
+
+  .alert-body {
+    padding: 14px 16px;
+    font-size: 12px;
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    row-gap: 11px;
+    align-items: center;
+  }
+
+  .alert-body span:nth-child(odd) {
+    color: #64748b;
+    font-weight: 600;
+  }
+
+  .alert-body .variance {
+    color: var(--red);
+    font-weight: 800;
+  }
+
+  .view-btn {
+    justify-self: end;
+    grid-column: 2;
+    border: 1px solid #c9d7ea;
+    color: #1557c0;
+    background: white;
+    padding: 9px 16px;
+    border-radius: 5px;
+    font-weight: 800;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .variance-card {
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .variance-header {
+    padding: 16px 16px 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .variance-chart-body {
+    padding: 4px 16px 16px;
+    display: grid;
+    grid-template-columns: 150px 1fr;
+    gap: 18px;
+    align-items: center;
+  }
+
+  .donut-wrap {
+    display: grid;
+    place-items: center;
+  }
+
+  .impact-donut {
+    width: 138px;
+    height: 138px;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at center, #ffffff 0 52%, transparent 53%),
+      conic-gradient(
+        var(--red) 0 45.6%,
+        var(--orange) 45.6% 94.6%,
+        var(--yellow) 94.6% 100%
+      );
+    position: relative;
+    box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.06);
+  }
+
+  .impact-donut::after {
+    content: "";
+    position: absolute;
+    inset: 13px;
+    border-radius: 50%;
+    border: 1px solid #edf2f7;
+  }
+
+  .donut-center {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    z-index: 1;
+  }
+
+  .donut-center strong {
+    display: block;
+    font-size: 17px;
+    color: #111827;
+  }
+
+  .donut-center span {
+    display: block;
+    margin-top: 4px;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .variance-legend {
+    display: grid;
+    gap: 10px;
+  }
+
+  .legend-row {
+    display: grid;
+    grid-template-columns: 12px 1fr auto;
+    gap: 9px;
+    align-items: center;
+    font-size: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eef2f6;
+  }
+
+  .legend-row:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  .legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+  }
+
+  .legend-dot.red {
+    background: var(--red);
+  }
+
+  .legend-dot.orange {
+    background: var(--orange);
+  }
+
+  .legend-dot.yellow {
+    background: var(--yellow);
+  }
+
+  .legend-text strong {
+    display: block;
+    color: #111827;
+    font-size: 12px;
+    margin-bottom: 2px;
+  }
+
+  .legend-text span {
+    color: #64748b;
+    font-size: 11px;
+  }
+
+  .legend-value {
+    text-align: right;
+    font-weight: 800;
+    color: #111827;
+  }
+
+  .legend-value span {
+    display: block;
+    margin-top: 2px;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .impact-total-bar {
+    background: #fff7f7;
+    border-top: 1px solid #ffd1d1;
+    padding: 13px 16px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  .impact-total-bar strong {
+    color: var(--red);
+  }
+
+  .risk-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+
+  .risk-label {
+    color: var(--green);
+    font-weight: 800;
+    font-size: 12px;
+  }
+
+  .risk-row {
+    display: grid;
+    grid-template-columns: 1fr auto 18px;
+    gap: 10px;
+    align-items: center;
+    font-size: 12px;
+    padding: 7px 0;
+  }
+
+  .risk-row strong {
+    color: #0f2a4d;
+  }
+
+  .risk-row .ok {
+    color: var(--green);
+  }
+
+  @media (max-width: 1400px) {
+    .workspace {
+      grid-template-columns: 380px 1fr 400px;
+    }
+  }
+
+  @media (max-width: 1100px) {
+    .workspace {
+      grid-template-columns: 1fr;
+      height: auto;
+    }
+
+    .panel {
+      min-height: 600px;
+    }
+
+    .invoice-lens-page {
+      min-height: auto;
+    }
+  }
+</style>
+
+<main class="invoice-lens-page">
+  <section class="workspace">
+    <aside class="panel queue">
+      <div class="panel-header">
+        <div class="title">
+          Review Queue
+          <span class="count">132</span>
+        </div>
+        <div class="muted">Filter</div>
+      </div>
+
+      <div class="sortbar">
+        <span>Sort: <strong>Oldest First</strong></span>
+        <span class="muted">⌄</span>
+      </div>
+
+      <div class="queue-list">
+        <article class="invoice-card active">
+          <div class="check"></div>
+          <div class="invoice-main">
+            <h3>10118-1 <span class="dot">●</span> Well Surveillance - Camera Run</h3>
+            <p>Energy Drilling Services</p>
+            <div class="meta">
+              <span>Apr 20 - Apr 22, 2025</span>
+              <span>Ref: EDS-94872</span>
+            </div>
+            <span class="badge blue">Needs Review</span>
+            <span class="confidence">Conf: 82%</span>
+          </div>
+          <div class="amount">$24,750.00</div>
+          <div class="status-icon warn">▲</div>
+        </article>
+
+        <article class="invoice-card">
+          <div class="check"></div>
+          <div class="invoice-main">
+            <h3>10118-2 <span class="dot">●</span> Coil Tubing Services</h3>
+            <p>Energy Drilling Services</p>
+            <div class="meta">
+              <span>Apr 18 - Apr 19, 2025</span>
+              <span>Ref: EDS-94872</span>
+            </div>
+            <span class="badge green">Auto Matched</span>
+            <span class="confidence">Conf: 96%</span>
+          </div>
+          <div class="amount">$18,420.00</div>
+          <div class="status-icon good">●</div>
+        </article>
+
+        <article class="invoice-card">
+          <div class="check"></div>
+          <div class="invoice-main">
+            <h3>10118-3 <span class="dot">●</span> Rental - BOP Equipment</h3>
+            <p>Energy Drilling Services</p>
+            <div class="meta">
+              <span>Apr 15 - Apr 21, 2025</span>
+              <span>Ref: EDS-94872</span>
+            </div>
+            <span class="badge orange">Price Variance</span>
+            <span class="confidence">Conf: 71%</span>
+          </div>
+          <div class="amount">$7,850.00</div>
+          <div class="status-icon warn">▲</div>
+        </article>
+
+        <article class="invoice-card">
+          <div class="check"></div>
+          <div class="invoice-main">
+            <h3>10118-4 <span class="dot">●</span> Fuel Surcharge</h3>
+            <p>Energy Drilling Services</p>
+            <div class="meta">
+              <span>Apr 15 - Apr 21, 2025</span>
+              <span>Ref: EDS-94872</span>
+            </div>
+            <span class="badge green">Auto Matched</span>
+            <span class="confidence">Conf: 95%</span>
+          </div>
+          <div class="amount">$2,135.00</div>
+          <div class="status-icon good">●</div>
+        </article>
+
+        <article class="invoice-card">
+          <div class="check"></div>
+          <div class="invoice-main">
+            <h3>10118-5 <span class="dot">●</span> Disposables & Supplies</h3>
+            <p>Energy Drilling Services</p>
+            <div class="meta">
+              <span>Apr 15 - Apr 21, 2025</span>
+              <span>Ref: EDS-94872</span>
+            </div>
+            <span class="badge orange">Quantity Variance</span>
+            <span class="confidence">Conf: 68%</span>
+          </div>
+          <div class="amount">$1,245.60</div>
+          <div class="status-icon warn">▲</div>
+        </article>
+      </div>
+
+      <div class="queue-footer">
+        <span>Showing 1 - 25 of 132</span>
+        <span class="load-more">Load More</span>
+      </div>
+    </aside>
+
+    <section class="panel viewer">
+      <div class="viewer-toolbar">
+        <div class="tool-group">
+          <span>Page</span>
+          <strong>1</strong>
+          <span>/ 3</span>
+          <span class="toolbar-divider"></span>
+          <span>−</span>
+          <span>+</span>
+          <span class="zoom">100%</span>
+        </div>
+
+        <div class="tool-group">
+          <span>Download</span>
+          <span>Print</span>
+          <span>More</span>
+        </div>
+      </div>
+
+      <div class="document-area">
+        <div class="invoice-paper">
+          <div class="invoice-top">
+            <div class="vendor-brand">
+              <div class="logo-mark">EDS</div>
+              <div class="vendor-name">
+                <h2>EDS</h2>
+                <h3>ENERGY DRILLING<br>SERVICES</h3>
+                <p>Performance. Precision. Partnership.</p>
+              </div>
+            </div>
+
+            <div class="invoice-title">INVOICE</div>
+          </div>
+
+          <div class="invoice-info">
+            <div class="bill-to">
+              <h4>Bill To:</h4>
+              <p>
+                Pioneer Energy Resources, LLC<br>
+                Attn: Accounts Payable<br>
+                700 Energy Way<br>
+                Houston, TX 77002
+              </p>
+            </div>
+
+            <div class="details-table">
+              <strong>Invoice #</strong><span>EDS-94872</span>
+              <strong>Invoice Date</strong><span>April 23, 2025</span>
+              <strong>Due Date</strong><span>May 23, 2025</span>
+              <strong>Customer PO #</strong><span>PO-77841</span>
+              <strong>Service Location</strong><span>Lea County, NM<br>Well Pad 12A</span>
+            </div>
+          </div>
+
+          <div class="invoice-line"></div>
+
+          <table class="invoice-table">
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th>Service Dates</th>
+                <th>Qty</th>
+                <th>UOM</th>
+                <th>Unit Price</th>
+                <th>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Well Surveillance - Camera Run</td>
+                <td>Apr 20 - Apr 22, 2025</td>
+                <td>3.00</td>
+                <td>EA</td>
+                <td>$8,250.00</td>
+                <td>$24,750.00</td>
+              </tr>
+              <tr>
+                <td>Coil Tubing Services</td>
+                <td>Apr 18 - Apr 19, 2025</td>
+                <td>2.00</td>
+                <td>EA</td>
+                <td>$9,210.00</td>
+                <td>$18,420.00</td>
+              </tr>
+              <tr>
+                <td>Rental - BOP Equipment</td>
+                <td>Apr 15 - Apr 21, 2025</td>
+                <td>7.00</td>
+                <td>DAY</td>
+                <td>$1,121.43</td>
+                <td>$7,850.00</td>
+              </tr>
+              <tr>
+                <td>Fuel Surcharge</td>
+                <td>Apr 15 - Apr 21, 2025</td>
+                <td>1.00</td>
+                <td>LS</td>
+                <td>$2,135.00</td>
+                <td>$2,135.00</td>
+              </tr>
+              <tr>
+                <td>Disposables & Supplies</td>
+                <td>Apr 15 - Apr 21, 2025</td>
+                <td>1.00</td>
+                <td>LS</td>
+                <td>$1,245.60</td>
+                <td>$1,245.60</td>
+              </tr>
+              <tr>
+                <td>Rig Move</td>
+                <td>Apr 14, 2025</td>
+                <td>1.00</td>
+                <td>EA</td>
+                <td>$12,500.00</td>
+                <td>$12,500.00</td>
+              </tr>
+              <tr>
+                <td>Water Hauling</td>
+                <td>Apr 14 - Apr 20, 2025</td>
+                <td>5.00</td>
+                <td>LOAD</td>
+                <td>$735.00</td>
+                <td>$3,675.00</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="totals">
+            <div class="totals-row">
+              <span>Subtotal</span>
+              <span>$70,575.60</span>
+            </div>
+            <div class="totals-row">
+              <span>Tax 7.875%</span>
+              <span>$5,559.71</span>
+            </div>
+            <div class="totals-row total">
+              <span>Total Due USD</span>
+              <span>$76,135.31</span>
+            </div>
+          </div>
+
+          <div class="invoice-bottom">
+            <div>
+              <h4>Remit To:</h4>
+              <p>
+                Energy Drilling Services, LLC<br>
+                P.O. Box 230021<br>
+                Houston, TX 77223
+              </p>
+            </div>
+
+            <div>
+              <h4>Wire Transfer:</h4>
+              <p>
+                JPMorgan Chase Bank, N.A.<br>
+                Acct: 987654321<br>
+                ABA: 021000021
+              </p>
+            </div>
+
+            <div>
+              <p>
+                Thank you for your business.<br>
+                For questions, please contact<br>
+                billing@eds.com or 281-555-0198.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="panel insights">
+      <div class="tabs">
+        <div class="tab active">Insights</div>
+        <div class="tab">Line Item Details</div>
+      </div>
+
+      <div class="insights-content">
+        <section class="info-card summary-grid">
+          <div>
+            <div class="card-title">Invoice Summary</div>
+
+            <div class="summary-list">
+              <span>Invoice #</span><strong>EDS-94872</strong>
+              <span>Vendor</span><strong>Energy Drilling Services, LLC</strong>
+              <span>Invoice Date</span><strong>Apr 23, 2025</strong>
+              <span>Total Amount</span><strong>$76,135.31</strong>
+              <span>Location</span><strong>Lea County, NM<br>Well Pad 12A</strong>
+            </div>
+          </div>
+
+          <div class="score-box">
+            <div class="score-title">Confidence Score</div>
+            <div class="score-row">
+              <div class="score-circle">82%</div>
+              <strong>High Confidence</strong>
+            </div>
+
+            <div class="metric-row">
+              <span>Extracted Line Items</span>
+              <strong>7</strong>
+            </div>
+
+            <div class="metric-row">
+              <span>Exceptions</span>
+              <strong class="red">3</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="info-card">
+          <div class="validation-head">
+            <div class="card-title" style="margin-bottom: 0;">Validation Results</div>
+            <span class="passed">6 / 7 Passed</span>
+          </div>
+
+          <div class="validation-list">
+            <div class="valid-row"><span class="ok">●</span><span>Contract Match</span><strong>Passed</strong></div>
+            <div class="valid-row"><span class="ok">●</span><span>Tax Validation</span><strong>Passed</strong></div>
+            <div class="valid-row"><span class="ok">●</span><span>Approved Quantities</span><strong>Passed</strong></div>
+            <div class="valid-row"><span class="ok">●</span><span>Price Reasonableness</span><strong>Passed</strong></div>
+            <div class="valid-row"><span class="ok">●</span><span>Duplicate Invoice Check</span><strong>Passed</strong></div>
+            <div class="valid-row"><span class="ok">●</span><span>Vendor Registration</span><strong>Passed</strong></div>
+          </div>
+        </section>
+
+        <section class="alert-card">
+          <div class="alert-title">
+            ▲ MSA Rate Cap Variance Detected
+          </div>
+
+          <div class="alert-body">
+            <span>Line Item</span>
+            <strong>Well Surveillance - Camera Run</strong>
+
+            <span>Billed Rate</span>
+            <strong>$8,250.00 / EA</strong>
+
+            <span>MSA Rate Cap</span>
+            <strong>$7,200.00 / EA</strong>
+
+            <span>Variance</span>
+            <strong class="variance">$1,050.00 14.58%</strong>
+
+            <button class="view-btn">View Details</button>
+          </div>
+        </section>
+
+        <section class="info-card variance-card">
+          <div class="variance-header">
+            <div class="card-title" style="margin-bottom: 0;">Variance Impact</div>
+            <span class="load-more">View All</span>
+          </div>
+
+          <div class="variance-chart-body">
+            <div class="donut-wrap">
+              <div class="impact-donut">
+                <div class="donut-center">
+                  <div>
+                    <strong>$2,303</strong>
+                    <span>Total Impact</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="variance-legend">
+              <div class="legend-row">
+                <span class="legend-dot red"></span>
+                <div class="legend-text">
+                  <strong>Price Variance</strong>
+                  <span>1 exception</span>
+                </div>
+                <div class="legend-value">
+                  $1,128.57
+                  <span>49.0%</span>
+                </div>
+              </div>
+
+              <div class="legend-row">
+                <span class="legend-dot orange"></span>
+                <div class="legend-text">
+                  <strong>Rate Cap Variance</strong>
+                  <span>1 exception</span>
+                </div>
+                <div class="legend-value">
+                  $1,050.00
+                  <span>45.6%</span>
+                </div>
+              </div>
+
+              <div class="legend-row">
+                <span class="legend-dot yellow"></span>
+                <div class="legend-text">
+                  <strong>Quantity Variance</strong>
+                  <span>1 exception</span>
+                </div>
+                <div class="legend-value">
+                  $124.56
+                  <span>5.4%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="impact-total-bar">
+            <span>Total Financial Impact</span>
+            <strong>$2,303.13</strong>
+          </div>
+        </section>
+
+        <section class="info-card">
+          <div class="risk-head">
+            <div class="card-title" style="margin-bottom: 0;">Compliance & Risk</div>
+            <span class="risk-label">LOW RISK</span>
+          </div>
+
+          <div class="risk-row">
+            <span>OFAC Screening</span>
+            <strong>Clear</strong>
+            <span class="ok">●</span>
+          </div>
+
+          <div class="risk-row">
+            <span>Insurance on File</span>
+            <strong>Valid</strong>
+            <span class="ok">●</span>
+          </div>
+
+          <div class="risk-row">
+            <span>W-9 on File</span>
+            <strong>Valid</strong>
+            <span class="ok">●</span>
+          </div>
+        </section>
+      </div>
+    </aside>
+  </section>
+</main>

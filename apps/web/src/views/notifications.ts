@@ -7,8 +7,8 @@ export function renderNotificationsPage(rows: QueueRow[], alerts: ValidationAler
       <div class="page-grid">
         <div class="workspace">
           ${pageHeader('Notifications', 'Stay on top of queue movement, invoice exceptions, and validation signals.', `
-            <a class="button primary" href="${routeHref('compliance-queue')}" data-route="compliance-queue">Open Queue</a>
-            <a class="button" href="${routeHref('validation-summary')}" data-route="validation-summary">Open Validation</a>
+            <a class="button primary" href="${routeHref('dashboard')}" data-route="dashboard">Open Dashboard</a>
+            <a class="button" href="${routeHref('invoices')}" data-route="invoices">Open Invoices</a>
           `)}
           <section class="summary-strip">
             <div class="summary-card"><small>Queue Items</small><strong>${rows.length}</strong></div>
@@ -24,7 +24,7 @@ export function renderNotificationsPage(rows: QueueRow[], alerts: ValidationAler
 
         <aside class="side-panel">
           <section class="card">
-            <div class="card-header"><h2>Queue Feed</h2><a class="button ghost" href="${routeHref('compliance-queue')}" data-route="compliance-queue">Open queue -></a></div>
+            <div class="card-header"><h2>Queue Feed</h2></div>
             <div class="queue-page-list">${renderQueueItems(rows.slice(0, 8), selectedInvoiceId)}</div>
           </section>
 

@@ -3,10 +3,11 @@ using InvoiceLens.Application.Invoices;
 using InvoiceLens.Application.Sync;
 using InvoiceLens.Infrastructure.OpenInvoice;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging;
 
 namespace InvoiceLens.Infrastructure.Persistence;
 
-public class SqlInvoiceService : IInvoiceQueries, IQueueService, ISyncStatusService
+public class SqlInvoiceService(ILogger<SqlInvoiceService> logger) : IInvoiceQueries, IQueueService, ISyncStatusService
 {
     public async Task<IReadOnlyList<InvoiceSummaryDto>> SearchAsync(string? query, CancellationToken cancellationToken)
     {
@@ -59,9 +60,10 @@ public class SqlInvoiceService : IInvoiceQueries, IQueueService, ISyncStatusServ
 
             return results;
         }
-        catch (SqlException)
+        catch (SqlException exception)
         {
-            return [];
+            logger.LogError(exception, "Failed while searching invoices.");
+            throw SqlFailureHandling.CreateException(exception, "searching invoices");
         }
     }
 
@@ -74,7 +76,38 @@ public class SqlInvoiceService : IInvoiceQueries, IQueueService, ISyncStatusServ
 
             await using var command = connection.CreateCommand();
             command.CommandText = """
-                SELECT InvoiceId, InvoiceNumber, VendorCode, CompanyCode, AfeCode, TotalAmount, CurrencyCode, Status, CreatedAtUtc, UpdatedAtUtc
+                SELECT
+                    InvoiceId,
+                    InvoiceNumber,
+                    VendorCode,
+                    CompanyCode,
+                    AfeCode,
+                    TotalAmount,
+                    CurrencyCode,
+                    Status,
+                    InvoiceDateUtc,
+                    DueDateUtc,
+                    BillToName,
+                    BillToAddressLine1,
+                    BillToAddressLine2,
+                    BillToCity,
+                    BillToRegion,
+                    BillToPostalCode,
+                    BillToEmail,
+                    BillToPhone,
+                    VendorAddressLine1,
+                    VendorAddressLine2,
+                    VendorCity,
+                    VendorRegion,
+                    VendorPostalCode,
+                    VendorEmail,
+                    PaymentTerms,
+                    Notes,
+                    SubtotalAmount,
+                    TaxAmount,
+                    DiscountAmount,
+                    CreatedAtUtc,
+                    UpdatedAtUtc
                 FROM dbo.Invoice
                 WHERE InvoiceId = @InvoiceId;
                 """;
@@ -86,22 +119,98 @@ public class SqlInvoiceService : IInvoiceQueries, IQueueService, ISyncStatusServ
                 return null;
             }
 
+            var invoiceIdValue = reader.GetGuidValue("InvoiceId");
+            var invoiceNumber = reader.GetStringValue("InvoiceNumber");
+            var vendor = reader.GetStringValue("VendorCode");
+            var company = reader.GetStringValue("CompanyCode");
+            var afe = reader.GetNullableStringValue("AfeCode") ?? string.Empty;
+            var amount = reader.GetDecimalValue("TotalAmount");
+            var currency = reader.GetStringValue("CurrencyCode");
+            var status = reader.GetStringValue("Status");
+            var createdAtUtc = reader.GetDateTimeOffsetValue("CreatedAtUtc");
+            var updatedAtUtc = reader.GetDateTimeOffsetValue("UpdatedAtUtc");
+            var invoiceDateUtc = reader.GetNullableDateTimeOffsetValue("InvoiceDateUtc");
+            var dueDateUtc = reader.GetNullableDateTimeOffsetValue("DueDateUtc");
+            var billTo = new InvoiceContactDto(
+                reader.GetNullableStringValue("BillToName") ?? company,
+                reader.GetNullableStringValue("BillToAddressLine1") ?? string.Empty,
+                reader.GetNullableStringValue("BillToAddressLine2"),
+                reader.GetNullableStringValue("BillToCity") ?? string.Empty,
+                reader.GetNullableStringValue("BillToRegion") ?? string.Empty,
+                reader.GetNullableStringValue("BillToPostalCode") ?? string.Empty,
+                reader.GetNullableStringValue("BillToEmail") ?? string.Empty,
+                reader.GetNullableStringValue("BillToPhone") ?? string.Empty);
+            var vendorContact = new InvoiceContactDto(
+                vendor,
+                reader.GetNullableStringValue("VendorAddressLine1") ?? string.Empty,
+                reader.GetNullableStringValue("VendorAddressLine2"),
+                reader.GetNullableStringValue("VendorCity") ?? string.Empty,
+                reader.GetNullableStringValue("VendorRegion") ?? string.Empty,
+                reader.GetNullableStringValue("VendorPostalCode") ?? string.Empty,
+                reader.GetNullableStringValue("VendorEmail") ?? string.Empty,
+                string.Empty);
+            var paymentTerms = reader.GetNullableStringValue("PaymentTerms");
+            var notes = reader.GetNullableStringValue("Notes");
+            var subtotal = reader.GetNullableDecimalValue("SubtotalAmount") ?? amount;
+            var tax = reader.GetNullableDecimalValue("TaxAmount") ?? 0m;
+            var discount = reader.GetNullableDecimalValue("DiscountAmount") ?? 0m;
+
+            await reader.DisposeAsync();
+
+            var lineItems = await LoadInvoiceLineItemsAsync(connection, invoiceIdValue, cancellationToken);
+
             return new InvoiceDetailDto(
-                reader.GetGuidValue("InvoiceId"),
-                reader.GetStringValue("InvoiceNumber"),
-                reader.GetStringValue("VendorCode"),
-                reader.GetStringValue("CompanyCode"),
-                reader.GetNullableStringValue("AfeCode") ?? string.Empty,
-                reader.GetDecimalValue("TotalAmount"),
-                reader.GetStringValue("CurrencyCode"),
-                reader.GetStringValue("Status"),
-                reader.GetDateTimeOffsetValue("CreatedAtUtc"),
-                reader.GetDateTimeOffsetValue("UpdatedAtUtc"));
+                invoiceIdValue,
+                invoiceNumber,
+                vendor,
+                company,
+                afe,
+                amount,
+                currency,
+                status,
+                createdAtUtc,
+                updatedAtUtc,
+                invoiceDateUtc,
+                dueDateUtc,
+                billTo,
+                vendorContact,
+                paymentTerms,
+                notes,
+                new InvoiceTotalsDto(subtotal, tax, discount, amount),
+                lineItems);
         }
-        catch (SqlException)
+        catch (SqlException exception)
         {
-            return null;
+            logger.LogError(exception, "Failed while loading invoice detail for {InvoiceId}.", invoiceId);
+            throw SqlFailureHandling.CreateException(exception, "loading invoice details");
         }
+    }
+
+    private static async Task<IReadOnlyList<InvoiceLineItemDto>> LoadInvoiceLineItemsAsync(SqlConnection connection, Guid invoiceId, CancellationToken cancellationToken)
+    {
+        var lineItems = new List<InvoiceLineItemDto>();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT LineNumber, Description, Quantity, UnitPrice, Amount
+            FROM dbo.InvoiceLine
+            WHERE InvoiceId = @InvoiceId
+            ORDER BY LineNumber ASC;
+            """;
+        command.Parameters.AddWithValue("@InvoiceId", invoiceId);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            lineItems.Add(new InvoiceLineItemDto(
+                reader.GetInt32Value("LineNumber"),
+                reader.GetNullableStringValue("Description"),
+                reader.GetDecimalValue("Quantity"),
+                reader.GetDecimalValue("UnitPrice"),
+                reader.GetDecimalValue("Amount")));
+        }
+
+        return lineItems;
     }
 
     public async Task<InvoiceReviewDto?> GetReviewAsync(Guid invoiceId, CancellationToken cancellationToken)
@@ -158,9 +267,10 @@ public class SqlInvoiceService : IInvoiceQueries, IQueueService, ISyncStatusServ
                 validationHighlights,
                 attachments);
         }
-        catch (SqlException)
+        catch (SqlException exception)
         {
-            return null;
+            logger.LogError(exception, "Failed while loading invoice review for {InvoiceId}.", invoiceId);
+            throw SqlFailureHandling.CreateException(exception, "loading invoice review");
         }
     }
 
@@ -213,15 +323,102 @@ public class SqlInvoiceService : IInvoiceQueries, IQueueService, ISyncStatusServ
                     TotalAmount = @TotalAmount,
                     CurrencyCode = @CurrencyCode,
                     Status = @Status,
+                    InvoiceDateUtc = @InvoiceDateUtc,
+                    DueDateUtc = @DueDateUtc,
+                    BillToName = @BillToName,
+                    BillToAddressLine1 = @BillToAddressLine1,
+                    BillToAddressLine2 = @BillToAddressLine2,
+                    BillToCity = @BillToCity,
+                    BillToRegion = @BillToRegion,
+                    BillToPostalCode = @BillToPostalCode,
+                    BillToEmail = @BillToEmail,
+                    BillToPhone = @BillToPhone,
+                    VendorAddressLine1 = @VendorAddressLine1,
+                    VendorAddressLine2 = @VendorAddressLine2,
+                    VendorCity = @VendorCity,
+                    VendorRegion = @VendorRegion,
+                    VendorPostalCode = @VendorPostalCode,
+                    VendorEmail = @VendorEmail,
+                    PaymentTerms = @PaymentTerms,
+                    Notes = @Notes,
+                    SubtotalAmount = @SubtotalAmount,
+                    TaxAmount = @TaxAmount,
+                    DiscountAmount = @DiscountAmount,
                     UpdatedAtUtc = SYSUTCDATETIME()
                 WHERE InvoiceId = @InvoiceId;
             END
             ELSE
             BEGIN
                 INSERT INTO dbo.Invoice
-                    (InvoiceId, InvoiceNumber, OpenInvoiceDocumentId, VendorCode, CompanyCode, AfeCode, TotalAmount, CurrencyCode, Status, UpdatedAtUtc, CreatedAtUtc)
+                    (
+                        InvoiceId,
+                        InvoiceNumber,
+                        OpenInvoiceDocumentId,
+                        VendorCode,
+                        CompanyCode,
+                        AfeCode,
+                        TotalAmount,
+                        CurrencyCode,
+                        Status,
+                        InvoiceDateUtc,
+                        DueDateUtc,
+                        BillToName,
+                        BillToAddressLine1,
+                        BillToAddressLine2,
+                        BillToCity,
+                        BillToRegion,
+                        BillToPostalCode,
+                        BillToEmail,
+                        BillToPhone,
+                        VendorAddressLine1,
+                        VendorAddressLine2,
+                        VendorCity,
+                        VendorRegion,
+                        VendorPostalCode,
+                        VendorEmail,
+                        PaymentTerms,
+                        Notes,
+                        SubtotalAmount,
+                        TaxAmount,
+                        DiscountAmount,
+                        UpdatedAtUtc,
+                        CreatedAtUtc
+                    )
                 VALUES
-                    (@InvoiceId, @InvoiceNumber, @OpenInvoiceDocumentId, @VendorCode, @CompanyCode, @AfeCode, @TotalAmount, @CurrencyCode, @Status, SYSUTCDATETIME(), SYSUTCDATETIME());
+                    (
+                        @InvoiceId,
+                        @InvoiceNumber,
+                        @OpenInvoiceDocumentId,
+                        @VendorCode,
+                        @CompanyCode,
+                        @AfeCode,
+                        @TotalAmount,
+                        @CurrencyCode,
+                        @Status,
+                        @InvoiceDateUtc,
+                        @DueDateUtc,
+                        @BillToName,
+                        @BillToAddressLine1,
+                        @BillToAddressLine2,
+                        @BillToCity,
+                        @BillToRegion,
+                        @BillToPostalCode,
+                        @BillToEmail,
+                        @BillToPhone,
+                        @VendorAddressLine1,
+                        @VendorAddressLine2,
+                        @VendorCity,
+                        @VendorRegion,
+                        @VendorPostalCode,
+                        @VendorEmail,
+                        @PaymentTerms,
+                        @Notes,
+                        @SubtotalAmount,
+                        @TaxAmount,
+                        @DiscountAmount,
+                        SYSUTCDATETIME(),
+                        SYSUTCDATETIME()
+                    );
             END
             """;
         command.Parameters.AddWithValue("@InvoiceId", invoiceId);
@@ -233,6 +430,27 @@ public class SqlInvoiceService : IInvoiceQueries, IQueueService, ISyncStatusServ
         command.Parameters.AddWithValue("@TotalAmount", snapshot.Total);
         command.Parameters.AddWithValue("@CurrencyCode", snapshot.Currency);
         command.Parameters.AddWithValue("@Status", MapStatus(snapshot.Status));
+        command.Parameters.AddWithValue("@InvoiceDateUtc", snapshot.InvoiceDate.UtcDateTime);
+        command.Parameters.AddWithValue("@DueDateUtc", snapshot.InvoiceDate.AddDays(30).UtcDateTime);
+        command.Parameters.AddWithValue("@BillToName", snapshot.ServiceType);
+        command.Parameters.AddWithValue("@BillToAddressLine1", "OpenInvoice billing desk");
+        command.Parameters.AddWithValue("@BillToAddressLine2", DBNull.Value);
+        command.Parameters.AddWithValue("@BillToCity", "Unknown");
+        command.Parameters.AddWithValue("@BillToRegion", "US");
+        command.Parameters.AddWithValue("@BillToPostalCode", DBNull.Value);
+        command.Parameters.AddWithValue("@BillToEmail", DBNull.Value);
+        command.Parameters.AddWithValue("@BillToPhone", DBNull.Value);
+        command.Parameters.AddWithValue("@VendorAddressLine1", snapshot.SupplierName);
+        command.Parameters.AddWithValue("@VendorAddressLine2", DBNull.Value);
+        command.Parameters.AddWithValue("@VendorCity", "Unknown");
+        command.Parameters.AddWithValue("@VendorRegion", "US");
+        command.Parameters.AddWithValue("@VendorPostalCode", DBNull.Value);
+        command.Parameters.AddWithValue("@VendorEmail", DBNull.Value);
+        command.Parameters.AddWithValue("@PaymentTerms", "Net 30");
+        command.Parameters.AddWithValue("@Notes", snapshot.Status);
+        command.Parameters.AddWithValue("@SubtotalAmount", snapshot.Subtotal);
+        command.Parameters.AddWithValue("@TaxAmount", snapshot.Tax);
+        command.Parameters.AddWithValue("@DiscountAmount", snapshot.Subtotal + snapshot.Tax - snapshot.Total);
         await command.ExecuteNonQueryAsync(cancellationToken);
 
         await ReplaceInvoiceLinesAsync(connection, invoiceId, snapshot.LineItems, cancellationToken);
@@ -369,9 +587,10 @@ public class SqlInvoiceService : IInvoiceQueries, IQueueService, ISyncStatusServ
 
             return items;
         }
-        catch (SqlException)
+        catch (SqlException exception)
         {
-            return [];
+            logger.LogError(exception, "Failed while loading invoice queue.");
+            throw SqlFailureHandling.CreateException(exception, "loading the invoice queue");
         }
     }
 
@@ -412,17 +631,18 @@ public class SqlInvoiceService : IInvoiceQueries, IQueueService, ISyncStatusServ
                 pendingItems,
                 failedItems);
         }
-        catch (SqlException)
+        catch (SqlException exception)
         {
+            logger.LogError(exception, "Failed while loading sync status.");
             return new SyncStatusDto(
-                "Unavailable",
+                SqlFailureHandling.IsSchemaError(exception) ? "DatabaseNotInitialized" : "Unavailable",
                 DateTimeOffset.UtcNow.AddHours(-1),
                 0,
                 0);
         }
     }
 
-    private static async Task<bool> UpdateStatusAsync(Guid invoiceId, string status, CancellationToken cancellationToken)
+    private async Task<bool> UpdateStatusAsync(Guid invoiceId, string status, CancellationToken cancellationToken)
     {
         try
         {
@@ -442,13 +662,14 @@ public class SqlInvoiceService : IInvoiceQueries, IQueueService, ISyncStatusServ
             var rows = await command.ExecuteNonQueryAsync(cancellationToken);
             return rows > 0;
         }
-        catch (SqlException)
+        catch (SqlException exception)
         {
-            return false;
+            logger.LogError(exception, "Failed while updating invoice status for {InvoiceId}.", invoiceId);
+            throw SqlFailureHandling.CreateException(exception, "updating invoice status");
         }
     }
 
-    private static async Task<bool> UpdateStatusAndEnqueueAsync(Guid invoiceId, string status, string eventType, object payload, CancellationToken cancellationToken)
+    private async Task<bool> UpdateStatusAndEnqueueAsync(Guid invoiceId, string status, string eventType, object payload, CancellationToken cancellationToken)
     {
         try
         {
@@ -536,9 +757,10 @@ public class SqlInvoiceService : IInvoiceQueries, IQueueService, ISyncStatusServ
                 throw;
             }
         }
-        catch (SqlException)
+        catch (SqlException exception)
         {
-            return false;
+            logger.LogError(exception, "Failed while updating invoice {InvoiceId} and enqueueing {EventType}.", invoiceId, eventType);
+            throw SqlFailureHandling.CreateException(exception, "updating invoice workflow state");
         }
     }
 

@@ -4,12 +4,14 @@ using InvoiceLens.Application.InvoiceComparison;
 using InvoiceLens.Infrastructure.LocalInvoices;
 using InvoiceLens.Infrastructure.Persistence;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging;
 
 namespace InvoiceLens.Infrastructure.InvoiceComparison;
 
 internal sealed class SqlInvoiceComparisonService(
     LocalInvoiceFileReader localInvoiceFileReader,
-    LocalInvoiceComparisonOptions options) : IInvoiceComparisonService
+    LocalInvoiceComparisonOptions options,
+    ILogger<SqlInvoiceComparisonService> logger) : IInvoiceComparisonService
 {
     public async Task<IReadOnlyList<LocalInvoiceFileDto>> GetLocalInvoicesAsync(CancellationToken cancellationToken)
     {
@@ -66,9 +68,10 @@ internal sealed class SqlInvoiceComparisonService(
 
             return rows;
         }
-        catch (SqlException)
+        catch (SqlException exception)
         {
-            return Array.Empty<LocalInvoiceFileDto>();
+            logger.LogError(exception, "Failed while loading local invoice files.");
+            throw SqlFailureHandling.CreateException(exception, "loading local invoice files");
         }
     }
 
@@ -80,20 +83,28 @@ internal sealed class SqlInvoiceComparisonService(
             return 0;
         }
 
-        var loaded = 0;
-        await using var connection = SqlConnectionFactory.CreateConnection();
-        await connection.OpenAsync(cancellationToken);
-
-        foreach (var snapshot in snapshots)
+        try
         {
-            var fileId = await UpsertLocalInvoiceAsync(connection, snapshot, cancellationToken);
-            if (fileId > 0)
-            {
-                loaded++;
-            }
-        }
+            var loaded = 0;
+            await using var connection = SqlConnectionFactory.CreateConnection();
+            await connection.OpenAsync(cancellationToken);
 
-        return loaded;
+            foreach (var snapshot in snapshots)
+            {
+                var fileId = await UpsertLocalInvoiceAsync(connection, snapshot, cancellationToken);
+                if (fileId > 0)
+                {
+                    loaded++;
+                }
+            }
+
+            return loaded;
+        }
+        catch (SqlException exception)
+        {
+            logger.LogError(exception, "Failed while loading local invoices into SQL.");
+            throw SqlFailureHandling.CreateException(exception, "loading local invoices");
+        }
     }
 
     public async Task<DocumentStreamResult?> GetLocalInvoicePdfAsync(int localInvoiceFileId, CancellationToken cancellationToken)
@@ -229,9 +240,10 @@ internal sealed class SqlInvoiceComparisonService(
                 systemInvoice,
                 results);
         }
-        catch (SqlException)
+        catch (SqlException exception)
         {
-            return null;
+            logger.LogError(exception, "Failed while loading comparison run {ComparisonRunId}.", comparisonRunId);
+            throw SqlFailureHandling.CreateException(exception, "loading invoice comparison results");
         }
     }
 
@@ -267,9 +279,10 @@ internal sealed class SqlInvoiceComparisonService(
                 reader.IsDBNull(reader.GetOrdinal("TotalAmount")) ? null : reader.GetDecimalValue("TotalAmount"),
                 reader.GetDateTimeOffsetValue("LoadedAtUtc"));
         }
-        catch (SqlException)
+        catch (SqlException exception)
         {
-            return null;
+            logger.LogError(exception, "Failed while loading local invoice record {LocalInvoiceFileId}.", localInvoiceFileId);
+            throw SqlFailureHandling.CreateException(exception, "loading a local invoice record");
         }
     }
 
@@ -481,9 +494,10 @@ internal sealed class SqlInvoiceComparisonService(
                     reader.IsDBNull(reader.GetOrdinal("MatchScore")) ? null : reader.GetDecimalValue("MatchScore"));
             }
         }
-        catch (SqlException)
+        catch (SqlException exception)
         {
             // Fall back to the in-memory record below.
+            logger.LogWarning(exception, "Failed while enriching local invoice file {LocalInvoiceFileId}; using in-memory fallback.", localRecord.LocalInvoiceFileId);
         }
 
         return new LocalInvoiceFileDto(
@@ -572,9 +586,10 @@ internal sealed class SqlInvoiceComparisonService(
 
             return invoices;
         }
-        catch (SqlException)
+        catch (SqlException exception)
         {
-            return Array.Empty<NormalizedInvoice>();
+            logger.LogError(exception, "Failed while loading system invoices for comparison.");
+            throw SqlFailureHandling.CreateException(exception, "loading system invoices");
         }
     }
 

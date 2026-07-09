@@ -1,9 +1,7 @@
 import {
   AuditEntryDto,
-  InvoiceComparisonRunDto,
   InvoiceDetailDto,
   InvoiceReviewDto,
-  LocalInvoiceFileDto,
   InvoiceSummaryDto,
   QueueItemDto,
   SyncStatusDto,
@@ -108,22 +106,6 @@ export class InvoiceLensApiClient {
 
   async getQueue(): Promise<QueueItemDto[]> {
     return this.requestJson<QueueItemDto[]>('/api/queue');
-  }
-
-  async getLocalInvoices(): Promise<LocalInvoiceFileDto[]> {
-    return this.requestJson<LocalInvoiceFileDto[]>('/api/local-invoices');
-  }
-
-  async loadLocalInvoices(): Promise<{ loaded: number }> {
-    return this.requestJson<{ loaded: number }>('/api/local-invoices/load', { method: 'POST' });
-  }
-
-  async runInvoiceComparison(localInvoiceFileId: number): Promise<InvoiceComparisonRunDto> {
-    return this.requestJson<InvoiceComparisonRunDto>(`/api/invoice-comparisons/${localInvoiceFileId}/run`, { method: 'POST' });
-  }
-
-  async getComparisonRun(comparisonRunId: number): Promise<InvoiceComparisonRunDto> {
-    return this.requestJson<InvoiceComparisonRunDto>(`/api/invoice-comparisons/${comparisonRunId}`);
   }
 
   getLocalInvoicePdfUrl(localInvoiceFileId: number): string {
