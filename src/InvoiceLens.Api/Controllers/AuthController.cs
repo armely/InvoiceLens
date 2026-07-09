@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Net.Http.Headers;
+using System.Text.Json;
 using InvoiceLens.Api.Authentication;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -23,7 +24,8 @@ public sealed class AuthController(MicrosoftSessionTokenValidator tokenValidator
 
         var validation = await tokenValidator.ValidateAsync(request.IdToken, cancellationToken);
         var photoDataUrl = await TryFetchMicrosoftProfilePhotoAsync(request.AccessToken, cancellationToken);
-        var profile = BuildProfile(validation.Principal, photoDataUrl);
+        var details = await TryFetchMicrosoftUserDetailsAsync(request.AccessToken, cancellationToken);
+        var profile = BuildProfile(validation.Principal, photoDataUrl, details);
         var principal = BuildCookiePrincipal(validation.Principal, profile);
         var expiresUtc = validation.ExpiresUtc <= DateTime.UtcNow
             ? DateTimeOffset.UtcNow.AddHours(1)
@@ -73,11 +75,26 @@ public sealed class AuthController(MicrosoftSessionTokenValidator tokenValidator
             new("preferred_username", email),
         };
 
+        if (!string.IsNullOrWhiteSpace(profile.JobTitle))
+        {
+            claims.Add(new Claim("jobTitle", profile.JobTitle));
+        }
+
+        if (!string.IsNullOrWhiteSpace(profile.Department))
+        {
+            claims.Add(new Claim("department", profile.Department));
+        }
+
+        if (!string.IsNullOrWhiteSpace(profile.OfficeLocation))
+        {
+            claims.Add(new Claim("officeLocation", profile.OfficeLocation));
+        }
+
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme, ClaimTypes.Name, ClaimTypes.Role);
         return new ClaimsPrincipal(identity);
     }
 
-    private static AuthProfileDto BuildProfile(ClaimsPrincipal principal, string? photoDataUrl = null)
+    private static AuthProfileDto BuildProfile(ClaimsPrincipal principal, string? photoDataUrl = null, MicrosoftUserDetails? details = null)
     {
         var displayName = GetClaimValue(principal, "name")
             ?? GetClaimValue(principal, ClaimTypes.Name)
@@ -91,9 +108,69 @@ public sealed class AuthController(MicrosoftSessionTokenValidator tokenValidator
             ?? GetClaimValue(principal, "upn")
             ?? string.Empty;
 
+        var jobTitle = NullIfWhiteSpace(details?.JobTitle)
+            ?? GetClaimValue(principal, "jobTitle")
+            ?? GetClaimValue(principal, ClaimTypes.Role)
+            ?? GetClaimValue(principal, "roles");
+
+        var department = NullIfWhiteSpace(details?.Department)
+            ?? GetClaimValue(principal, "department");
+
+        var officeLocation = NullIfWhiteSpace(details?.OfficeLocation)
+            ?? GetClaimValue(principal, "officeLocation");
+
         var initials = BuildInitials(displayName);
 
-        return new AuthProfileDto(displayName, initials, email, photoDataUrl);
+        return new AuthProfileDto(displayName, initials, email, photoDataUrl, jobTitle, department, officeLocation);
+    }
+
+    private async Task<MicrosoftUserDetails?> TryFetchMicrosoftUserDetailsAsync(string? accessToken, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(accessToken))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var request = new HttpRequestMessage(
+                HttpMethod.Get,
+                "https://graph.microsoft.com/v1.0/me?$select=jobTitle,department,officeLocation");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            var client = httpClientFactory.CreateClient(nameof(AuthController));
+            using var response = await client.SendAsync(request, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+            var root = document.RootElement;
+
+            return new MicrosoftUserDetails(
+                ReadStringProperty(root, "jobTitle"),
+                ReadStringProperty(root, "department"),
+                ReadStringProperty(root, "officeLocation"));
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? ReadStringProperty(JsonElement element, string propertyName)
+    {
+        return element.TryGetProperty(propertyName, out var value) && value.ValueKind == JsonValueKind.String
+            ? NullIfWhiteSpace(value.GetString())
+            : null;
+    }
+
+    private static string? NullIfWhiteSpace(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 
     private async Task<string?> TryFetchMicrosoftProfilePhotoAsync(string? accessToken, CancellationToken cancellationToken)
@@ -154,5 +231,14 @@ public sealed class AuthController(MicrosoftSessionTokenValidator tokenValidator
 
     public sealed record CreateSessionRequest(string IdToken, string? AccessToken = null);
 
-    public sealed record AuthProfileDto(string DisplayName, string Initials, string Email, string? PhotoDataUrl = null);
+    public sealed record AuthProfileDto(
+        string DisplayName,
+        string Initials,
+        string Email,
+        string? PhotoDataUrl = null,
+        string? JobTitle = null,
+        string? Department = null,
+        string? OfficeLocation = null);
+
+    private sealed record MicrosoftUserDetails(string? JobTitle, string? Department, string? OfficeLocation);
 }
