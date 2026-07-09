@@ -480,7 +480,14 @@ a:hover { text-decoration: underline; }
 .button.primary { color: #fff; background: linear-gradient(135deg, var(--navy-950) 0%, var(--navy-800) 100%); border-color: var(--navy-900); }
 .button.primary:hover { background: linear-gradient(135deg, var(--navy-900) 0%, var(--navy-800) 100%); border-color: var(--navy-800); }
 .button.success { color: #fff; background: var(--green); border-color: var(--green); }
-.button.danger { color: var(--red); border-color: rgba(232,45,63,0.38); background: #fff; }
+.button.danger { color: #fff; background: linear-gradient(135deg, #e54152 0%, #c71f31 100%); border-color: #b91c2c; }
+.button.danger:hover { background: linear-gradient(135deg, #d93a4b 0%, #b11728 100%); border-color: #a31222; }
+.button.danger:disabled {
+  color: #fff;
+  background: #f7aab2;
+  border-color: #f19ca6;
+  box-shadow: none;
+}
 .button.ghost { color: var(--navy-800); background: transparent; border-color: transparent; box-shadow: none; }
 .button.ghost:hover { background: rgba(11, 45, 97, 0.08); border-color: transparent; }
 .button:disabled {
