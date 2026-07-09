@@ -447,6 +447,13 @@ async function fetchMicrosoftSessionProfile(): Promise<MicrosoftSessionProfileRe
     }
 
     const profile = (await response.json()) as AuthProfile;
+    if (!profile.photoDataUrl && accessToken) {
+      const photoDataUrl = await fetchMicrosoftProfilePhoto(accessToken);
+      if (photoDataUrl) {
+        profile.photoDataUrl = photoDataUrl;
+      }
+    }
+
     authDebug('Microsoft session profile received.', {
       displayName: profile.displayName,
       initials: profile.initials,
