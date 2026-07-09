@@ -39,9 +39,19 @@ type ReviewBundle = {
   auditTrail: AuditEntryDto[];
 };
 
+type ReloadOptions = {
+  silent?: boolean;
+};
+
+type InvoiceColumnLayout = {
+  queueWidth: number;
+  insightsWidth: number;
+};
+
 const api = new InvoiceLensApiClient(window.location.origin);
 const compactTypographyStorageKey = 'InvoiceLens:compactTypography';
 const queueAutoScrollStorageKey = 'InvoiceLens:queueAutoScroll';
+const invoiceColumnLayoutStorageKey = 'InvoiceLens:invoice-columns';
 const userRoleLabel = 'Finance Operations';
 
 const state: AppState = {
@@ -114,6 +124,93 @@ let toastTimer: number | undefined;
 let bootstrapping = false;
 let invoiceChartInstances: Array<{ destroy: () => void }> = [];
 let invoiceZoom = 1;
+let invoiceMutationInFlight = false;
+
+const invoiceColumnDefaults: InvoiceColumnLayout = {
+  queueWidth: 360,
+  insightsWidth: 360,
+};
+
+function readInvoiceColumnLayout(): InvoiceColumnLayout | null {
+  try {
+    const raw = window.localStorage.getItem(invoiceColumnLayoutStorageKey);
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw) as Partial<InvoiceColumnLayout>;
+    if (typeof parsed.queueWidth !== 'number' || typeof parsed.insightsWidth !== 'number') {
+      return null;
+    }
+
+    return {
+      queueWidth: parsed.queueWidth,
+      insightsWidth: parsed.insightsWidth,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function persistInvoiceColumnLayout(layout: InvoiceColumnLayout): void {
+  try {
+    window.localStorage.setItem(invoiceColumnLayoutStorageKey, JSON.stringify(layout));
+  } catch {
+    // Ignore storage failures and keep session-only sizing.
+  }
+}
+
+function clampInvoiceColumnLayout(workspace: HTMLElement, layout: InvoiceColumnLayout): InvoiceColumnLayout {
+  const totalWidth = workspace.clientWidth;
+  const queueMin = 260;
+  const queueMax = 560;
+  const insightsMin = 280;
+  const insightsMax = 560;
+  const centerMin = 480;
+  const handlesWidth = 20;
+
+  if (totalWidth <= queueMin + insightsMin + centerMin + handlesWidth) {
+    return {
+      queueWidth: queueMin,
+      insightsWidth: insightsMin,
+    };
+  }
+
+  const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
+
+  const initialQueueMax = Math.min(queueMax, totalWidth - handlesWidth - centerMin - insightsMin);
+  let queueWidth = clamp(layout.queueWidth, queueMin, initialQueueMax);
+
+  const initialInsightsMax = Math.min(insightsMax, totalWidth - handlesWidth - centerMin - queueWidth);
+  let insightsWidth = clamp(layout.insightsWidth, insightsMin, initialInsightsMax);
+
+  const adjustedQueueMax = Math.min(queueMax, totalWidth - handlesWidth - centerMin - insightsWidth);
+  queueWidth = clamp(queueWidth, queueMin, adjustedQueueMax);
+
+  return {
+    queueWidth,
+    insightsWidth,
+  };
+}
+
+function applyInvoiceColumnLayout(): void {
+  const workspace = pageHost.querySelector<HTMLElement>('.invoices-page .workspace');
+  if (!workspace) {
+    return;
+  }
+
+  if (window.matchMedia('(max-width: 820px)').matches) {
+    workspace.style.removeProperty('--invoice-queue-width');
+    workspace.style.removeProperty('--invoice-insights-width');
+    return;
+  }
+
+  const stored = readInvoiceColumnLayout() ?? invoiceColumnDefaults;
+  const layout = clampInvoiceColumnLayout(workspace, stored);
+
+  workspace.style.setProperty('--invoice-queue-width', `${layout.queueWidth}px`);
+  workspace.style.setProperty('--invoice-insights-width', `${layout.insightsWidth}px`);
+}
 
 function applyInvoiceZoom(): void {
   const paper = pageHost.querySelector<HTMLElement>('.invoice-paper');
@@ -1284,6 +1381,9 @@ function render(): void {
       : '';
 
   pageHost.innerHTML = `${pageMarkup}${invoicePreviewMarkup}`;
+  if (state.route === 'invoices') {
+    applyInvoiceColumnLayout();
+  }
   appShell.dataset['sidebar'] = state.sidebarCollapsed ? 'collapsed' : 'expanded';
   applyWorkspaceSettings();
   globalSearch.value = state.globalSearch;
@@ -1425,10 +1525,18 @@ async function loadReviewBundle(invoiceId: string): Promise<ReviewBundle> {
   }
 }
 
-async function reloadData(selectedInvoiceId = state.selectedInvoiceId): Promise<void> {
-  state.loading = true;
+async function reloadData(selectedInvoiceId = state.selectedInvoiceId, options: ReloadOptions = {}): Promise<void> {
+  const silent = options.silent ?? false;
+
+  if (!silent) {
+    state.loading = true;
+  }
+
   state.error = null;
-  render();
+
+  if (!silent) {
+    render();
+  }
 
   try {
     const [invoices, queue, syncStatus] = await Promise.all([
@@ -1486,7 +1594,41 @@ async function openInvoicePreview(invoiceId: string): Promise<void> {
 async function refreshAfterMutation(successMessage: string): Promise<void> {
   showToast(successMessage);
   store.selected.delete(state.selectedInvoiceId);
-  await reloadData(state.selectedInvoiceId);
+  await reloadData(state.selectedInvoiceId, { silent: true });
+}
+
+function setInvoiceActionButtonsBusy(isBusy: boolean): void {
+  const selectors = ['validate-invoice', 'approve-invoice', 'send-back']
+    .map((action) => `.invoices-page [data-action="${action}"]`)
+    .join(', ');
+
+  pageHost.querySelectorAll<HTMLButtonElement>(selectors).forEach((button) => {
+    button.disabled = isBusy;
+    button.setAttribute('aria-busy', String(isBusy));
+  });
+}
+
+async function runInvoiceMutation(
+  actionLabel: string,
+  operation: () => Promise<unknown>,
+  successMessage: string,
+): Promise<void> {
+  if (!state.selectedInvoiceId || invoiceMutationInFlight) {
+    return;
+  }
+
+  invoiceMutationInFlight = true;
+  setInvoiceActionButtonsBusy(true);
+
+  try {
+    await operation();
+    await refreshAfterMutation(successMessage);
+  } catch (error) {
+    showMutationError(actionLabel, error);
+  } finally {
+    invoiceMutationInFlight = false;
+    setInvoiceActionButtonsBusy(false);
+  }
 }
 
 function showMutationError(actionLabel: string, error: unknown): void {
@@ -1628,26 +1770,17 @@ document.addEventListener('click', (event) => {
       break;
     case 'validate-invoice':
       if (state.selectedInvoiceId) {
-        void api
-          .validateInvoice(state.selectedInvoiceId)
-          .then(() => refreshAfterMutation('Invoice validation completed.'))
-          .catch((error) => showMutationError('Validate', error));
+        void runInvoiceMutation('Validate', () => api.validateInvoice(state.selectedInvoiceId), 'Invoice validation completed.');
       }
       break;
     case 'approve-invoice':
       if (state.selectedInvoiceId) {
-        void api
-          .approveInvoice(state.selectedInvoiceId)
-          .then(() => refreshAfterMutation('Invoice approved and audit entry created.'))
-          .catch((error) => showMutationError('Approve', error));
+        void runInvoiceMutation('Approve', () => api.approveInvoice(state.selectedInvoiceId), 'Invoice approved and audit entry created.');
       }
       break;
     case 'send-back':
       if (state.selectedInvoiceId) {
-        void api
-          .sendBackInvoice(state.selectedInvoiceId)
-          .then(() => refreshAfterMutation('Invoice sent back for review.'))
-          .catch((error) => showMutationError('Send back', error));
+        void runInvoiceMutation('Send back', () => api.sendBackInvoice(state.selectedInvoiceId), 'Invoice sent back for review.');
       }
       break;
     case 'save-settings':
@@ -1714,6 +1847,78 @@ document.addEventListener('change', (event) => {
   const filter = target.getAttribute('data-filter');
   if (filter) {
     setFilter(filter, target.value);
+  }
+});
+
+document.addEventListener('pointerdown', (event) => {
+  const target = event.target;
+  if (!(target instanceof Element)) {
+    return;
+  }
+
+  const handle = target.closest<HTMLElement>('[data-resizer]');
+  if (!handle || state.route !== 'invoices' || window.matchMedia('(max-width: 820px)').matches) {
+    return;
+  }
+
+  const workspace = pageHost.querySelector<HTMLElement>('.invoices-page .workspace');
+  const queuePanel = workspace?.querySelector<HTMLElement>('.panel.queue');
+  const insightsPanel = workspace?.querySelector<HTMLElement>('.panel.insights');
+  if (!workspace || !queuePanel || !insightsPanel) {
+    return;
+  }
+
+  const mode = handle.getAttribute('data-resizer');
+  if (mode !== 'queue' && mode !== 'insights') {
+    return;
+  }
+
+  event.preventDefault();
+
+  const startX = event.clientX;
+  const startQueueWidth = queuePanel.getBoundingClientRect().width;
+  const startInsightsWidth = insightsPanel.getBoundingClientRect().width;
+  let layout: InvoiceColumnLayout = clampInvoiceColumnLayout(workspace, {
+    queueWidth: startQueueWidth,
+    insightsWidth: startInsightsWidth,
+  });
+
+  document.body.classList.add('invoice-resizing');
+
+  const dragAbort = new AbortController();
+  const onPointerMove = (moveEvent: PointerEvent): void => {
+    const deltaX = moveEvent.clientX - startX;
+
+    if (mode === 'queue') {
+      layout = clampInvoiceColumnLayout(workspace, {
+        queueWidth: startQueueWidth + deltaX,
+        insightsWidth: startInsightsWidth,
+      });
+    } else {
+      layout = clampInvoiceColumnLayout(workspace, {
+        queueWidth: startQueueWidth,
+        insightsWidth: startInsightsWidth - deltaX,
+      });
+    }
+
+    workspace.style.setProperty('--invoice-queue-width', `${layout.queueWidth}px`);
+    workspace.style.setProperty('--invoice-insights-width', `${layout.insightsWidth}px`);
+  };
+
+  const stopDragging = (): void => {
+    dragAbort.abort();
+    document.body.classList.remove('invoice-resizing');
+    persistInvoiceColumnLayout(layout);
+  };
+
+  document.addEventListener('pointermove', onPointerMove, { signal: dragAbort.signal });
+  document.addEventListener('pointerup', stopDragging, { once: true, signal: dragAbort.signal });
+  document.addEventListener('pointercancel', stopDragging, { once: true, signal: dragAbort.signal });
+});
+
+window.addEventListener('resize', () => {
+  if (state.route === 'invoices') {
+    applyInvoiceColumnLayout();
   }
 });
 
