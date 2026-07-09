@@ -29,7 +29,14 @@ Run from repository root:
 .\infra\bicep\scripts\deploy-all-dev.ps1
 ```
 
-That single command performs infra deploy, image builds, app image rollout, and endpoint verification.
+That single command performs:
+
+- Infra pre-check (resource group + required resources)
+- Skip infra if everything already exists
+- Reconcile missing infra resources if anything is missing
+- Build and push images
+- Deploy app images to Azure
+- Endpoint verification
 
 If you need the expanded steps, use the sequence below.
 
