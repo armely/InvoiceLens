@@ -1,6 +1,6 @@
-import { InvoiceSummaryDto, QueueRow, SyncStatusDto, ValidationAlert, VendorBar } from '../shared/models.js';
+import { InvoiceSummaryDto, QueueRow, SyncStatusDto, ValidationAlert } from '../shared/models.js';
 import { formatCurrency, formatDateTime, normalizeLabel } from '../shared/utils.js';
-import { pageHeader, renderAlertCards, renderInvoiceTable, renderVendorBars, statusChip } from './shared.js';
+import { pageHeader, renderAlertCards, renderInvoiceTable, statusChip } from './shared.js';
 
 interface ContractVendorRow {
   vendor: string;
@@ -117,12 +117,6 @@ export function renderContractsPage(
   syncStatus: SyncStatusDto | null,
 ): string {
   const vendorRows = buildVendorRows(invoices, queueRows);
-  const vendorBars: VendorBar[] = vendorRows.map((row, index) => ({
-    name: row.vendor,
-    count: row.invoiceCount,
-    width: Math.max(24, 100 - index * 12),
-    color: index % 2 === 0 ? 'orange' : 'teal',
-  }));
   const contractLinkedInvoices = invoices.slice(0, 5);
   const syncLabel = syncStatus ? normalizeLabel(syncStatus.status) : 'Pending';
 
@@ -136,50 +130,78 @@ export function renderContractsPage(
         <div class="summary-card summary-card-total">
           <small>Active Vendors</small>
           <strong>${vendorRows.length}</strong>
-          <span>Highest spend relationships in the current set</span>
+          <span>Top vendors represented in current invoices</span>
         </div>
         <div class="summary-card summary-card-pending">
-          <small>Queue Linked</small>
+          <small>Queue Items</small>
           <strong>${queueRows.length}</strong>
-          <span>Records carrying a review reason</span>
+          <span>Contracts needing review attention</span>
         </div>
         <div class="summary-card summary-card-sentback">
-          <small>Exceptions</small>
+          <small>Validation Alerts</small>
           <strong>${validationAlerts.length}</strong>
-          <span>Validation signals tied to contract checks</span>
-        </div>
-        <div class="summary-card summary-card-approved">
-          <small>Sync State</small>
-          <strong>${syncLabel}</strong>
-          <span>${syncStatus ? `Last synced ${formatDateTime(syncStatus.lastSuccessfulRunUtc)}` : 'Sync details pending'}</span>
+          <span>Signals flagged during contract checks</span>
         </div>
       </section>
 
-      <section class="page-section">
-        <div class="page-section-header">
-          <div>
-            <h2>Coverage and Guardrails</h2>
-            <p>Contract coverage on one side and the rules that enforce it on the other.</p>
-          </div>
-        </div>
-        <div class="page-section-grid">
-          <article class="card">
+      <div class="page-grid">
+        <div class="workspace">
+          <section class="card">
             <div class="card-header">
               <div>
                 <h2>Contract Coverage Matrix</h2>
-                <p>Vendor-level totals, queue pressure, and review posture.</p>
+                <p>Vendor totals, queue pressure, and review posture.</p>
               </div>
               <span class="status-chip pending-neutral">Top 6</span>
             </div>
             ${renderVendorTable(vendorRows)}
-          </article>
+          </section>
 
-          <article class="card">
+          <section class="card page-snapshot-card">
             <div class="card-header">
               <div>
-                <h2>Guardrails</h2>
-                <p>What the workspace is checking against each invoice.</p>
+                <h2>Contract-Linked Invoices</h2>
+                <p>Recent invoice records supporting contract review.</p>
               </div>
+              <a class="button ghost" href="/invoices">Open invoices -></a>
+            </div>
+            ${renderInvoiceTable(contractLinkedInvoices)}
+          </section>
+        </div>
+
+        <aside class="side-panel">
+          <section class="card">
+            <div class="card-header">
+              <h2>Data Freshness</h2>
+              <span class="status-chip ${syncStatus ? (syncLabel.toLowerCase().includes('healthy') ? 'approved' : 'warning') : 'pending-neutral'}">${escapeHtml(syncLabel)}</span>
+            </div>
+            <div class="settings-list">
+              <div class="settings-row">
+                <div>
+                  <strong>Last Successful Sync</strong>
+                  <small>${syncStatus ? escapeHtml(formatDateTime(syncStatus.lastSuccessfulRunUtc)) : 'Waiting for the first sync run'}</small>
+                </div>
+              </div>
+              <div class="settings-row">
+                <div>
+                  <strong>Pending Items</strong>
+                  <small>Records still moving through the workspace</small>
+                </div>
+                <span class="status-chip pending-neutral">${syncStatus?.pendingItems ?? queueRows.length}</span>
+              </div>
+              <div class="settings-row">
+                <div>
+                  <strong>Failed Items</strong>
+                  <small>Exceptions requiring manual follow-up</small>
+                </div>
+                <span class="status-chip exception">${syncStatus?.failedItems ?? validationAlerts.length}</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-header">
+              <h2>Guardrails</h2>
               <span class="status-chip approved">Policy</span>
             </div>
             <div class="settings-list">
@@ -212,24 +234,6 @@ export function renderContractsPage(
                 <span class="status-chip warning">Active</span>
               </div>
             </div>
-          </article>
-        </div>
-      </section>
-
-      <section class="page-section">
-        <div class="page-section-header">
-          <div>
-            <h2>Supporting Views</h2>
-            <p>Concentration and validation signals separated into their own cards.</p>
-          </div>
-        </div>
-        <div class="page-support-grid">
-          <section class="card">
-            <div class="card-header">
-              <h2>Vendor Concentration</h2>
-              <span class="status-chip pending-neutral">Live</span>
-            </div>
-            ${renderVendorBars(vendorBars)}
           </section>
 
           <section class="card">
@@ -239,19 +243,8 @@ export function renderContractsPage(
             </div>
             <div class="alert-list">${renderAlertCards(validationAlerts.slice(0, 4))}</div>
           </section>
-        </div>
-      </section>
-
-      <section class="card page-snapshot-card">
-        <div class="card-header">
-          <div>
-            <h2>Contract-Linked Invoices</h2>
-            <p>Recent invoice records that help support contract review.</p>
-          </div>
-          <a class="button ghost" href="/invoices">Open invoices -></a>
-        </div>
-        ${renderInvoiceTable(contractLinkedInvoices)}
-      </section>
+        </aside>
+      </div>
     </section>
   `;
 }
