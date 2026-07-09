@@ -32,7 +32,7 @@ export function renderDashboard(data: DashboardViewData): string {
                       <path d="M16.2 16.2 20 20"></path>
                     </svg>
                   </span>
-                  <input class="search-input" type="search" value="${data.search}" data-input="page-search" placeholder="Search invoice number, vendor, company, AFE, or amount..." />
+                  <input class="search-input" type="search" value="${data.dashboardSearch}" data-input="page-search" placeholder="Search invoice number, vendor, company, AFE, or amount..." />
                 </div>
               </div>
               <div class="dashboard-date-group">

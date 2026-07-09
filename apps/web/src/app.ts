@@ -49,7 +49,8 @@ const state: AppState = {
   selectedInvoiceId: '',
   invoicePreviewOpen: false,
   activeInvoicePanel: 'insights',
-  search: '',
+  globalSearch: '',
+  dashboardSearch: '',
   sidebarCollapsed: true,
   dashboardDateRange: 'Last 30 Days',
   dashboardDateFrom: '',
@@ -134,7 +135,7 @@ function setInvoiceZoom(next: number): void {
 
 function getQueueOrderedInvoices(): InvoiceSummaryDto[] {
   return applyInvoiceFilters(store.invoices, {
-    search: state.search,
+    search: state.globalSearch,
     status: state.invoiceStatusFilter,
     dateRange: state.invoiceDateRange,
     dateFrom: state.invoiceDateFrom,
@@ -681,7 +682,7 @@ function buildVendorBars(rows: QueueRow[]): VendorBar[] {
 
 function getFilteredDashboardInvoices(): InvoiceSummaryDto[] {
   return applyInvoiceFilters(store.invoices, {
-    search: state.search,
+    search: state.dashboardSearch,
     dateRange: state.dashboardDateRange,
     dateFrom: state.dashboardDateFrom,
     dateTo: state.dashboardDateTo,
@@ -763,7 +764,7 @@ function buildDashboardData(): DashboardViewData {
     vendorBars: buildVendorBars(store.queueRows),
     recentInvoices: store.invoices,
     filteredInvoices,
-    search: state.search,
+    dashboardSearch: state.dashboardSearch,
     dashboardDateRange: state.dashboardDateRange,
     dashboardDateFrom: state.dashboardDateFrom,
     dashboardDateTo: state.dashboardDateTo,
@@ -1229,7 +1230,7 @@ function render(): void {
     invoices: () =>
       renderInvoicesPage(
         store.invoices,
-        state.search,
+        state.globalSearch,
         state.invoiceStatusFilter,
         state.invoiceDateRange,
         state.invoiceDateFrom,
@@ -1258,7 +1259,7 @@ function render(): void {
   pageHost.innerHTML = `${pageMarkup}${invoicePreviewMarkup}`;
   appShell.dataset['sidebar'] = state.sidebarCollapsed ? 'collapsed' : 'expanded';
   applyWorkspaceSettings();
-  globalSearch.value = state.search;
+  globalSearch.value = state.globalSearch;
   updateNavState();
   updateQueueCount();
   updateNotificationCount();
@@ -1269,13 +1270,13 @@ function render(): void {
 }
 
 function clearSearch(): void {
-  state.search = '';
+  state.globalSearch = '';
   globalSearch.value = '';
   render();
 }
 
 function resetInvoiceFilters(): void {
-  state.search = '';
+  state.globalSearch = '';
   state.invoiceStatusFilter = 'All Statuses';
   state.invoiceDateRange = 'All Time';
   state.invoiceDateFrom = '';
@@ -1323,13 +1324,19 @@ function setFilter(filter: string, value: string): void {
 }
 
 function handleSearchUpdate(value: string, sourceInput?: HTMLInputElement): void {
-  state.search = value;
+  const isDashboardSearch = sourceInput?.matches('[data-input="page-search"]') ?? false;
+
+  if (isDashboardSearch) {
+    state.dashboardSearch = value;
+  } else {
+    state.globalSearch = value;
+  }
 
   if (state.route === 'invoices' && updateInvoiceQueueInPlace()) {
     return;
   }
 
-  const preserveDashboardSearchFocus = state.route === 'dashboard' && sourceInput?.matches('[data-input="page-search"]');
+  const preserveDashboardSearchFocus = state.route === 'dashboard' && isDashboardSearch;
   const selectionStart = preserveDashboardSearchFocus ? sourceInput.selectionStart ?? value.length : null;
   const selectionEnd = preserveDashboardSearchFocus ? sourceInput.selectionEnd ?? value.length : null;
 
@@ -1543,8 +1550,7 @@ document.addEventListener('click', (event) => {
       state.dashboardDateFrom = '';
       state.dashboardDateTo = '';
       state.dashboardDateRange = 'Last 30 Days';
-      state.search = '';
-      globalSearch.value = '';
+      state.dashboardSearch = '';
       render();
       break;
     case 'download-pdf':

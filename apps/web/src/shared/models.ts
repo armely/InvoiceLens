@@ -26,7 +26,8 @@ export interface AppState {
   selectedInvoiceId: string;
   invoicePreviewOpen: boolean;
   activeInvoicePanel: InvoicePanelTab;
-  search: string;
+  globalSearch: string;
+  dashboardSearch: string;
   sidebarCollapsed: boolean;
   dashboardDateRange: DateRangeFilter;
   dashboardDateFrom: string;
@@ -236,7 +237,7 @@ export interface DashboardViewData {
   vendorBars: VendorBar[];
   recentInvoices: InvoiceSummaryDto[];
   filteredInvoices: InvoiceSummaryDto[];
-  search: string;
+  dashboardSearch: string;
   dashboardDateRange: DateRangeFilter;
   dashboardDateFrom: string;
   dashboardDateTo: string;
