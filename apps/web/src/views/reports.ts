@@ -88,7 +88,7 @@ export function renderReportsPage(
             <span class="status-chip approved">Updated ${escapeHtml(lastSync)}</span>
           `)}
 
-          <section class="summary-strip summary-strip-board">
+          <section class="summary-strip">
             <div class="summary-card summary-card-total">
               <small>Report-Ready Invoices</small>
               <strong>${invoices.length}</strong>

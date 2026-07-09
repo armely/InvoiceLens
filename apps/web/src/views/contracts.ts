@@ -134,7 +134,7 @@ export function renderContractsPage(
             <span class="status-chip ${syncStatus ? (syncLabel.toLowerCase().includes('healthy') ? 'approved' : 'warning') : 'pending-neutral'}">${escapeHtml(syncLabel)}</span>
           `)}
 
-          <section class="summary-strip summary-strip-board">
+          <section class="summary-strip">
             <div class="summary-card summary-card-total">
               <small>Active Vendors</small>
               <strong>${vendorRows.length}</strong>

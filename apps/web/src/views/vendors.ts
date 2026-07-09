@@ -124,7 +124,7 @@ export function renderVendorsPage(
             <span class="status-chip pending-neutral">${syncStatus ? normalizeLabel(syncStatus.status) : 'Pending sync'}</span>
           `)}
 
-          <section class="summary-strip summary-strip-board">
+          <section class="summary-strip">
             <div class="summary-card summary-card-total">
               <small>Tracked Vendors</small>
               <strong>${vendorRows.length}</strong>
