@@ -4660,6 +4660,7 @@ tbody tr:hover {
   overflow-y: auto;
   min-height: 0;
   height: 100%;
+  container-type: inline-size;
 }
 
 .invoices-page .insights-content:hover,
@@ -4698,7 +4699,7 @@ tbody tr:hover {
 
 .invoices-page .summary-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.18fr) minmax(200px, 0.82fr);
+  grid-template-columns: minmax(0, 1.18fr) minmax(172px, 0.82fr);
   gap: clamp(12px, 1vw, 16px);
 }
 
@@ -4714,7 +4715,7 @@ tbody tr:hover {
 
 .invoices-page .summary-list {
   display: grid;
-  grid-template-columns: minmax(96px, 118px) minmax(0, 1fr);
+  grid-template-columns: minmax(86px, 108px) minmax(0, 1fr);
   gap: clamp(8px, 0.8vw, 10px);
   font-size: clamp(10px, 0.8vw, 11px);
 }
@@ -4722,6 +4723,13 @@ tbody tr:hover {
 .invoices-page .summary-list span:nth-child(odd) {
   color: #64748b;
   font-weight: 600;
+}
+
+.invoices-page .summary-list strong {
+  min-width: 0;
+  color: #1f3552;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .invoices-page .score-box {
@@ -4736,9 +4744,16 @@ tbody tr:hover {
 }
 
 .invoices-page .score-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: clamp(10px, 1vw, 14px);
+}
+
+.invoices-page .score-row > strong {
+  min-width: 0;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .invoices-page .score-circle {
@@ -5047,6 +5062,24 @@ tbody tr:hover {
 
 .invoices-page .risk-row .ok {
   color: #16a34a;
+}
+
+@container (max-width: 420px) {
+  .invoices-page .summary-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .invoices-page .score-box {
+    border-left: 0;
+    border-top: 1px solid #dce4ef;
+    padding-left: 0;
+    padding-top: 12px;
+  }
+
+  .invoices-page .summary-list {
+    grid-template-columns: minmax(78px, 100px) minmax(0, 1fr);
+    gap: 7px;
+  }
 }
 
 @media (max-width: 1400px) {
