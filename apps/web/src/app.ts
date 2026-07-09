@@ -1337,8 +1337,8 @@ function handleSearchUpdate(value: string, sourceInput?: HTMLInputElement): void
   }
 
   const preserveDashboardSearchFocus = state.route === 'dashboard' && isDashboardSearch;
-  const selectionStart = preserveDashboardSearchFocus ? sourceInput.selectionStart ?? value.length : null;
-  const selectionEnd = preserveDashboardSearchFocus ? sourceInput.selectionEnd ?? value.length : null;
+  const selectionStart = preserveDashboardSearchFocus ? sourceInput?.selectionStart ?? value.length : null;
+  const selectionEnd = preserveDashboardSearchFocus ? sourceInput?.selectionEnd ?? value.length : null;
 
   render();
 
