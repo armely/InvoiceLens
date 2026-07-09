@@ -736,23 +736,38 @@ function getSelectedInvoiceName(): string {
   return sanitizeFileName(selected?.invoiceNumber ?? 'invoice');
 }
 
-async function readStylesheetForInvoiceExport(): Promise<string | null> {
-  try {
-    const response = await fetch('/styles.css', { cache: 'no-store' });
-    if (!response.ok) {
-      return null;
-    }
-
-    return await response.text();
-  } catch {
-    return null;
+function toInlineStyleText(computed: CSSStyleDeclaration): string {
+  let styleText = '';
+  for (let index = 0; index < computed.length; index += 1) {
+    const property = computed.item(index);
+    const value = computed.getPropertyValue(property);
+    const priority = computed.getPropertyPriority(property);
+    styleText += `${property}:${value}${priority ? ` !${priority}` : ''};`;
   }
+
+  return styleText;
 }
 
-function buildInvoiceStandaloneHtml(invoiceMarkup: string, pageTitle: string, stylesheetText: string | null): string {
-  const styleBlock = stylesheetText
-    ? `<style>${stylesheetText}\nbody{margin:0;padding:24px;background:#eef3fa;} .invoice-paper{margin:0 auto!important;box-shadow:none!important;} @page{size:auto;margin:12mm;} </style>`
-    : '<link rel="stylesheet" href="/styles.css"><style>body{margin:0;padding:24px;background:#eef3fa;} .invoice-paper{margin:0 auto!important;box-shadow:none!important;} @page{size:auto;margin:12mm;}</style>';
+function cloneWithInlineStyles(sourceRoot: HTMLElement): HTMLElement {
+  const cloneRoot = sourceRoot.cloneNode(true) as HTMLElement;
+  const sourceElements = [sourceRoot, ...Array.from(sourceRoot.querySelectorAll<HTMLElement>('*'))];
+  const cloneElements = [cloneRoot, ...Array.from(cloneRoot.querySelectorAll<HTMLElement>('*'))];
+
+  sourceElements.forEach((source, index) => {
+    const clone = cloneElements[index];
+    if (!clone) {
+      return;
+    }
+
+    const computed = window.getComputedStyle(source);
+    clone.setAttribute('style', toInlineStyleText(computed));
+  });
+
+  return cloneRoot;
+}
+
+function buildInvoiceStandaloneHtml(invoiceMarkup: string, pageTitle: string): string {
+  const bodyStyle = toInlineStyleText(window.getComputedStyle(document.body));
 
   return `<!doctype html>
 <html lang="en">
@@ -760,9 +775,9 @@ function buildInvoiceStandaloneHtml(invoiceMarkup: string, pageTitle: string, st
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${escapeHtml(pageTitle)}</title>
-  ${styleBlock}
+  <style>@page{size:auto;margin:12mm;}</style>
 </head>
-<body>
+<body style="${bodyStyle}">
   ${invoiceMarkup}
 </body>
 </html>`;
@@ -776,8 +791,8 @@ async function downloadInvoiceWithCurrentDesign(): Promise<void> {
   }
 
   const fileName = `${getSelectedInvoiceName()}.html`;
-  const cssText = await readStylesheetForInvoiceExport();
-  const html = buildInvoiceStandaloneHtml(invoicePaper.outerHTML, fileName, cssText);
+  const invoiceClone = cloneWithInlineStyles(invoicePaper);
+  const html = buildInvoiceStandaloneHtml(invoiceClone.outerHTML, fileName);
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
   const objectUrl = URL.createObjectURL(blob);
 
@@ -801,8 +816,8 @@ async function printInvoiceWithCurrentDesign(): Promise<void> {
   }
 
   const pageTitle = `${getSelectedInvoiceName()}-print`;
-  const cssText = await readStylesheetForInvoiceExport();
-  const html = buildInvoiceStandaloneHtml(invoicePaper.outerHTML, pageTitle, cssText);
+  const invoiceClone = cloneWithInlineStyles(invoicePaper);
+  const html = buildInvoiceStandaloneHtml(invoiceClone.outerHTML, pageTitle);
   const printWindow = window.open('', '_blank', 'noopener,noreferrer');
 
   if (!printWindow) {
