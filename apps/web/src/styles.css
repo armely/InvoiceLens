@@ -968,7 +968,7 @@ tbody tr:hover {
 }
 
 .notifications-page .notifications-card {
-  padding: 0;
+  padding: 14px;
 }
 
 .notifications-page .notifications-list {
