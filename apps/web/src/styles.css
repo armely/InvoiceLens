@@ -466,6 +466,22 @@ a:hover { text-decoration: underline; }
 .workspace { min-width: 0; display: grid; gap: 22px; }
 .side-panel { min-width: 0; display: grid; gap: 16px; }
 
+@media (min-width: 981px) {
+  .analytics-page .page-grid {
+    grid-template-columns: minmax(0, 1fr) 340px;
+    align-items: start;
+  }
+
+  .analytics-page .side-panel {
+    position: sticky;
+    top: calc(var(--topbar-height) + 14px);
+    align-self: start;
+    max-height: calc(100vh - var(--topbar-height) - 22px);
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+}
+
 .card, .metric-card, .filter-bar, .page-header, .review-column, .viewer-panel, .validation-panel {
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow-soft);
 }
