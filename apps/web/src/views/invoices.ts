@@ -323,6 +323,7 @@ export function renderInvoicesPage(
         .join('')
     : '<div class="empty-state">No line items available.</div>';
   const activePanel = activeInvoicePanel === 'details' ? 'details' : 'insights';
+  const canRunActions = Boolean(selectedInvoice?.invoiceId);
   const failedCount = checks.filter((check) => check.status.toLowerCase() !== 'pass').length;
   const rateCapImpact = firstFailedCheck ? totalAmount * 0.1458 : 0;
   const priceImpact = failedCount > 1 ? totalAmount * 0.049 : 0;
@@ -420,6 +421,16 @@ export function renderInvoicesPage(
 
             <div class="insights-content">
               <section class="invoice-tab-panel ${activePanel === 'insights' ? 'is-active' : ''}" role="tabpanel" ${activePanel === 'insights' ? '' : 'aria-hidden="true"'}>
+                <section class="info-card invoice-actions-card">
+                  <div class="card-title" style="margin-bottom: 0;">Review Actions</div>
+                  <p class="invoice-actions-copy">Run validation and move the selected invoice through review states.</p>
+                  <div class="invoice-actions-row">
+                    <button class="button" type="button" data-action="validate-invoice" ${canRunActions ? '' : 'disabled'}>Validate</button>
+                    <button class="button primary" type="button" data-action="approve-invoice" ${canRunActions ? '' : 'disabled'}>Approve</button>
+                    <button class="button ghost" type="button" data-action="send-back" ${canRunActions ? '' : 'disabled'}>Send Back</button>
+                  </div>
+                </section>
+
                 <section class="info-card summary-grid">
                   <div>
                     <div class="card-title">Invoice Summary</div>

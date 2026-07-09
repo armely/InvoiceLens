@@ -514,7 +514,8 @@ function readRouteFromLocation(): {
     storedRoute = null;
   }
 
-  const route = routeEntry?.[0] ?? storedRoute ?? 'dashboard';
+  const knownStoredRoute = storedRoute && routePaths[storedRoute] ? storedRoute : null;
+  const route = routeEntry?.[0] ?? knownStoredRoute ?? 'dashboard';
 
   return { route, selectedInvoiceId, invoicePreviewOpen: false };
 }
@@ -838,6 +839,15 @@ function applySidebarState(): void {
 function updateQueueCount(): void {
   document.querySelectorAll<HTMLElement>('[data-count="queue"]').forEach((item) => {
     item.textContent = String(store.queueRows.length);
+  });
+}
+
+function updateNotificationCount(): void {
+  const count = store.queueRows.length;
+
+  document.querySelectorAll<HTMLElement>('[data-count="notifications"]').forEach((item) => {
+    item.textContent = String(count);
+    item.hidden = count === 0;
   });
 }
 
@@ -1251,6 +1261,7 @@ function render(): void {
   globalSearch.value = state.search;
   updateNavState();
   updateQueueCount();
+  updateNotificationCount();
   renderInvoiceCharts();
   applyInvoiceZoom();
   document.body.classList.toggle('modal-open', state.invoicePreviewOpen);
@@ -1366,196 +1377,28 @@ async function loadReviewBundle(invoiceId: string): Promise<ReviewBundle> {
   }
 }
 
-function getSelectedComparisonInvoice(): LocalInvoiceFileDto | null {
-  return store.localInvoices.find((invoice) => invoice.localInvoiceFileId === state.selectedComparisonLocalInvoiceId) ?? store.localInvoices[0] ?? null;
-}
-
-function persistComparisonSelection(localInvoiceFileId: number): void {
-  state.selectedComparisonLocalInvoiceId = localInvoiceFileId;
-  persistNumberSetting(comparisonSelectionStorageKey, localInvoiceFileId);
-}
-
-function normalizeComparisonCategory(result: InvoiceComparisonResultDto): ComparisonFieldViewModel['category'] {
-  const code = result.ruleCode.toUpperCase();
-  const status = normalizeLabel(result.status).toLowerCase();
-  const message = (result.message ?? '').toLowerCase();
-
-  if (code === 'MISSING_CLIENT_RECORD') {
-    return 'Missing from SQL';
-  }
-
-  if (code === 'MISSING_VENDOR_INVOICE') {
-    return 'Missing from vendor/OpenInvoice side';
-  }
-
-  if (code === 'W9_COMPLIANCE_ISSUE' || status === 'not available' || message.includes('not enough') || message.includes('cannot be evaluated')) {
-    return 'Not enough data to compare';
-  }
-
-  if (status === 'warning') {
-    return 'Warning';
-  }
-
-  if (status === 'fail') {
-    return 'Mismatch';
-  }
-
-  return 'Match';
-}
-
-function resolveComparisonScope(ruleCode: string): string {
-  const normalizedRuleCode = ruleCode.toUpperCase();
-
-  if (normalizedRuleCode === 'LINE_ITEM_MISMATCH') {
-    return 'Line items';
-  }
-
-  if (
-    normalizedRuleCode === 'W9_COMPLIANCE_ISSUE' ||
-    normalizedRuleCode === 'MATCH_STATUS' ||
-    normalizedRuleCode === 'MISSING_CLIENT_RECORD' ||
-    normalizedRuleCode === 'MISSING_VENDOR_INVOICE'
-  ) {
-    return 'Guardrails';
-  }
-
-  return 'Header fields';
-}
-
-function formatComparisonValue(value: string | null | undefined): string {
-  if (value === null || value === undefined) {
-    return '—';
-  }
-
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : '—';
-}
-
-function buildComparisonFieldViewModel(result: InvoiceComparisonResultDto): ComparisonFieldViewModel {
-  return {
-    ruleCode: result.ruleCode,
-    label: result.label,
-    scope: resolveComparisonScope(result.ruleCode),
-    status: result.status,
-    category: normalizeComparisonCategory(result),
-    localValue: formatComparisonValue(result.localValue),
-    systemValue: formatComparisonValue(result.systemValue),
-    message: result.message ?? '',
-    severity: normalizeLabel(result.severity),
-  };
-}
-
-function buildComparisonViewData(): ComparisonViewData {
-  const selectedLocalInvoice = getSelectedComparisonInvoice();
-  const comparisonRun = store.comparisonRun;
-  const results = comparisonRun?.results ?? [];
-  const mappedResults = results.map(buildComparisonFieldViewModel);
-  const selectedFieldIndex = state.comparisonDetailFieldIndex;
-  const selectedField = selectedFieldIndex == null ? null : mappedResults[selectedFieldIndex] ?? null;
-
-  const guardrailCodes = new Set(['MATCH_STATUS', 'MISSING_CLIENT_RECORD', 'MISSING_VENDOR_INVOICE', 'W9_COMPLIANCE_ISSUE']);
-  const lineItemResults = mappedResults.filter((field, index) => results[index]?.ruleCode === 'LINE_ITEM_MISMATCH');
-  const guardrailResults = mappedResults.filter((field, index) => guardrailCodes.has(results[index]?.ruleCode ?? ''));
-  const headerResults = mappedResults.filter((field, index) => {
-    const code = results[index]?.ruleCode ?? '';
-    return !guardrailCodes.has(code) && code !== 'LINE_ITEM_MISMATCH';
-  });
-
-  return {
-    localInvoices: store.localInvoices,
-    selectedLocalInvoice,
-    comparisonRun,
-    fields: mappedResults,
-    selectedFieldIndex,
-    selectedField,
-    groupedResults: {
-      header: headerResults,
-      lineItems: lineItemResults,
-      guardrails: guardrailResults,
-    },
-    pdfUrl: selectedLocalInvoice ? api.getLocalInvoicePdfUrl(selectedLocalInvoice.localInvoiceFileId) : null,
-    loading: state.comparisonLoading,
-    error: state.comparisonError,
-  };
-}
-
-async function loadComparisonRun(localInvoiceFileId: number): Promise<void> {
-  if (!localInvoiceFileId) {
-    store.comparisonRun = null;
-    state.comparisonLoading = false;
-    state.comparisonError = 'Select a local invoice to run the comparison.';
-    state.comparisonDetailFieldIndex = null;
-    return;
-  }
-
-  state.comparisonLoading = true;
-  state.comparisonError = null;
-  store.comparisonRun = null;
-  state.comparisonDetailFieldIndex = null;
-  render();
-
-  try {
-    store.comparisonRun = await api.runInvoiceComparison(localInvoiceFileId);
-  } catch (error) {
-    store.comparisonRun = null;
-    if (error instanceof ApiAuthorizationError) {
-      clearMicrosoftAuth();
-      syncProfile(null);
-      renderAuthGate('Your Microsoft session expired. Please sign in again.');
-      return;
-    }
-
-    state.comparisonError = error instanceof Error ? error.message : 'Unable to run the comparison right now.';
-  } finally {
-    state.comparisonLoading = false;
-  }
-}
-
-async function openComparisonInvoice(localInvoiceFileId: number): Promise<void> {
-  persistComparisonSelection(localInvoiceFileId);
-  state.route = 'comparison';
-  state.invoicePreviewOpen = false;
-  state.comparisonDetailFieldIndex = null;
-  syncBrowserLocation('comparison', '', false, false);
-  render();
-  await loadComparisonRun(localInvoiceFileId);
-  render();
-}
-
 async function reloadData(selectedInvoiceId = state.selectedInvoiceId): Promise<void> {
   state.loading = true;
   state.error = null;
   render();
 
   try {
-    const [invoices, queue, syncStatus, localInvoices] = await Promise.all([
+    const [invoices, queue, syncStatus] = await Promise.all([
       api.getInvoices(),
       api.getQueue(),
       api.getSyncStatus(),
-      api.getLocalInvoices().catch(() => []),
     ]);
 
     store.invoices = invoices;
     store.queue = queue;
     store.queueRows = buildQueueRows();
     store.syncStatus = syncStatus;
-    store.localInvoices = localInvoices;
-
-    if (store.localInvoices.length === 0) {
-      await api.loadLocalInvoices().catch(() => null);
-      store.localInvoices = await api.getLocalInvoices().catch(() => []);
-    }
 
     if (!selectedInvoiceId || !store.invoices.some((invoice) => invoice.invoiceId === selectedInvoiceId)) {
       selectedInvoiceId = store.invoices[0]?.invoiceId ?? '';
     }
 
     state.selectedInvoiceId = selectedInvoiceId;
-
-    if (!state.selectedComparisonLocalInvoiceId || !store.localInvoices.some((invoice) => invoice.localInvoiceFileId === state.selectedComparisonLocalInvoiceId)) {
-      const firstComparison = store.localInvoices[0]?.localInvoiceFileId ?? 0;
-      persistComparisonSelection(firstComparison);
-    }
 
     state.loading = false;
     render();
@@ -1567,14 +1410,6 @@ async function reloadData(selectedInvoiceId = state.selectedInvoiceId): Promise<
           render();
         }
       });
-    }
-
-    if (state.route === 'comparison') {
-      const selectedComparison = getSelectedComparisonInvoice();
-      if (selectedComparison) {
-        await loadComparisonRun(selectedComparison.localInvoiceFileId);
-        render();
-      }
     }
   } catch (error) {
     state.loading = false;
@@ -1626,16 +1461,6 @@ document.addEventListener('click', (event) => {
     return;
   }
 
-  const comparisonInvoiceLink = target.closest<HTMLElement>('[data-local-invoice-id]');
-  if (comparisonInvoiceLink) {
-    event.preventDefault();
-    const localInvoiceId = Number(comparisonInvoiceLink.getAttribute('data-local-invoice-id'));
-    if (Number.isFinite(localInvoiceId) && localInvoiceId > 0) {
-      void openComparisonInvoice(localInvoiceId);
-    }
-    return;
-  }
-
   const invoiceLink = target.closest<HTMLElement>('[data-invoice-id]');
   if (invoiceLink) {
     event.preventDefault();
@@ -1664,19 +1489,6 @@ document.addEventListener('click', (event) => {
   const action = actionElement.getAttribute('data-action');
 
   switch (action) {
-    case 'close-comparison-detail':
-      state.comparisonDetailFieldIndex = null;
-      render();
-      break;
-    case 'open-comparison-detail':
-      {
-        const fieldIndex = Number(actionElement.getAttribute('data-comparison-field-index'));
-        if (Number.isFinite(fieldIndex) && fieldIndex >= 0) {
-          state.comparisonDetailFieldIndex = fieldIndex;
-          render();
-        }
-      }
-      break;
     case 'close-invoice-preview':
       state.invoicePreviewOpen = false;
       if (state.route === 'invoices') {
@@ -1766,6 +1578,14 @@ document.addEventListener('click', (event) => {
       break;
     case 'open-portal':
       showToast('OpenInvoice portal link is ready.');
+      break;
+    case 'validate-invoice':
+      if (state.selectedInvoiceId) {
+        void api
+          .validateInvoice(state.selectedInvoiceId)
+          .then(() => refreshAfterMutation('Invoice validation completed.'))
+          .catch((error) => showMutationError('Validate', error));
+      }
       break;
     case 'approve-invoice':
       if (state.selectedInvoiceId) {

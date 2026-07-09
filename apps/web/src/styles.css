@@ -2487,12 +2487,177 @@ tbody tr:hover {
 .switch::after { content: ""; width: 20px; height: 20px; border-radius: 50%; background: #fff; position: absolute; top: 3px; left: 3px; transition: transform var(--transition); box-shadow: 0 2px 8px rgba(0,0,0,0.18); }
 .switch.active::after { transform: translateX(20px); }
 
+.reports-page {
+  display: grid;
+  gap: 22px;
+}
+
+.contracts-page,
+.vendors-page {
+  display: grid;
+  gap: 22px;
+}
+
+.reports-page .summary-strip {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.contracts-page .summary-strip,
+.vendors-page .summary-strip {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.reports-page .summary-card {
+  min-width: 0;
+}
+
+.contracts-page .summary-card,
+.vendors-page .summary-card {
+  min-width: 0;
+}
+
+.vendors-top-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.9fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.vendors-top-grid .summary-strip {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.vendors-alerts-card {
+  min-width: 0;
+}
+
+.reports-section {
+  display: grid;
+  gap: 14px;
+}
+
+.page-section {
+  display: grid;
+  gap: 14px;
+}
+
+.reports-section-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.page-section-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.reports-section-header h2 {
+  margin: 0;
+  font-family: 'Space Grotesk', 'Plus Jakarta Sans', sans-serif;
+  font-size: 18px;
+  letter-spacing: -0.03em;
+}
+
+.page-section-header h2 {
+  margin: 0;
+  font-family: 'Space Grotesk', 'Plus Jakarta Sans', sans-serif;
+  font-size: 18px;
+  letter-spacing: -0.03em;
+}
+
+.reports-section-header p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.page-section-header p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.reports-pack-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.page-section-grid,
+.page-support-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+.vendors-three-column-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+.reports-pack-grid .card {
+  min-width: 0;
+}
+
+.page-section-grid > .card,
+.page-support-grid > .card {
+  min-width: 0;
+}
+
+.vendors-three-column-grid > .card {
+  min-width: 0;
+}
+
+.reports-support-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+.reports-support-grid > .card {
+  min-width: 0;
+}
+
+.page-snapshot-card {
+  min-width: 0;
+}
+
+.reports-notes-card {
+  grid-column: 1 / -1;
+}
+
+.reports-snapshot-card {
+  min-width: 0;
+}
+
+.reports-page .table-wrap {
+  margin-top: 2px;
+}
+
 .empty-state { padding: 32px; text-align: center; color: var(--muted); background: #f8fafc; border: 1px dashed #cdd7e6; border-radius: var(--radius-md); }
 .toast { position: fixed; right: 24px; bottom: 24px; z-index: 90; transform: translateY(20px); opacity: 0; pointer-events: none; transition: opacity var(--transition), transform var(--transition); padding: 13px 16px; border-radius: 12px; color: #fff; background: var(--navy-900); box-shadow: var(--shadow); font-weight: 760; }
 .toast.show { transform: translateY(0); opacity: 1; }
 
 @media (max-width: 1280px) {
   .page-grid { grid-template-columns: 1fr; }
+  .reports-page .summary-strip,
+  .contracts-page .summary-strip,
+  .vendors-page .summary-strip,
+  .reports-pack-grid,
+  .reports-support-grid,
+  .page-section-grid,
+  .page-support-grid { grid-template-columns: 1fr; }
+  .vendors-top-grid,
+  .vendors-three-column-grid { grid-template-columns: 1fr; }
+  .reports-notes-card { grid-column: auto; }
   .validation-panel { grid-column: 1 / -1; min-height: auto; }
   .queue-page-list,
   .review-column .queue-page-list { max-height: 56vh; }
@@ -3396,6 +3561,30 @@ tbody tr:hover {
 
 .invoices-page .invoice-tab-panel.is-active {
   display: grid;
+}
+
+.invoices-page .invoice-actions-card {
+  display: grid;
+  gap: 8px;
+}
+
+.invoices-page .invoice-actions-copy {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.invoices-page .invoice-actions-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.invoices-page .invoice-actions-row .button {
+  min-height: 34px;
+  padding-inline: 10px;
+  font-size: 12px;
 }
 
 .invoices-page .invoice-tab.is-active {
