@@ -2716,8 +2716,8 @@ tbody tr:hover {
 
 .vendors-top-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.9fr);
-  gap: 12px;
+  grid-template-columns: minmax(0, 1.5fr) minmax(260px, 0.65fr);
+  gap: 10px;
   align-items: start;
 }
 
@@ -2727,6 +2727,42 @@ tbody tr:hover {
 
 .vendors-alerts-card {
   min-width: 0;
+  align-self: start;
+}
+
+.vendors-alert-preview {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.vendors-alert-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.vendors-alert-row strong {
+  display: block;
+  font-size: 13px;
+  color: var(--navy-950);
+}
+
+.vendors-alert-row small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.vendors-alerts-card .button {
+  width: 100%;
 }
 
 .reports-section {
@@ -2796,7 +2832,7 @@ tbody tr:hover {
 .vendors-three-column-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
+  gap: 14px;
   align-items: start;
 }
 

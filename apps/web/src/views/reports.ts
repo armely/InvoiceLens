@@ -155,7 +155,6 @@ export function renderReportsPage(
           </select>
           <input class="input-field" type="date" data-filter="reports-date-from" value="${escapeHtml(reportsDateFrom)}" aria-label="Report from date" />
           <input class="input-field" type="date" data-filter="reports-date-to" value="${escapeHtml(reportsDateTo)}" aria-label="Report to date" />
-          <button class="button primary" type="button" data-action="print-report">Print Report</button>
           <span class="status-chip approved">Updated ${escapeHtml(lastSync)}</span>
         </div>
       `)}
