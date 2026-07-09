@@ -660,6 +660,29 @@ function buildValidationAlerts(bundle: ReviewBundle | null): ValidationAlert[] {
   }));
 }
 
+function buildDashboardValidationAlerts(invoices: InvoiceSummaryDto[]): ValidationAlert[] {
+  return invoices
+    .filter((invoice) => normalizeLabel(invoice.status) !== 'Approved')
+    .slice(0, 6)
+    .map((invoice) => {
+      const normalizedStatus = normalizeLabel(invoice.status);
+      const tone: ValidationAlert['className'] = normalizedStatus === 'Sent Back' ? 'red' : 'amber';
+
+      return {
+        title: normalizedStatus === 'Sent Back' ? 'Sent Back For Correction' : 'Pending Review',
+        count: 1,
+        className: tone,
+        message:
+          normalizedStatus === 'Sent Back'
+            ? `${invoice.invoiceNumber} requires corrections before approval.`
+            : `${invoice.invoiceNumber} is waiting for reviewer action.`,
+        invoiceId: invoice.invoiceId,
+        invoiceNo: invoice.invoiceNumber,
+        amount: formatCurrency(invoice.amount, invoice.currency),
+      };
+    });
+}
+
 function buildVendorBars(rows: QueueRow[]): VendorBar[] {
   const groups = new Map<string, number>();
   rows.forEach((row) => {
@@ -755,13 +778,17 @@ function buildMetrics(): DashboardMetric[] {
 
 function buildDashboardData(): DashboardViewData {
   const filteredInvoices = getFilteredDashboardInvoices();
+  const filteredInvoiceIds = new Set(filteredInvoices.map((invoice) => invoice.invoiceId));
+  const filteredQueueRows = store.queueRows.filter((row) => filteredInvoiceIds.has(row.invoiceId));
+  const dashboardValidationAlerts = buildDashboardValidationAlerts(filteredInvoices);
   const selectedReviewBundle = getSelectedReviewBundle();
 
   return {
     metrics: buildDashboardMetrics(filteredInvoices, true),
-    queueSummary: buildQueueSummary(store.queueRows),
+    queueSummary: buildQueueSummary(filteredQueueRows),
     validationAlerts: buildValidationAlerts(selectedReviewBundle),
-    vendorBars: buildVendorBars(store.queueRows),
+    dashboardValidationAlerts,
+    vendorBars: buildVendorBars(filteredQueueRows),
     recentInvoices: store.invoices,
     filteredInvoices,
     dashboardSearch: state.dashboardSearch,

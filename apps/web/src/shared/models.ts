@@ -234,6 +234,7 @@ export interface DashboardViewData {
   metrics: DashboardMetric[];
   queueSummary: QueueSummaryItem[];
   validationAlerts: ValidationAlert[];
+  dashboardValidationAlerts: ValidationAlert[];
   vendorBars: VendorBar[];
   recentInvoices: InvoiceSummaryDto[];
   filteredInvoices: InvoiceSummaryDto[];

@@ -75,7 +75,7 @@ export function renderDashboard(data: DashboardViewData): string {
             <div class="card-header">
               <h2>Validation Signals</h2>
             </div>
-            <div class="alert-list">${renderAlertCards(data.validationAlerts)}</div>
+            <div class="alert-list">${renderAlertCards(data.dashboardValidationAlerts)}</div>
           </section>
 
           <section class="card">
