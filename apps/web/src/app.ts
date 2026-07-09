@@ -718,6 +718,115 @@ function showToast(message: string): void {
   }, 2200);
 }
 
+function getActiveInvoicePaper(): HTMLElement | null {
+  return pageHost.querySelector<HTMLElement>('.invoices-page .document-area .invoice-paper');
+}
+
+function sanitizeFileName(value: string): string {
+  const cleaned = value
+    .trim()
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '-')
+    .replace(/\s+/g, '-');
+
+  return cleaned || 'invoice';
+}
+
+function getSelectedInvoiceName(): string {
+  const selected = store.invoices.find((invoice) => invoice.invoiceId === state.selectedInvoiceId) ?? null;
+  return sanitizeFileName(selected?.invoiceNumber ?? 'invoice');
+}
+
+async function readStylesheetForInvoiceExport(): Promise<string | null> {
+  try {
+    const response = await fetch('/styles.css', { cache: 'no-store' });
+    if (!response.ok) {
+      return null;
+    }
+
+    return await response.text();
+  } catch {
+    return null;
+  }
+}
+
+function buildInvoiceStandaloneHtml(invoiceMarkup: string, pageTitle: string, stylesheetText: string | null): string {
+  const styleBlock = stylesheetText
+    ? `<style>${stylesheetText}\nbody{margin:0;padding:24px;background:#eef3fa;} .invoice-paper{margin:0 auto!important;box-shadow:none!important;} @page{size:auto;margin:12mm;} </style>`
+    : '<link rel="stylesheet" href="/styles.css"><style>body{margin:0;padding:24px;background:#eef3fa;} .invoice-paper{margin:0 auto!important;box-shadow:none!important;} @page{size:auto;margin:12mm;}</style>';
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(pageTitle)}</title>
+  ${styleBlock}
+</head>
+<body>
+  ${invoiceMarkup}
+</body>
+</html>`;
+}
+
+async function downloadInvoiceWithCurrentDesign(): Promise<void> {
+  const invoicePaper = getActiveInvoicePaper();
+  if (!invoicePaper) {
+    showToast('Select an invoice to download.');
+    return;
+  }
+
+  const fileName = `${getSelectedInvoiceName()}.html`;
+  const cssText = await readStylesheetForInvoiceExport();
+  const html = buildInvoiceStandaloneHtml(invoicePaper.outerHTML, fileName, cssText);
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const objectUrl = URL.createObjectURL(blob);
+
+  const anchor = document.createElement('a');
+  anchor.href = objectUrl;
+  anchor.download = fileName;
+  anchor.rel = 'noopener';
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+  showToast('Downloading invoice with current design.');
+}
+
+async function printInvoiceWithCurrentDesign(): Promise<void> {
+  const invoicePaper = getActiveInvoicePaper();
+  if (!invoicePaper) {
+    showToast('Select an invoice to print.');
+    return;
+  }
+
+  const pageTitle = `${getSelectedInvoiceName()}-print`;
+  const cssText = await readStylesheetForInvoiceExport();
+  const html = buildInvoiceStandaloneHtml(invoicePaper.outerHTML, pageTitle, cssText);
+  const printWindow = window.open('', '_blank', 'noopener,noreferrer');
+
+  if (!printWindow) {
+    showToast('Enable pop-ups to print the invoice.');
+    return;
+  }
+
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
+
+  const runPrint = () => {
+    printWindow.focus();
+    printWindow.print();
+  };
+
+  printWindow.addEventListener('load', () => {
+    window.setTimeout(runPrint, 120);
+  }, { once: true });
+
+  // Fallback for browsers that may not emit load on document.write content.
+  window.setTimeout(runPrint, 300);
+}
+
 function buildInvoiceLookup(): Map<string, InvoiceSummaryDto> {
   return new Map(store.invoices.map((invoice) => [invoice.invoiceId, invoice]));
 }
@@ -1764,22 +1873,10 @@ document.addEventListener('click', (event) => {
       render();
       break;
     case 'download-pdf':
-      if (state.selectedInvoiceId) {
-        const url = api.getInvoiceSnapshotUrl(state.selectedInvoiceId);
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = '';
-        anchor.rel = 'noopener';
-        document.body.appendChild(anchor);
-        anchor.click();
-        anchor.remove();
-        showToast('Downloading invoice document.');
-      } else {
-        showToast('Select an invoice to download.');
-      }
+      void downloadInvoiceWithCurrentDesign();
       break;
     case 'print-invoice':
-      window.print();
+      void printInvoiceWithCurrentDesign();
       break;
     case 'more-actions':
       if (state.selectedInvoiceId) {
