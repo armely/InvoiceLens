@@ -408,8 +408,7 @@ a:hover { text-decoration: underline; }
 .auth-gate-actions .button.primary:hover {
   background: linear-gradient(135deg, #0a2148 0%, #12306f 100%);
 }
-.page { display: block; animation: pageIn 160ms ease; }
-@keyframes pageIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.page { display: block; }
 .page-grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start; }
 .workspace { min-width: 0; display: grid; gap: 22px; }
 .side-panel { min-width: 0; display: grid; gap: 16px; }
