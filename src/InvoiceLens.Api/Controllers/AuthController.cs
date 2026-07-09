@@ -45,9 +45,11 @@ public sealed class AuthController(MicrosoftSessionTokenValidator tokenValidator
 
     [Authorize]
     [HttpGet("me")]
-    public ActionResult<AuthProfileDto> Me()
+    public async Task<ActionResult<AuthProfileDto>> Me([FromHeader(Name = "X-Microsoft-Access-Token")] string? accessToken, CancellationToken cancellationToken)
     {
-        return Ok(BuildProfile(User));
+        var photoDataUrl = await TryFetchMicrosoftProfilePhotoAsync(accessToken, cancellationToken);
+        var details = await TryFetchMicrosoftUserDetailsAsync(accessToken, cancellationToken);
+        return Ok(BuildProfile(User, photoDataUrl, details));
     }
 
     [AllowAnonymous]

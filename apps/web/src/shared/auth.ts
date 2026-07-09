@@ -24,6 +24,11 @@ type AuthState = {
   codeVerifier: string;
 };
 
+type StoredTokens = {
+  accessToken: string;
+  expiresAtUtc: string;
+};
+
 type MicrosoftSessionProfileResult = {
   profile: AuthProfile | null;
   unavailableMessage: string | null;
@@ -265,6 +270,9 @@ function persistProfile(profile: AuthProfile): void {
         ...storedProfile,
         ...profile,
         photoDataUrl: profile.photoDataUrl ?? storedProfile.photoDataUrl ?? null,
+        jobTitle: profile.jobTitle ?? storedProfile.jobTitle ?? null,
+        department: profile.department ?? storedProfile.department ?? null,
+        officeLocation: profile.officeLocation ?? storedProfile.officeLocation ?? null,
       }
     : {
         ...profile,
@@ -284,6 +292,46 @@ function clearProfile(): void {
   window.localStorage.removeItem(authProfileStorageKey);
   window.localStorage.removeItem(authTokensStorageKey);
   authDebug('Cleared stored auth profile and tokens.');
+}
+
+function readStoredAccessToken(): string | null {
+  try {
+    const raw = window.localStorage.getItem(authTokensStorageKey);
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw) as Partial<StoredTokens>;
+    if (!parsed.accessToken || !parsed.expiresAtUtc) {
+      window.localStorage.removeItem(authTokensStorageKey);
+      return null;
+    }
+
+    const expiry = Date.parse(parsed.expiresAtUtc);
+    if (!Number.isFinite(expiry) || expiry <= Date.now()) {
+      window.localStorage.removeItem(authTokensStorageKey);
+      return null;
+    }
+
+    return parsed.accessToken;
+  } catch {
+    window.localStorage.removeItem(authTokensStorageKey);
+    return null;
+  }
+}
+
+function persistAccessToken(accessToken: string, expiresInSeconds?: number): void {
+  const expiresIn = typeof expiresInSeconds === 'number' && Number.isFinite(expiresInSeconds) && expiresInSeconds > 0
+    ? expiresInSeconds
+    : 3600;
+
+  const expiresAt = new Date(Date.now() + (expiresIn * 1000));
+  const tokens: StoredTokens = {
+    accessToken,
+    expiresAtUtc: expiresAt.toISOString(),
+  };
+
+  window.localStorage.setItem(authTokensStorageKey, JSON.stringify(tokens));
 }
 
 function extractProfileFromClaims(claims: Record<string, unknown>): AuthProfile {
@@ -364,11 +412,18 @@ async function fetchMicrosoftProfilePhoto(accessToken: string): Promise<string |
 
 async function fetchMicrosoftSessionProfile(): Promise<MicrosoftSessionProfileResult> {
   authDebug('Fetching Microsoft session profile from the API.');
+  const accessToken = readStoredAccessToken();
   try {
+    const headers = new Headers({
+      Accept: 'application/json',
+    });
+
+    if (accessToken) {
+      headers.set('X-Microsoft-Access-Token', accessToken);
+    }
+
     const response = await fetch('/api/auth/me', {
-      headers: {
-        Accept: 'application/json',
-      },
+      headers,
       credentials: 'include',
     });
 
@@ -626,6 +681,10 @@ export async function initializeMicrosoftAuth(): Promise<MicrosoftAuthBootstrapR
     }
 
     const tokenData = await exchangeCodeForToken(code, storedState.codeVerifier);
+    if (tokenData.access_token) {
+      persistAccessToken(tokenData.access_token, tokenData.expires_in);
+    }
+
     const idToken = tokenData.id_token ?? '';
     const idTokenProfile = extractProfileFromClaims(parseJwtPayload(idToken));
     authDebug('Extracted profile from id token.', {
