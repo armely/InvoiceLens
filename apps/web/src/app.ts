@@ -1322,14 +1322,28 @@ function setFilter(filter: string, value: string): void {
   render();
 }
 
-function handleSearchUpdate(value: string): void {
+function handleSearchUpdate(value: string, sourceInput?: HTMLInputElement): void {
   state.search = value;
 
   if (state.route === 'invoices' && updateInvoiceQueueInPlace()) {
     return;
   }
 
+  const preserveDashboardSearchFocus = state.route === 'dashboard' && sourceInput?.matches('[data-input="page-search"]');
+  const selectionStart = preserveDashboardSearchFocus ? sourceInput.selectionStart ?? value.length : null;
+  const selectionEnd = preserveDashboardSearchFocus ? sourceInput.selectionEnd ?? value.length : null;
+
   render();
+
+  if (preserveDashboardSearchFocus) {
+    const nextSearchInput = pageHost.querySelector<HTMLInputElement>('[data-input="page-search"]');
+    if (nextSearchInput) {
+      nextSearchInput.focus({ preventScroll: true });
+      const nextStart = Math.min(selectionStart ?? value.length, nextSearchInput.value.length);
+      const nextEnd = Math.min(selectionEnd ?? value.length, nextSearchInput.value.length);
+      nextSearchInput.setSelectionRange(nextStart, nextEnd);
+    }
+  }
 }
 
 function toggleSidebar(): void {
@@ -1647,7 +1661,7 @@ document.addEventListener('input', (event) => {
   }
 
   if (target.matches('[data-input="page-search"]')) {
-    handleSearchUpdate(target.value);
+    handleSearchUpdate(target.value, target);
     return;
   }
 
@@ -1685,7 +1699,7 @@ window.addEventListener('popstate', () => {
 globalSearch.addEventListener('input', (event) => {
   const target = event.target;
   if (target instanceof HTMLInputElement) {
-    handleSearchUpdate(target.value);
+    handleSearchUpdate(target.value, target);
   }
 });
 
