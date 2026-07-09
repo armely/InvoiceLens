@@ -39,14 +39,24 @@ export function renderNotificationsPage(rows: QueueRow[], alerts: ValidationAler
     };
   });
 
-  const unreadCount = notifications.filter((item) => !item.isRead).length;
-  const readCount = notifications.length - unreadCount;
+  const orderedNotifications = [...notifications].sort((left, right) => {
+    if (left.isRead !== right.isRead) {
+      return left.isRead ? 1 : -1;
+    }
+
+    const leftTime = left.queuedAt ? Date.parse(left.queuedAt) : 0;
+    const rightTime = right.queuedAt ? Date.parse(right.queuedAt) : 0;
+    return rightTime - leftTime;
+  });
+
+  const unreadCount = orderedNotifications.filter((item) => !item.isRead).length;
+  const readCount = orderedNotifications.length - unreadCount;
 
   return `
     <section class="page active notifications-page">
       <div class="workspace">
         ${pageHeader('Notifications', 'Review alerts and mark them as read.', `
-          <button class="button" type="button" data-action="mark-all-notifications-read" ${notifications.length === 0 ? 'disabled' : ''}>Mark all as read</button>
+          <button class="button" type="button" data-action="mark-all-notifications-read" ${orderedNotifications.length === 0 ? 'disabled' : ''}>Mark all as read</button>
           <a class="button" href="${routeHref('invoices')}" data-route="invoices">Open Invoices</a>
         `)}
 
@@ -63,9 +73,9 @@ export function renderNotificationsPage(rows: QueueRow[], alerts: ValidationAler
             <span class="status-chip pending-neutral">${unreadCount} unread</span>
           </div>
 
-          ${notifications.length === 0 ? '<div class="empty-state">No notifications right now.</div>' : `
+          ${orderedNotifications.length === 0 ? '<div class="empty-state">No notifications right now.</div>' : `
             <div class="notifications-list">
-              ${notifications
+              ${orderedNotifications
                 .map(
                   (item) => `
                     <article class="notification-item ${item.isRead ? 'is-read' : ''}" data-notification-id="${item.id}">
