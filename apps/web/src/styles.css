@@ -2665,6 +2665,14 @@ tbody tr:hover {
   gap: 22px;
 }
 
+.vendors-page {
+  gap: 14px;
+}
+
+.vendors-page .page-header {
+  padding-bottom: 8px;
+}
+
 .reports-page .summary-strip {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
@@ -2709,7 +2717,7 @@ tbody tr:hover {
 .vendors-top-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.9fr);
-  gap: 18px;
+  gap: 12px;
   align-items: start;
 }
 
