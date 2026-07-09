@@ -956,6 +956,18 @@ tbody tr:hover {
 .summary-card-sentback::before { background: linear-gradient(90deg, var(--red), #ff8492); }
 .summary-card-approved::before { background: linear-gradient(90deg, var(--green), #5de0a0); }
 
+.vendors-page .summary-strip,
+.contracts-page .summary-strip,
+.reports-page .summary-strip {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.vendors-page .summary-card,
+.contracts-page .summary-card,
+.reports-page .summary-card {
+  min-width: 0;
+}
+
 .results-card {
   border-radius: 24px;
   background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%);
