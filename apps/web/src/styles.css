@@ -478,9 +478,9 @@ a:hover { text-decoration: underline; }
 .button:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(11, 45, 97, 0.18), 0 8px 18px rgba(7, 31, 67, 0.14); }
 .button.primary { color: #fff; background: linear-gradient(135deg, var(--navy-950) 0%, var(--navy-800) 100%); border-color: var(--navy-900); }
 .button.primary:hover { background: linear-gradient(135deg, var(--navy-900) 0%, var(--navy-800) 100%); border-color: var(--navy-800); }
-.button.success { color: #fff; background: var(--green); border-color: var(--green); }
-.button.danger { color: #fff; background: linear-gradient(135deg, #e54152 0%, #c71f31 100%); border-color: #b91c2c; }
-.button.danger:hover { background: linear-gradient(135deg, #d93a4b 0%, #b11728 100%); border-color: #a31222; }
+.button.success { color: #fff; background: linear-gradient(135deg, var(--navy-950) 0%, var(--navy-800) 100%); border-color: var(--navy-900); }
+.button.danger { color: #fff; background: linear-gradient(135deg, var(--navy-950) 0%, var(--navy-800) 100%); border-color: var(--navy-900); }
+.button.danger:hover { background: linear-gradient(135deg, var(--navy-900) 0%, var(--navy-800) 100%); border-color: var(--navy-800); }
 .button.danger:disabled {
   color: #fff;
   background: #f7aab2;
@@ -494,14 +494,14 @@ a:hover { text-decoration: underline; }
   opacity: 0.75;
 }
 .button.success:disabled {
-  background: var(--green);
-  border-color: var(--green);
+  background: linear-gradient(135deg, var(--navy-950) 0%, var(--navy-800) 100%);
+  border-color: var(--navy-900);
   color: #fff;
   box-shadow: none;
 }
 .button.success.is-complete {
-  background: var(--green);
-  border-color: var(--green);
+  background: linear-gradient(135deg, var(--navy-950) 0%, var(--navy-800) 100%);
+  border-color: var(--navy-900);
 }
 
 .kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(160px, 1fr)); gap: 18px; }
