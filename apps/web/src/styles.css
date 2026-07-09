@@ -2673,6 +2673,10 @@ tbody tr:hover {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.contracts-page .summary-strip {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .reports-page .summary-card {
   min-width: 0;
 }
@@ -2680,6 +2684,16 @@ tbody tr:hover {
 .contracts-page .summary-card,
 .vendors-page .summary-card {
   min-width: 0;
+}
+
+.contracts-page .page-grid {
+  grid-template-columns: minmax(0, 1fr) 340px;
+  align-items: start;
+}
+
+.contracts-page .side-panel {
+  position: static;
+  align-self: start;
 }
 
 .vendors-top-grid {
@@ -2814,6 +2828,7 @@ tbody tr:hover {
 
 @media (max-width: 1280px) {
   .page-grid { grid-template-columns: 1fr; }
+  .contracts-page .page-grid { grid-template-columns: minmax(0, 1fr) 320px; }
   .reports-page .summary-strip,
   .contracts-page .summary-strip,
   .vendors-page .summary-strip,
@@ -2856,6 +2871,7 @@ tbody tr:hover {
   .topbar { grid-template-columns: auto 1fr auto; gap: 12px; }
   .profile-copy, .global-search kbd { display: none; }
   .app-shell, .app-shell[data-sidebar="collapsed"] { grid-template-columns: 1fr; }
+  .contracts-page .page-grid { grid-template-columns: 1fr; }
   .sidebar { position: fixed; top: var(--topbar-height); left: 0; width: min(310px, 84vw); transform: translateX(-110%); transition: transform var(--transition); box-shadow: var(--shadow); }
   .app-shell[data-sidebar="expanded"] .sidebar { transform: translateX(0); }
   .page-host { grid-column: 1 / -1; padding: 16px; }
