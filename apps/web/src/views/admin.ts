@@ -39,7 +39,7 @@ function renderUserDetails(profile: AuthProfile | null): string {
             </div>`;
 
   return `
-        <article class="card">
+        <article class="card admin-user-card">
           <div class="card-header"><h2>User Details</h2><p>Your full Microsoft account profile.</p></div>
           <div class="settings-list">${body}
           </div>
@@ -50,7 +50,7 @@ function renderNotificationSettings(data: AdminViewData): string {
   const controlsDisabledClass = data.emailAlertsEnabled ? '' : 'disabled';
 
   return `
-        <article class="card">
+        <article class="card admin-mail-card">
           <div class="card-header"><h2>Email Alerts</h2><p>Get notified when important system events happen.</p></div>
           <div class="settings-list">
             <div class="settings-row">
@@ -103,9 +103,7 @@ export function renderAdminPage(data: AdminViewData): string {
       `)}
 
       <section class="settings-grid admin-settings-grid">
-        ${renderUserDetails(data.profile)}
-
-        <article class="card">
+        <article class="card admin-sync-card">
           <div class="card-header"><h2>Sync Status</h2><p>Live status from the backend service.</p></div>
           <div class="settings-list">
             <div class="settings-row">
@@ -134,7 +132,9 @@ export function renderAdminPage(data: AdminViewData): string {
 
         ${renderNotificationSettings(data)}
 
-        <article class="card">
+        ${renderUserDetails(data.profile)}
+
+        <article class="card admin-preferences-card">
           <div class="card-header"><h2>Workspace Preferences</h2><p>Local-only toggles for the browser experience.</p></div>
           <div class="settings-list">
             <div class="settings-row">

@@ -2707,19 +2707,35 @@ tbody tr:hover {
 
 .settings-grid { display: grid; grid-template-columns: repeat(2, minmax(260px, 1fr)); gap: 18px; }
 .admin-settings-grid {
-  grid-template-columns: repeat(2, minmax(300px, 1fr));
+  grid-template-columns: repeat(3, minmax(240px, 1fr));
+  grid-template-areas:
+    "sync mail user"
+    ". . prefs";
   align-items: stretch;
+  gap: 14px;
 }
+.admin-settings-grid > .admin-sync-card { grid-area: sync; }
+.admin-settings-grid > .admin-user-card { grid-area: user; }
+.admin-settings-grid > .admin-mail-card { grid-area: mail; }
+.admin-settings-grid > .admin-preferences-card { grid-area: prefs; }
 .admin-settings-grid > .card {
   display: flex;
   flex-direction: column;
-  min-height: 340px;
+  min-height: 220px;
+  max-height: 320px;
+  padding: 14px;
+}
+.admin-settings-grid > .card > .card-header {
+  margin-bottom: 10px;
+}
+.admin-settings-grid > .card > .card-header p {
+  font-size: 11px;
 }
 .admin-settings-grid > .card > .settings-list {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding-right: 6px;
+  padding-right: 4px;
   scrollbar-width: thin;
   scrollbar-color: rgba(68, 100, 143, 0.52) transparent;
 }
@@ -2739,6 +2755,31 @@ tbody tr:hover {
   background: rgba(68, 100, 143, 0.62);
   background-clip: content-box;
 }
+
+@media (max-width: 1480px) {
+  .admin-settings-grid {
+    grid-template-columns: repeat(2, minmax(280px, 1fr));
+    grid-template-areas:
+      "sync mail"
+      "user prefs";
+  }
+}
+
+@media (max-width: 900px) {
+  .admin-settings-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "sync"
+      "user"
+      "mail"
+      "prefs";
+  }
+
+  .admin-settings-grid > .card {
+    max-height: none;
+  }
+}
+
 .settings-row { padding: 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .settings-row strong { display: block; }
 .settings-row small { display: block; color: var(--muted); margin-top: 4px; }
