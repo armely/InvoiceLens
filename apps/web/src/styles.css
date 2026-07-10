@@ -2710,7 +2710,7 @@ tbody tr:hover {
   grid-template-columns: repeat(4, minmax(220px, 1fr));
   grid-template-areas:
     "sync mail user prefs";
-  align-items: stretch;
+  align-items: start;
   gap: 14px;
 }
 .admin-settings-grid > .admin-sync-card { grid-area: sync; }
@@ -2720,8 +2720,6 @@ tbody tr:hover {
 .admin-settings-grid > .card {
   display: flex;
   flex-direction: column;
-  min-height: 220px;
-  max-height: 320px;
   padding: 14px;
 }
 .admin-settings-grid > .card > .card-header {
@@ -2731,28 +2729,8 @@ tbody tr:hover {
   font-size: 11px;
 }
 .admin-settings-grid > .card > .settings-list {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding-right: 4px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(68, 100, 143, 0.52) transparent;
-}
-.admin-settings-grid > .card > .settings-list::-webkit-scrollbar {
-  width: 9px;
-}
-.admin-settings-grid > .card > .settings-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-.admin-settings-grid > .card > .settings-list::-webkit-scrollbar-thumb {
-  background: rgba(68, 100, 143, 0.42);
-  border-radius: 999px;
-  border: 2px solid transparent;
-  background-clip: content-box;
-}
-.admin-settings-grid > .card > .settings-list:hover::-webkit-scrollbar-thumb {
-  background: rgba(68, 100, 143, 0.62);
-  background-clip: content-box;
+  overflow: visible;
+  padding-right: 0;
 }
 
 @media (max-width: 1024px) {
@@ -2775,7 +2753,7 @@ tbody tr:hover {
   }
 
   .admin-settings-grid > .card {
-    max-height: none;
+    padding: 14px;
   }
 }
 
