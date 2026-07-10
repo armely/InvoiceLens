@@ -1,13 +1,18 @@
 using InvoiceLens.Application.ComplianceQueue;
 using InvoiceLens.Application.Invoices;
+using InvoiceLens.Application.Notifications;
 using InvoiceLens.Application.Sync;
 using InvoiceLens.Infrastructure.OpenInvoice;
+using InvoiceLens.Infrastructure.Notifications;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 
 namespace InvoiceLens.Infrastructure.Persistence;
 
-public class SqlInvoiceService(ILogger<SqlInvoiceService> logger) : IInvoiceQueries, IQueueService, ISyncStatusService
+public class SqlInvoiceService(
+    ILogger<SqlInvoiceService> logger,
+    INotificationService notificationService,
+    NotificationMessageFactory notificationMessageFactory) : IInvoiceQueries, IQueueService, ISyncStatusService
 {
     public async Task<IReadOnlyList<InvoiceSummaryDto>> SearchAsync(string? query, CancellationToken cancellationToken)
     {
@@ -309,7 +314,9 @@ public class SqlInvoiceService(ILogger<SqlInvoiceService> logger) : IInvoiceQuer
         await using var connection = SqlConnectionFactory.CreateConnection();
         await connection.OpenAsync(cancellationToken);
 
-        var invoiceId = await GetInvoiceIdByNumberAsync(connection, snapshot.InvoiceNumber, cancellationToken) ?? Guid.NewGuid();
+        var existingInvoiceId = await GetInvoiceIdByNumberAsync(connection, snapshot.InvoiceNumber, cancellationToken);
+        var isNewSubmission = existingInvoiceId is null;
+        var invoiceId = existingInvoiceId ?? Guid.NewGuid();
         await using var command = connection.CreateCommand();
         command.CommandText = """
             IF EXISTS (SELECT 1 FROM dbo.Invoice WHERE InvoiceId = @InvoiceId)
@@ -454,6 +461,20 @@ public class SqlInvoiceService(ILogger<SqlInvoiceService> logger) : IInvoiceQuer
         await command.ExecuteNonQueryAsync(cancellationToken);
 
         await ReplaceInvoiceLinesAsync(connection, invoiceId, snapshot.LineItems, cancellationToken);
+
+        if (isNewSubmission)
+        {
+            try
+            {
+                var message = notificationMessageFactory.CreateNewSubmission(snapshot);
+                await notificationService.SendAsync(message, cancellationToken);
+            }
+            catch (Exception exception)
+            {
+                logger.LogWarning(exception, "Invoice {InvoiceNumber} was inserted but notification delivery failed.", snapshot.InvoiceNumber);
+            }
+        }
+
         return invoiceId;
     }
 

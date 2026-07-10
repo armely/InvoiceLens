@@ -1,8 +1,11 @@
 using System.Text;
 using System.Text.Json;
+using InvoiceLens.Application.Notifications;
+using InvoiceLens.Infrastructure.Notifications;
 using System.Xml.Linq;
 using InvoiceLens.Infrastructure.Persistence;
 using System.Security.Cryptography;
+using Microsoft.Extensions.Logging;
 
 namespace InvoiceLens.Infrastructure.OpenInvoice;
 
@@ -10,7 +13,10 @@ public sealed class OpenInvoiceSyncService(
     IOpenInvoiceClient client,
     OpenInvoiceSyncRepository repository,
     SqlInvoiceService invoices,
-    OpenInvoiceOptions options)
+    OpenInvoiceOptions options,
+    INotificationService notificationService,
+    NotificationMessageFactory notificationMessageFactory,
+    ILogger<OpenInvoiceSyncService> logger)
 {
     private readonly OpenInvoiceOptions _options = options;
     private static readonly string StorageRoot = Path.Combine(AppContext.BaseDirectory, "OpenInvoiceStorage");
@@ -180,11 +186,42 @@ public sealed class OpenInvoiceSyncService(
 
             await repository.SaveCursorAsync(_options.Environment, documentType, DateTimeOffset.UtcNow, null, cancellationToken);
             await repository.CompleteRunAsync(runId, failed > 0 ? "CompletedWithErrors" : "Completed", requested, imported, failed, null, cancellationToken);
+
+            if (failed > 0)
+            {
+                try
+                {
+                    var message = notificationMessageFactory.CreateSystemAlert(
+                        "OpenInvoice sync completed with errors",
+                        $"DocumentType={documentType}, Requested={requested}, Imported={imported}, Failed={failed}",
+                        NotificationSeverity.Warning);
+                    await notificationService.SendAsync(message, cancellationToken);
+                }
+                catch (Exception notificationException)
+                {
+                    logger.LogWarning(notificationException, "Sync error alert notification failed for {DocumentType}.", documentType);
+                }
+            }
+
             return imported;
         }
         catch (Exception exception)
         {
             await repository.CompleteRunAsync(runId, "Failed", requested, imported, failed + 1, exception.Message, cancellationToken);
+
+            try
+            {
+                var message = notificationMessageFactory.CreateSystemAlert(
+                    "OpenInvoice sync failed",
+                    $"DocumentType={documentType}, Error={exception.Message}",
+                    NotificationSeverity.Critical);
+                await notificationService.SendAsync(message, cancellationToken);
+            }
+            catch (Exception notificationException)
+            {
+                logger.LogWarning(notificationException, "Sync failure alert notification failed for {DocumentType}.", documentType);
+            }
+
             throw;
         }
     }

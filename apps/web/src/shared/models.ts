@@ -35,6 +35,10 @@ export interface AppState {
   reportsDateRange: DateRangeFilter;
   reportsDateFrom: string;
   reportsDateTo: string;
+  vendorInvoiceSearch: string;
+  vendorInvoiceStatusFilter: InvoiceStatusFilter;
+  vendorInvoiceSort: QueueSortFilter;
+  vendorInvoiceExpandedCompanies: string[] | null;
   invoiceStatusFilter: InvoiceStatusFilter;
   invoiceDateRange: DateRangeFilter;
   invoiceDateFrom: string;
@@ -42,6 +46,10 @@ export interface AppState {
   queueSort: QueueSortFilter;
   compactTypography: boolean;
   queueAutoScroll: boolean;
+  emailAlertsEnabled: boolean;
+  emailAlertSyncFailures: boolean;
+  emailAlertQueueBacklog: boolean;
+  emailAlertApprovalChanges: boolean;
   loading: boolean;
   error: string | null;
 }
@@ -264,14 +272,13 @@ export interface ValidationSummaryViewData {
 
 export interface AdminViewData {
   syncStatus: SyncStatusDto | null;
-  invoiceCount: number;
-  queueCount: number;
-  approvedCount: number;
-  selectedInvoiceId: string;
-  selectedInvoiceStatus: string;
-  lastUpdated: string;
   compactTypography: boolean;
   queueAutoScroll: boolean;
+  emailAlertsEnabled: boolean;
+  emailAlertSyncFailures: boolean;
+  emailAlertQueueBacklog: boolean;
+  emailAlertApprovalChanges: boolean;
+  notificationTargetEmail: string;
   profile: AuthProfile | null;
 }
 

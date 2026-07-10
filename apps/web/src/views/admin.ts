@@ -46,21 +46,63 @@ function renderUserDetails(profile: AuthProfile | null): string {
         </article>`;
 }
 
+function renderNotificationSettings(data: AdminViewData): string {
+  const controlsDisabledClass = data.emailAlertsEnabled ? '' : 'disabled';
+
+  return `
+        <article class="card">
+          <div class="card-header"><h2>Email Alerts</h2><p>Get notified when important system events happen.</p></div>
+          <div class="settings-list">
+            <div class="settings-row">
+              <div>
+                <strong>Enable email alerts</strong>
+                <small>Turn on operational notifications for this workspace.</small>
+              </div>
+              <button class="switch ${data.emailAlertsEnabled ? 'active' : ''}" type="button" data-action="toggle-switch" data-setting="email-alerts-enabled" aria-pressed="${String(data.emailAlertsEnabled)}" aria-label="Toggle email alerts"></button>
+            </div>
+            <div class="settings-row ${controlsDisabledClass}">
+              <div>
+                <strong>Notification destination</strong>
+                <small>${escapeHtml(data.notificationTargetEmail)}</small>
+              </div>
+              <span class="status-chip pending-neutral">Microsoft profile</span>
+            </div>
+            <div class="settings-row ${controlsDisabledClass}">
+              <div>
+                <strong>Sync failure alerts</strong>
+                <small>Send an email when backend sync reports errors.</small>
+              </div>
+              <button class="switch ${data.emailAlertSyncFailures ? 'active' : ''}" type="button" data-action="toggle-switch" data-setting="email-alert-sync-failures" aria-pressed="${String(data.emailAlertSyncFailures)}" aria-label="Toggle sync failure alerts" ${data.emailAlertsEnabled ? '' : 'disabled'}></button>
+            </div>
+            <div class="settings-row ${controlsDisabledClass}">
+              <div>
+                <strong>Queue backlog alerts</strong>
+                <small>Send an email when pending queue items spike.</small>
+              </div>
+              <button class="switch ${data.emailAlertQueueBacklog ? 'active' : ''}" type="button" data-action="toggle-switch" data-setting="email-alert-queue-backlog" aria-pressed="${String(data.emailAlertQueueBacklog)}" aria-label="Toggle queue backlog alerts" ${data.emailAlertsEnabled ? '' : 'disabled'}></button>
+            </div>
+            <div class="settings-row ${controlsDisabledClass}">
+              <div>
+                <strong>Approval change alerts</strong>
+                <small>Send an email when invoice approvals are changed.</small>
+              </div>
+              <button class="switch ${data.emailAlertApprovalChanges ? 'active' : ''}" type="button" data-action="toggle-switch" data-setting="email-alert-approval-changes" aria-pressed="${String(data.emailAlertApprovalChanges)}" aria-label="Toggle approval change alerts" ${data.emailAlertsEnabled ? '' : 'disabled'}></button>
+            </div>
+            <div class="settings-actions">
+              <button class="button" type="button" data-action="send-test-email-alert" ${data.emailAlertsEnabled ? '' : 'disabled'}>Send Test Alert</button>
+            </div>
+          </div>
+        </article>`;
+}
+
 export function renderAdminPage(data: AdminViewData): string {
   return `
     <section class="page active">
-      ${pageHeader('Admin Settings', 'Operational snapshots from the SQL database plus a few local workspace toggles.', `
+      ${pageHeader('Admin Settings', 'Manage workspace behavior and notifications in one place.', `
         <button class="button primary" type="button" data-action="save-settings">Save Settings</button>
       `)}
 
-      <section class="summary-strip">
-        <div class="summary-card"><small>Total Invoices</small><strong>${data.invoiceCount}</strong></div>
-        <div class="summary-card"><small>Queue Items</small><strong>${data.queueCount}</strong></div>
-        <div class="summary-card"><small>Approved</small><strong>${data.approvedCount}</strong></div>
-        <div class="summary-card"><small>Last Updated</small><strong>${data.lastUpdated}</strong></div>
-      </section>
-
-      <section class="settings-grid">
+      <section class="settings-grid admin-settings-grid">
         ${renderUserDetails(data.profile)}
 
         <article class="card">
@@ -89,6 +131,8 @@ export function renderAdminPage(data: AdminViewData): string {
             </div>
           </div>
         </article>
+
+        ${renderNotificationSettings(data)}
 
         <article class="card">
           <div class="card-header"><h2>Workspace Preferences</h2><p>Local-only toggles for the browser experience.</p></div>

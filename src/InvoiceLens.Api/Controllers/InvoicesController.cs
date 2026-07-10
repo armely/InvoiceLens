@@ -1,6 +1,8 @@
 using InvoiceLens.Application.Audit;
 using InvoiceLens.Application.Invoices;
+using InvoiceLens.Application.Notifications;
 using InvoiceLens.Domain.Enums;
+using InvoiceLens.Infrastructure.Notifications;
 using Microsoft.Data.SqlClient;
 using Microsoft.AspNetCore.Mvc;
 
@@ -8,7 +10,12 @@ namespace InvoiceLens.Api.Controllers;
 
 [ApiController]
 [Route("api/invoices")]
-public class InvoicesController(IInvoiceQueries invoiceQueries, CreateAuditEntryCommand createAuditEntry, ILogger<InvoicesController> logger) : ControllerBase
+public class InvoicesController(
+    IInvoiceQueries invoiceQueries,
+    CreateAuditEntryCommand createAuditEntry,
+    INotificationService notificationService,
+    NotificationMessageFactory notificationMessageFactory,
+    ILogger<InvoicesController> logger) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<InvoiceSummaryDto>>> GetInvoices([FromQuery] string? query, CancellationToken cancellationToken)
@@ -75,6 +82,20 @@ public class InvoicesController(IInvoiceQueries invoiceQueries, CreateAuditEntry
             catch (Exception auditError)
             {
                 logger.LogWarning(auditError, "Invoice {InvoiceId} was updated but the audit entry could not be written.", invoiceId);
+            }
+
+            try
+            {
+                var invoice = await invoiceQueries.GetDetailAsync(invoiceId, cancellationToken);
+                if (invoice is not null)
+                {
+                    var message = notificationMessageFactory.CreateWorkflowUpdate(invoiceId, invoice.InvoiceNumber, auditDetails);
+                    await notificationService.SendAsync(message, cancellationToken);
+                }
+            }
+            catch (Exception notificationError)
+            {
+                logger.LogWarning(notificationError, "Invoice {InvoiceId} was updated but notification delivery failed.", invoiceId);
             }
 
             return NoContent();

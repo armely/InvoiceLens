@@ -3,11 +3,13 @@ using InvoiceLens.Application.Audit;
 using InvoiceLens.Application.InvoiceComparison;
 using InvoiceLens.Application.Documents;
 using InvoiceLens.Application.Invoices;
+using InvoiceLens.Application.Notifications;
 using InvoiceLens.Application.Sync;
 using InvoiceLens.Application.Validation;
 using InvoiceLens.Infrastructure.DocumentStreaming;
 using InvoiceLens.Infrastructure.InvoiceComparison;
 using InvoiceLens.Infrastructure.LocalInvoices;
+using InvoiceLens.Infrastructure.Notifications;
 using InvoiceLens.Infrastructure.OpenInvoice;
 using InvoiceLens.Infrastructure.Persistence;
 using InvoiceLens.Infrastructure.Persistence.Repositories;
@@ -19,10 +21,10 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInvoiceLensInfrastructure(this IServiceCollection services)
     {
-        return services.AddInvoiceLensInfrastructure(new OpenInvoiceOptions(), new LocalInvoiceComparisonOptions());
+        return services.AddInvoiceLensInfrastructure(new OpenInvoiceOptions(), new LocalInvoiceComparisonOptions(), new NotificationOptions());
     }
 
-    public static IServiceCollection AddInvoiceLensInfrastructure(this IServiceCollection services, OpenInvoiceOptions openInvoiceOptions, LocalInvoiceComparisonOptions localInvoiceOptions)
+    public static IServiceCollection AddInvoiceLensInfrastructure(this IServiceCollection services, OpenInvoiceOptions openInvoiceOptions, LocalInvoiceComparisonOptions localInvoiceOptions, NotificationOptions notificationOptions)
     {
         services.AddSingleton<SqlInvoiceService>();
         services.AddSingleton<IInvoiceQueries>(sp => sp.GetRequiredService<SqlInvoiceService>());
@@ -43,6 +45,9 @@ public static class DependencyInjection
 
         services.AddSingleton(openInvoiceOptions);
         services.AddSingleton(localInvoiceOptions);
+        services.AddSingleton(notificationOptions);
+        services.AddSingleton<NotificationMessageFactory>();
+        services.AddSingleton<INotificationService, GraphEmailNotificationService>();
         services.AddSingleton<LocalInvoiceMetadataReader>();
         services.AddSingleton<LocalInvoiceFileReader>();
         services.AddSingleton<InvoiceComparisonSchemaInitializer>();

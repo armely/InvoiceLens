@@ -2,6 +2,7 @@ using InvoiceLens.Application.Sync;
 using InvoiceLens.Infrastructure;
 using InvoiceLens.Infrastructure.Configuration;
 using InvoiceLens.Infrastructure.LocalInvoices;
+using InvoiceLens.Infrastructure.Notifications;
 using InvoiceLens.Infrastructure.OpenInvoice;
 using InvoiceLens.Worker.Jobs;
 using InvoiceLens.Worker.Schedules;
@@ -16,7 +17,8 @@ builder.Services.Configure<SyncScheduleOptions>(builder.Configuration.GetSection
 
 builder.Services.AddInvoiceLensInfrastructure(
     OpenInvoiceOptionsFactory.Create(builder.Configuration),
-    CreateLocalInvoiceOptions(builder.Configuration));
+    CreateLocalInvoiceOptions(builder.Configuration),
+    CreateNotificationOptions(builder.Configuration));
 
 builder.Services.AddHostedService<SyncOpenInvoiceInvoicesJob>();
 builder.Services.AddHostedService<SyncOpenInvoiceInvoiceDetailsJob>();
@@ -43,5 +45,22 @@ static LocalInvoiceComparisonOptions CreateLocalInvoiceOptions(IConfiguration co
         AmountTolerance = decimal.TryParse(comparison["AmountTolerance"], out var amountTolerance) ? amountTolerance : 0.01m,
         DateToleranceDays = int.TryParse(comparison["DateToleranceDays"], out var dateToleranceDays) ? dateToleranceDays : 0,
         RequireSupplierNumber = bool.TryParse(comparison["RequireSupplierNumber"], out var requireSupplierNumber) ? requireSupplierNumber : true
+    };
+}
+
+static NotificationOptions CreateNotificationOptions(IConfiguration configuration)
+{
+    var section = configuration.GetSection("InvoiceLens:Notifications");
+    var recipients = section.GetSection("Recipients").Get<string[]>() ?? [];
+
+    return new NotificationOptions
+    {
+        Enabled = bool.TryParse(section["Enabled"], out var enabled) && enabled,
+        TenantId = section["TenantId"] ?? string.Empty,
+        ClientId = section["ClientId"] ?? string.Empty,
+        ClientSecret = section["ClientSecret"] ?? string.Empty,
+        SenderUserId = section["SenderUserId"] ?? string.Empty,
+        SubjectPrefix = section["SubjectPrefix"] ?? "InvoiceLens",
+        Recipients = recipients
     };
 }
