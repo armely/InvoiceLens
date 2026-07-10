@@ -2755,7 +2755,7 @@ tbody tr:hover {
   background-clip: content-box;
 }
 
-@media (max-width: 1480px) {
+@media (max-width: 1024px) {
   .admin-settings-grid {
     grid-template-columns: repeat(2, minmax(280px, 1fr));
     grid-template-areas:
