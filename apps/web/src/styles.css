@@ -2707,7 +2707,7 @@ tbody tr:hover {
 
 .settings-grid { display: grid; grid-template-columns: repeat(2, minmax(260px, 1fr)); gap: 18px; }
 .admin-settings-grid {
-  grid-template-columns: repeat(4, minmax(220px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   grid-template-areas:
     "sync mail user prefs";
   align-items: start;
@@ -2721,6 +2721,7 @@ tbody tr:hover {
   display: flex;
   flex-direction: column;
   padding: 14px;
+  min-width: 0;
 }
 .admin-settings-grid > .card > .card-header {
   margin-bottom: 10px;
@@ -2729,13 +2730,14 @@ tbody tr:hover {
   font-size: 11px;
 }
 .admin-settings-grid > .card > .settings-list {
+  min-width: 0;
   overflow: visible;
   padding-right: 0;
 }
 
 @media (max-width: 1024px) {
   .admin-settings-grid {
-    grid-template-columns: repeat(2, minmax(280px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-areas:
       "sync mail"
       "user prefs";
@@ -2757,14 +2759,35 @@ tbody tr:hover {
   }
 }
 
-.settings-row { padding: 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.settings-row { padding: 14px; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.settings-row > div {
+  min-width: 0;
+  flex: 1 1 auto;
+}
 .settings-row strong { display: block; }
-.settings-row small { display: block; color: var(--muted); margin-top: 4px; }
+.settings-row small {
+  display: block;
+  color: var(--muted);
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
 .settings-row.disabled {
   opacity: 0.62;
 }
-.switch { width: 46px; height: 26px; border-radius: 99px; border: 0; position: relative; background: #cbd5e1; flex: 0 0 auto; }
-.switch.active { background: var(--green); }
+.switch {
+  width: 46px;
+  height: 26px;
+  border-radius: 99px;
+  border: 1px solid #b7c2d4;
+  position: relative;
+  background: #cbd5e1;
+  flex: 0 0 auto;
+}
+.switch.active {
+  background: linear-gradient(135deg, var(--navy-950) 0%, var(--navy-800) 100%);
+  border-color: var(--navy-900);
+}
 .switch::after { content: ""; width: 20px; height: 20px; border-radius: 50%; background: #fff; position: absolute; top: 3px; left: 3px; transition: transform var(--transition); box-shadow: 0 2px 8px rgba(0,0,0,0.18); }
 .switch.active::after { transform: translateX(20px); }
 .switch:disabled {
