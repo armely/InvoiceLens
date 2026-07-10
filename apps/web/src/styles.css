@@ -2707,8 +2707,37 @@ tbody tr:hover {
 
 .settings-grid { display: grid; grid-template-columns: repeat(2, minmax(260px, 1fr)); gap: 18px; }
 .admin-settings-grid {
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  align-items: start;
+  grid-template-columns: repeat(2, minmax(300px, 1fr));
+  align-items: stretch;
+}
+.admin-settings-grid > .card {
+  display: flex;
+  flex-direction: column;
+  min-height: 340px;
+}
+.admin-settings-grid > .card > .settings-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(68, 100, 143, 0.52) transparent;
+}
+.admin-settings-grid > .card > .settings-list::-webkit-scrollbar {
+  width: 9px;
+}
+.admin-settings-grid > .card > .settings-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.admin-settings-grid > .card > .settings-list::-webkit-scrollbar-thumb {
+  background: rgba(68, 100, 143, 0.42);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+.admin-settings-grid > .card > .settings-list:hover::-webkit-scrollbar-thumb {
+  background: rgba(68, 100, 143, 0.62);
+  background-clip: content-box;
 }
 .settings-row { padding: 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .settings-row strong { display: block; }
