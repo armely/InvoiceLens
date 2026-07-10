@@ -131,4 +131,11 @@ export class InvoiceLensApiClient {
   async sendBackInvoice(invoiceId: string): Promise<void> {
     await this.requestJson<void>(`/api/invoices/${invoiceId}/send-back`, { method: 'POST' });
   }
+
+  async sendAdminTestEmail(recipientEmail?: string): Promise<{ message: string; recipientEmail: string }> {
+    return this.requestJson<{ message: string; recipientEmail: string }>('/api/admin/test-email', {
+      method: 'POST',
+      body: JSON.stringify({ recipientEmail: recipientEmail?.trim() || null }),
+    });
+  }
 }

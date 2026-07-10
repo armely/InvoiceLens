@@ -2026,6 +2026,23 @@ function showMutationError(actionLabel: string, error: unknown): void {
   showToast(`${actionLabel} failed: ${message}`);
 }
 
+async function sendAdminTestEmail(): Promise<void> {
+  const profile = getCurrentAuthProfile();
+  const recipientEmail = profile?.email?.trim() ?? '';
+
+  if (!recipientEmail) {
+    showToast('Your Microsoft profile does not expose an email address yet.');
+    return;
+  }
+
+  try {
+    const result = await api.sendAdminTestEmail(recipientEmail);
+    showToast(result.message || `Test email sent to ${recipientEmail}.`);
+  } catch (error) {
+    showMutationError('Send test email', error);
+  }
+}
+
 document.addEventListener('click', (event) => {
   const target = event.target;
 
@@ -2234,7 +2251,7 @@ document.addEventListener('click', (event) => {
       }
       break;
     case 'send-test-email-alert':
-      showToast('Test email alert queued for delivery.');
+      void sendAdminTestEmail();
       break;
     case 'toggle-vendor-company':
       {

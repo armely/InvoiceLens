@@ -17,84 +17,78 @@ public sealed class GraphEmailNotificationService(
     {
         if (!_options.Enabled)
         {
-            return;
+            throw new InvalidOperationException("Email notifications are disabled. Set InvoiceLens:Notifications:Enabled to true.");
         }
 
-        if (_options.Recipients.Length == 0 || string.IsNullOrWhiteSpace(_options.SenderUserId))
+        if (string.IsNullOrWhiteSpace(_options.SenderUserId))
         {
-            logger.LogWarning("Notifications are enabled but no recipients or sender mailbox is configured.");
-            return;
+            throw new InvalidOperationException("Notifications are enabled but the sender mailbox is not configured.");
         }
 
         if (string.IsNullOrWhiteSpace(_options.TenantId)
             || string.IsNullOrWhiteSpace(_options.ClientId)
             || string.IsNullOrWhiteSpace(_options.ClientSecret))
         {
-            logger.LogWarning("Notifications are enabled but Graph app registration values are missing.");
-            return;
+            throw new InvalidOperationException("Notifications are enabled but Graph app registration values are missing.");
         }
 
-        try
+        var token = await AcquireTokenAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(token))
         {
-            var token = await AcquireTokenAsync(cancellationToken);
-            if (string.IsNullOrWhiteSpace(token))
+            throw new InvalidOperationException("Graph token acquisition returned an empty token.");
+        }
+
+        var client = httpClientFactory.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"https://graph.microsoft.com/v1.0/users/{Uri.EscapeDataString(_options.SenderUserId)}/sendMail");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var recipientsSource = message.Recipients is { Count: > 0 }
+            ? message.Recipients
+            : _options.Recipients;
+
+        var recipients = recipientsSource
+            .Where(address => !string.IsNullOrWhiteSpace(address))
+            .Select(address => new
             {
-                logger.LogWarning("Graph token acquisition returned an empty token.");
-                return;
-            }
-
-            var client = httpClientFactory.CreateClient();
-            using var request = new HttpRequestMessage(HttpMethod.Post, $"https://graph.microsoft.com/v1.0/users/{Uri.EscapeDataString(_options.SenderUserId)}/sendMail");
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-            var recipients = _options.Recipients
-                .Where(address => !string.IsNullOrWhiteSpace(address))
-                .Select(address => new
+                emailAddress = new
                 {
-                    emailAddress = new
-                    {
-                        address = address.Trim()
-                    }
-                })
-                .ToArray();
+                    address = address.Trim()
+                }
+            })
+            .ToArray();
 
-            if (recipients.Length == 0)
-            {
-                logger.LogWarning("Notifications are enabled but recipient list resolved to empty values.");
-                return;
-            }
+        if (recipients.Length == 0)
+        {
+            throw new InvalidOperationException("Notifications are enabled but the recipient list resolved to empty values.");
+        }
 
-            var payload = new
+        var payload = new
+        {
+            message = new
             {
-                message = new
+                subject = $"[{_options.SubjectPrefix}] {message.Subject}",
+                body = new
                 {
-                    subject = $"[{_options.SubjectPrefix}] {message.Subject}",
-                    body = new
-                    {
-                        contentType = "Text",
-                        content = message.PlainTextBody
-                    },
-                    toRecipients = recipients
+                    contentType = message.HtmlBody is null ? "Text" : "HTML",
+                    content = message.HtmlBody ?? message.PlainTextBody
                 },
-                saveToSentItems = false
-            };
+                toRecipients = recipients
+            },
+            saveToSentItems = false
+        };
 
-            request.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+        request.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
-            using var response = await client.SendAsync(request, cancellationToken);
-            if (!response.IsSuccessStatusCode)
-            {
-                var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
-                logger.LogWarning(
-                    "Failed to send notification email. Category={Category}, Status={StatusCode}, Response={ResponseBody}",
-                    message.Category,
-                    response.StatusCode,
-                    responseBody);
-            }
-        }
-        catch (Exception exception)
+        using var response = await client.SendAsync(request, cancellationToken);
+        if (!response.IsSuccessStatusCode)
         {
-            logger.LogWarning(exception, "Failed to send notification email for {Category}.", message.Category);
+            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            logger.LogWarning(
+                "Failed to send notification email. Category={Category}, Status={StatusCode}, Response={ResponseBody}",
+                message.Category,
+                response.StatusCode,
+                responseBody);
+            throw new HttpRequestException($"Microsoft Graph mail delivery failed ({(int)response.StatusCode} {response.StatusCode}). {responseBody}");
         }
     }
 
@@ -115,7 +109,7 @@ public sealed class GraphEmailNotificationService(
         {
             var responseBody = await tokenResponse.Content.ReadAsStringAsync(cancellationToken);
             logger.LogWarning("Could not acquire Graph token. Status={StatusCode}, Response={ResponseBody}", tokenResponse.StatusCode, responseBody);
-            return null;
+            throw new HttpRequestException($"Could not acquire Graph token ({(int)tokenResponse.StatusCode} {tokenResponse.StatusCode}). {responseBody}");
         }
 
         var content = await tokenResponse.Content.ReadAsStringAsync(cancellationToken);
