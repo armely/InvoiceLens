@@ -320,6 +320,10 @@ function readStoredAccessToken(): string | null {
   }
 }
 
+export function getCurrentAccessToken(): string | null {
+  return readStoredAccessToken();
+}
+
 function persistAccessToken(accessToken: string, expiresInSeconds?: number): void {
   const expiresIn = typeof expiresInSeconds === 'number' && Number.isFinite(expiresInSeconds) && expiresInSeconds > 0
     ? expiresInSeconds

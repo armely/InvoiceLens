@@ -1148,6 +1148,7 @@ function buildValidationViewData(): ValidationSummaryViewData {
 
 function buildAdminData(): AdminViewData {
   const selectedInvoice = store.invoices.find((invoice) => invoice.invoiceId === state.selectedInvoiceId) ?? store.invoices[0];
+  const currentProfile = getCurrentAuthProfile();
 
   return {
     syncStatus: store.syncStatus,
@@ -1159,7 +1160,12 @@ function buildAdminData(): AdminViewData {
     lastUpdated: selectedInvoice ? formatDateTime(selectedInvoice.updatedAtUtc) : 'Pending',
     compactTypography: state.compactTypography,
     queueAutoScroll: state.queueAutoScroll,
-    profile: getCurrentAuthProfile(),
+    emailAlertsEnabled: false,
+    notificationTargetEmail: currentProfile?.email?.trim() ? currentProfile.email : 'Not available',
+    emailAlertSyncFailures: false,
+    emailAlertQueueBacklog: false,
+    emailAlertApprovalChanges: false,
+    profile: currentProfile,
   };
 }
 
@@ -1581,7 +1587,13 @@ function render(): void {
       ),
     analytics: () => renderAnalyticsPage(store.invoices, store.queueRows, dashboardData.validationAlerts, store.syncStatus),
     contracts: () => renderContractsPage(store.invoices, store.queueRows, dashboardData.validationAlerts, store.syncStatus),
-    vendors: () => renderVendorsPage(store.invoices, store.queueRows, dashboardData.validationAlerts, store.syncStatus),
+    vendors: () =>
+      renderVendorsPage(store.invoices, store.queueRows, dashboardData.validationAlerts, store.syncStatus, {
+        search: state.globalSearch,
+        status: state.invoiceStatusFilter,
+        sort: state.queueSort,
+        expandedCompanies: [],
+      }),
     reports: () => {
       const reportsInvoices = applyInvoiceFilters(store.invoices, {
         dateRange: state.reportsDateRange,

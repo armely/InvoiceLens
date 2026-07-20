@@ -272,6 +272,11 @@ export interface AdminViewData {
   lastUpdated: string;
   compactTypography: boolean;
   queueAutoScroll: boolean;
+  emailAlertsEnabled: boolean;
+  notificationTargetEmail: string;
+  emailAlertSyncFailures: boolean;
+  emailAlertQueueBacklog: boolean;
+  emailAlertApprovalChanges: boolean;
   profile: AuthProfile | null;
 }
 
