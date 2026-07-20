@@ -18,7 +18,7 @@ export function getRuntimeConfig(): RuntimeConfig {
         tenantId: '',
         redirectUri: '',
         postLogoutRedirectUri: '',
-        scopes: ['openid', 'profile', 'email', 'User.Read'],
+        scopes: ['openid', 'profile', 'email', 'User.Read', 'Mail.Send'],
       },
     }
   );

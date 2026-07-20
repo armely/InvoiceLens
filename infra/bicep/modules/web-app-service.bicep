@@ -5,6 +5,7 @@ param acrServer string
 param webImage string
 param userAssignedIdentityId string
 param apiBaseUrl string = ''
+param appBaseUrl string = ''
 param authClientId string = ''
 param authTenantId string = ''
 param authRedirectUri string = ''
@@ -40,6 +41,10 @@ resource site 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'API_BASE_URL'
           value: apiBaseUrl
+        }
+        {
+          name: 'APP_BASE_URL'
+          value: appBaseUrl
         }
         {
           name: 'InvoiceLens__Auth__ClientId'

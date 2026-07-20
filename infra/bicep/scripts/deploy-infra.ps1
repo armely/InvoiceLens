@@ -94,12 +94,35 @@ $resourcePrefix = Get-EnvValueOrDefault -Name 'INVOICELENS_INFRA_RESOURCE_PREFIX
 $deploymentName = Get-EnvValueOrDefault -Name "INVOICELENS_INFRA_${envToken}_DEPLOYMENT_NAME" -DefaultValue (Get-DefaultDeploymentName -TargetEnvironment $Environment)
 $location = Get-EnvValueOrDefault -Name "INVOICELENS_INFRA_${envToken}_LOCATION" -DefaultValue (Get-DefaultLocation -TargetEnvironment $Environment)
 $sqlLocation = Get-EnvValueOrDefault -Name "INVOICELENS_INFRA_${envToken}_SQL_LOCATION" -DefaultValue $location
+$appServiceLocation = Get-EnvValueOrDefault -Name "INVOICELENS_INFRA_${envToken}_APP_SERVICE_LOCATION" -DefaultValue $location
+$resourceGroupName = "$resourcePrefix-$Environment-rg"
+
+az group create --name $resourceGroupName --location $location | Out-Null
 
 $parameterOverrides = @(
   "resourcePrefix=$resourcePrefix",
   "location=$location",
-  "sqlLocation=$sqlLocation"
+  "sqlLocation=$sqlLocation",
+  "appServiceLocation=$appServiceLocation"
 )
+
+$webPublicBaseUrl = Get-EnvValueOrDefault -Name "INVOICELENS_INFRA_${envToken}_WEB_PUBLIC_BASE_URL" -DefaultValue ''
+if ([string]::IsNullOrWhiteSpace($webPublicBaseUrl)) {
+  $webPublicBaseUrl = Get-EnvValueOrDefault -Name 'INVOICELENS_WEB_PUBLIC_BASE_URL' -DefaultValue ''
+}
+
+$apiPublicBaseUrl = Get-EnvValueOrDefault -Name "INVOICELENS_INFRA_${envToken}_API_PUBLIC_BASE_URL" -DefaultValue ''
+if ([string]::IsNullOrWhiteSpace($apiPublicBaseUrl)) {
+  $apiPublicBaseUrl = Get-EnvValueOrDefault -Name 'INVOICELENS_API_PUBLIC_BASE_URL' -DefaultValue ''
+}
+
+if (-not [string]::IsNullOrWhiteSpace($webPublicBaseUrl)) {
+  $parameterOverrides += "webPublicBaseUrl=$webPublicBaseUrl"
+}
+
+if (-not [string]::IsNullOrWhiteSpace($apiPublicBaseUrl)) {
+  $parameterOverrides += "apiPublicBaseUrl=$apiPublicBaseUrl"
+}
 
 if ($env:INVOICELENS_INFRA_SQL_ADMIN_LOGIN) {
   $parameterOverrides += "sqlAdminLogin=$($env:INVOICELENS_INFRA_SQL_ADMIN_LOGIN)"

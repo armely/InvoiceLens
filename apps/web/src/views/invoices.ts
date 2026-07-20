@@ -373,6 +373,8 @@ export function renderInvoicesPage(
 
           </aside>
 
+          <div class="invoice-column-resizer" data-resizer="queue" role="separator" aria-label="Resize queue and document panels" aria-orientation="vertical" tabindex="0"></div>
+
           <section class="panel viewer">
             <div class="viewer-toolbar">
               <div class="tool-group">
@@ -412,6 +414,8 @@ export function renderInvoicesPage(
               ${renderInvoiceDocument(selectedReviewInvoice, selectedInvoice)}
             </div>
           </section>
+
+          <div class="invoice-column-resizer" data-resizer="insights" role="separator" aria-label="Resize document and insights panels" aria-orientation="vertical" tabindex="0"></div>
 
           <aside class="panel insights">
             <div class="tabs" role="tablist" aria-label="Invoice side panels">

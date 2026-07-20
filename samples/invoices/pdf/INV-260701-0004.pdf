@@ -1,68 +1,91 @@
 %PDF-1.4
-1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
-2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
-3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >> endobj
-4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj
-5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >> endobj
-6 0 obj << /Length 2838 >> stream
-0 0 0 rg
-1 1 1 rg
-36 36 540 720 re f
-0.07 0.18 0.42 rg
-36 708 540 50 re f
-0.12 0.29 0.62 rg
-36 708 10 50 re f
-0.94 0.97 1 rg
-420 716 140 24 re f
-0.92 0.95 0.99 rg
-36 606 258 86 re f
-36 496 540 92 re f
-0.92 0.95 0.99 rg
-318 606 258 86 re f
-0.96 0.98 1 rg
-36 418 540 56 re f
-0.88 0.92 0.97 rg
-390 384 186 86 re f
-BT 1 1 1 /F2 18 Tf 1 0 0 1 56 730 Tm (InvoiceLens Snapshot) Tj ET
-BT 0.86 0.93 1 /F1 9 Tf 1 0 0 1 56 716 Tm (Sample invoice document) Tj ET
-BT 1 1 1 /F1 12 Tf 1 0 0 1 56 688 Tm (Invoice No: INV-260701-0004) Tj ET
-BT 1 1 1 /F1 11 Tf 1 0 0 1 56 673 Tm (Supplier: Velocity Rentals) Tj ET
-BT 0.15 0.24 0.44 /F1 11 Tf 1 0 0 1 438 730 Tm (Current status) Tj ET
-BT 0.07 0.18 0.42 /F2 14 Tf 1 0 0 1 438 714 Tm (Submitted) Tj ET
-BT 0.15 0.24 0.44 /F1 11 Tf 1 0 0 1 438 687 Tm (Total amount) Tj ET
-BT 0.07 0.18 0.42 /F2 14 Tf 1 0 0 1 438 671 Tm (USD 17,890.00) Tj ET
-BT 0.07 0.18 0.42 /F2 12 Tf 1 0 0 1 52 673 Tm (Supplier Details) Tj ET
-BT 0 0 0 /F1 9 Tf 1 0 0 1 52 654 Tm (Vendor: Velocity Rentals) Tj ET
-BT 0 0 0 /F1 9 Tf 1 0 0 1 52 638 Tm (Company: Field Ops) Tj ET
-BT 0 0 0 /F1 9 Tf 1 0 0 1 52 622 Tm (Cost Center: Field Ops) Tj ET
-BT 0.07 0.18 0.42 /F2 12 Tf 1 0 0 1 334 673 Tm (Invoice Details) Tj ET
-BT 0 0 0 /F1 9 Tf 1 0 0 1 334 654 Tm (Invoice Date: 2026-07-02) Tj ET
-BT 0 0 0 /F1 9 Tf 1 0 0 1 334 638 Tm (Purchase Order: n/a) Tj ET
-BT 0 0 0 /F1 9 Tf 1 0 0 1 334 622 Tm (AFE: AFE-1004) Tj ET
-BT 0 0 0 /F1 9 Tf 1 0 0 1 334 606 Tm (Currency: USD) Tj ET
-BT 0.07 0.18 0.42 /F2 13 Tf 1 0 0 1 52 448 Tm (Invoice Breakdown) Tj ET
-BT 0.15 0.24 0.44 /F2 9 Tf 1 0 0 1 52 430 Tm (Line) Tj ET
-BT 0.15 0.24 0.44 /F2 9 Tf 1 0 0 1 90 430 Tm (Description) Tj ET
-BT 0.15 0.24 0.44 /F2 9 Tf 1 0 0 1 400 430 Tm (Qty) Tj ET
-BT 0.15 0.24 0.44 /F2 9 Tf 1 0 0 1 454 430 Tm (Unit Price) Tj ET
-BT 0.15 0.24 0.44 /F2 9 Tf 1 0 0 1 530 430 Tm (Amount) Tj ET
-0.85 0.89 0.95 rg
-52 424 520 1 re f
-BT 0 0 0 /F1 9 Tf 1 0 0 1 52 404 Tm (1) Tj ET
-BT 0 0 0 /F1 9 Tf 1 0 0 1 90 404 Tm (Equipment rental) Tj ET
-BT 0 0 0 /F1 9 Tf 1 0 0 1 400 404 Tm (1) Tj ET
-BT 0 0 0 /F1 9 Tf 1 0 0 1 454 404 Tm (USD 17,890.00) Tj ET
-BT 0 0 0 /F1 9 Tf 1 0 0 1 530 404 Tm (USD 17,890.00) Tj ET
-BT 0.07 0.18 0.42 /F2 11 Tf 1 0 0 1 52 364 Tm (Notes) Tj ET
-BT 0 0 0 /F1 9 Tf 1 0 0 1 52 348 Tm (Local sample invoice for invoice comparison and UI preview.) Tj ET
-BT 0 0 0 /F1 9 Tf 1 0 0 1 52 334 Tm (Export status: Not Exported) Tj ET
-BT 0 0 0 /F1 9 Tf 1 0 0 1 52 320 Tm (Payment status: Unpaid) Tj ET
-BT 0.07 0.18 0.42 /F2 11 Tf 1 0 0 1 404 364 Tm (Summary) Tj ET
-BT 0 0 0 /F1 9 Tf 1 0 0 1 404 348 Tm (Subtotal: USD 17,890.00) Tj ET
-BT 0 0 0 /F1 9 Tf 1 0 0 1 404 334 Tm (Tax: USD 0.00) Tj ET
-BT 0.07 0.18 0.42 /F2 10 Tf 1 0 0 1 404 320 Tm (Total: USD 17,890.00) Tj ET
-BT 0.35 0.38 0.45 /F1 8 Tf 1 0 0 1 52 72 Tm (Generated from local sample metadata for the InvoiceLens workspace.) Tj ET
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 5124 >>
+stream
+q
+1.000 1.000 1.000 rg 0.00 0.00 612.00 792.00 re f
+0.953 0.961 0.969 rg 0.00 718.00 612.00 74.00 re f
+0.043 0.302 0.635 rg 36.00 680.00 150.00 84.00 re f
+BT /F2 30 Tf 1.000 1.000 1.000 rg 1 0 0 1 78.00 733.00 Tm (VR) Tj ET
+BT /F2 11 Tf 0.420 0.447 0.502 rg 1 0 0 1 44.00 664.00 Tm (Invoice Document) Tj ET
+BT /F2 12 Tf 0.067 0.094 0.153 rg 1 0 0 1 376.00 738.00 Tm (Invoice No.) Tj ET
+BT /F2 16 Tf 0.067 0.094 0.153 rg 1 0 0 1 458.00 738.00 Tm (INV-260701-0004) Tj ET
+BT /F2 13 Tf 0.067 0.094 0.153 rg 1 0 0 1 376.00 714.00 Tm (Velocity Rentals) Tj ET
+BT /F1 10 Tf 0.294 0.333 0.388 rg 1 0 0 1 376.00 696.00 Tm (Velocity Rentals) Tj ET
+BT /F2 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 36.00 642.00 Tm (Bill To) Tj ET
+BT /F2 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 186.00 642.00 Tm (Ship To) Tj ET
+BT /F1 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 36.00 626.00 Tm (Accounts Payable) Tj ET
+BT /F1 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 36.00 614.00 Tm (InvoiceLens Operations) Tj ET
+BT /F1 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 36.00 602.00 Tm (500 Market Street, Suite 800) Tj ET
+BT /F1 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 36.00 590.00 Tm (San Francisco, CA 94105) Tj ET
+BT /F1 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 36.00 578.00 Tm (United States) Tj ET
+BT /F1 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 186.00 626.00 Tm (Field Ops) Tj ET
+BT /F1 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 186.00 614.00 Tm (InvoiceLens Receiving) Tj ET
+BT /F1 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 186.00 602.00 Tm (500 Market Street, Suite 800) Tj ET
+BT /F1 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 186.00 590.00 Tm (San Francisco, CA 94105) Tj ET
+BT /F1 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 186.00 578.00 Tm (United States) Tj ET
+BT /F2 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 36.00 556.00 Tm (PO#) Tj ET
+BT /F1 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 96.00 556.00 Tm (PO-000000) Tj ET
+BT /F2 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 186.00 556.00 Tm (Contract:) Tj ET
+BT /F1 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 244.00 556.00 Tm (Standard Services AFE-1004) Tj ET
+0.902 0.902 0.902 rg 326.00 510.00 250.00 136.00 re f
+BT /F2 14 Tf 0.169 0.169 0.169 rg 1 0 0 1 338.00 622.00 Tm (Invoice Amount) Tj ET
+BT /F1 16 Tf 0.169 0.169 0.169 rg 1 0 0 1 471.00 620.00 Tm ($17,890.00) Tj ET
+BT /F2 11 Tf 0.169 0.169 0.169 rg 1 0 0 1 524.00 588.00 Tm (USD) Tj ET
+BT /F2 10 Tf 0.169 0.169 0.169 rg 1 0 0 1 440.00 562.00 Tm (Invoice Date: Jul 1, 2026) Tj ET
+BT /F2 10 Tf 0.169 0.169 0.169 rg 1 0 0 1 452.00 542.00 Tm (Due Date: Jul 31, 2026) Tj ET
+BT /F2 10 Tf 0.169 0.169 0.169 rg 1 0 0 1 461.00 522.00 Tm (Terms: Net 30) Tj ET
+0.898 0.906 0.922 rg 36.00 454.00 540.00 28.00 re f
+BT /F2 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 44.00 472.00 Tm (Item) Tj ET
+BT /F2 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 338.00 472.00 Tm (Quantity) Tj ET
+BT /F2 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 424.00 472.00 Tm (Rate) Tj ET
+BT /F2 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 500.00 472.00 Tm (Amount \(USD\)) Tj ET
+0.898 0.906 0.922 RG 0.80 w 36.00 454.00 m 576.00 454.00 l S
+BT /F1 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 42.00 440.00 Tm (Equipment rental) Tj ET
+BT /F1 8.5 Tf 0.420 0.447 0.502 rg 1 0 0 1 42.00 430.00 Tm (Field Ops) Tj ET
+BT /F1 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 338.00 440.00 Tm (1) Tj ET
+BT /F1 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 424.00 440.00 Tm ($17,890.00) Tj ET
+BT /F1 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 500.00 440.00 Tm ($17,890.00) Tj ET
+0.820 0.835 0.859 RG 1.00 w 36.00 422.00 m 576.00 422.00 l S
+1.000 1.000 1.000 rg 314.00 146.00 262.00 116.00 re f
+0.820 0.835 0.859 RG 1.00 w 314.00 262.00 m 576.00 262.00 l S
+BT /F2 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 334.00 234.00 Tm (Subtotal) Tj ET
+BT /F1 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 510.00 234.00 Tm ($17,890.00) Tj ET
+BT /F2 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 334.00 212.00 Tm (Tax) Tj ET
+BT /F1 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 522.00 212.00 Tm ($0.00) Tj ET
+0.898 0.906 0.922 rg 314.00 166.00 262.00 30.00 re f
+BT /F2 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 334.00 184.00 Tm (Invoice Amount) Tj ET
+BT /F1 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 472.00 184.00 Tm ($17,890.00) Tj ET
+0.612 0.639 0.686 RG 1.00 w 36.00 112.00 m 576.00 112.00 l S
+BT /F2 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 36.00 100.00 Tm (Please Remit To) Tj ET
+BT /F1 9 Tf 0.067 0.094 0.153 rg 1 0 0 1 36.00 88.00 Tm (Account Name: VR) Tj ET
+BT /F1 9 Tf 0.067 0.094 0.153 rg 1 0 0 1 36.00 76.00 Tm (ACH Routing: 111000614) Tj ET
+BT /F1 9 Tf 0.067 0.094 0.153 rg 1 0 0 1 36.00 64.00 Tm (Wire Routing: 021000021) Tj ET
+BT /F1 9 Tf 0.067 0.094 0.153 rg 1 0 0 1 36.00 52.00 Tm (Account Number: 539300902) Tj ET
+BT /F1 9 Tf 0.067 0.094 0.153 rg 1 0 0 1 36.00 40.00 Tm (JP Morgan Chase Bank, N.A.) Tj ET
+BT /F2 10 Tf 0.067 0.094 0.153 rg 1 0 0 1 300.00 100.00 Tm (Lockbox) Tj ET
+BT /F1 9 Tf 0.067 0.094 0.153 rg 1 0 0 1 300.00 88.00 Tm (P.O. Box 734962) Tj ET
+BT /F1 9 Tf 0.067 0.094 0.153 rg 1 0 0 1 300.00 76.00 Tm (Dallas, TX 75373-4962) Tj ET
+BT /F1 9 Tf 0.067 0.094 0.153 rg 1 0 0 1 300.00 52.00 Tm (Questions: billing@invoicelens.com) Tj ET
+BT /F1 9 Tf 0.067 0.094 0.153 rg 1 0 0 1 300.00 40.00 Tm (Remittance notifications: remittance@invoicelens.com) Tj ET
+BT /F1 9 Tf 0.067 0.094 0.153 rg 1 0 0 1 380.00 20.00 Tm (1 of 1) Tj ET
+Q
 endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+6 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
 endobj
 xref
 0 7
@@ -71,9 +94,10 @@ xref
 0000000058 00000 n 
 0000000115 00000 n 
 0000000251 00000 n 
-0000000321 00000 n 
-0000000396 00000 n 
-trailer << /Size 7 /Root 1 0 R >>
+0000005427 00000 n 
+0000005497 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R >>
 startxref
-3286
+5572
 %%EOF

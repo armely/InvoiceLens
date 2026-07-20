@@ -51,7 +51,6 @@ $acr = az acr list --resource-group $rg --query "[0].name" -o tsv
 # 3) Build and push images
 az acr build --registry $acr --image invoicelens-api:dev --file src/InvoiceLens.Api/Dockerfile .
 az acr build --registry $acr --image invoicelens-web:dev --file apps/web/Dockerfile apps/web
-az acr build --registry $acr --image invoicelens-openinvoicemock:dev --file src/InvoiceLens.OpenInvoiceMock/Dockerfile .
 
 # 4) Update Azure apps to new images
 .\infra\bicep\scripts\deploy-app-dev.ps1
@@ -107,3 +106,22 @@ In this environment, call scripts directly:
 ```
 
 Do not depend on `pwsh` being present in PATH.
+
+## 8) Custom Domains And Two-App-Service Mode
+
+Use the repository root `.env` to control custom domains without editing Bicep files:
+
+- `INVOICELENS_INFRA_DEV_WEB_PUBLIC_BASE_URL`
+- `INVOICELENS_INFRA_DEV_API_PUBLIC_BASE_URL`
+- `INVOICELENS_INFRA_TEST_WEB_PUBLIC_BASE_URL`
+- `INVOICELENS_INFRA_TEST_API_PUBLIC_BASE_URL`
+- `INVOICELENS_INFRA_PROD_WEB_PUBLIC_BASE_URL`
+- `INVOICELENS_INFRA_PROD_API_PUBLIC_BASE_URL`
+
+If those are unset, the deployment falls back to the Azure `*.azurewebsites.net` hostnames.
+
+To stay with only the API and web App Services, keep `INVOICELENS_INFRA_DEV_DEPLOY_OPENINVOICE_MOCK=false` and delete the existing mock app once if it already exists:
+
+```powershell
+az webapp delete --resource-group invoicelensx-dev-rg --name invoicelensx-dev-openinvoicemock
+```

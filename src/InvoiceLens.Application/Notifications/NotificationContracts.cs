@@ -20,7 +20,9 @@ public sealed record NotificationMessage(
     NotificationSeverity Severity,
     string Subject,
     string PlainTextBody,
-    IReadOnlyDictionary<string, string>? Metadata = null);
+    IReadOnlyDictionary<string, string>? Metadata = null,
+    IReadOnlyList<string>? Recipients = null,
+    string? HtmlBody = null);
 
 public interface INotificationService
 {

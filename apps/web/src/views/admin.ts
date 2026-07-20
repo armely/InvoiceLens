@@ -62,10 +62,10 @@ function renderNotificationSettings(data: AdminViewData): string {
             </div>
             <div class="settings-row ${controlsDisabledClass}">
               <div>
-                <strong>Notification destination</strong>
+                <strong>Signed-in mailbox</strong>
                 <small>${escapeHtml(data.notificationTargetEmail)}</small>
               </div>
-              <span class="status-chip pending-neutral">Microsoft profile</span>
+              <span class="status-chip pending-neutral">Current account</span>
             </div>
             <div class="settings-row ${controlsDisabledClass}">
               <div>
@@ -89,7 +89,7 @@ function renderNotificationSettings(data: AdminViewData): string {
               <button class="switch ${data.emailAlertApprovalChanges ? 'active' : ''}" type="button" data-action="toggle-switch" data-setting="email-alert-approval-changes" aria-pressed="${String(data.emailAlertApprovalChanges)}" aria-label="Toggle approval change alerts" ${data.emailAlertsEnabled ? '' : 'disabled'}></button>
             </div>
             <div class="settings-actions">
-              <button class="button" type="button" data-action="send-test-email-alert" ${data.emailAlertsEnabled ? '' : 'disabled'}>Send Test Alert</button>
+              <button class="button" type="button" data-action="send-test-email-alert" ${data.notificationTargetEmail !== 'Not available' ? '' : 'disabled'}>Send Test Email</button>
             </div>
           </div>
         </article>`;

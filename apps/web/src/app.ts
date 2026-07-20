@@ -21,7 +21,7 @@ import {
   ValidationSummaryViewData,
   VendorBar,
 } from './shared/models.js';
-import { applyInvoiceFilters, formatCurrency, invoiceStatusTone, normalizeLabel } from './shared/utils.js';
+import { applyInvoiceFilters, formatCurrency, formatDateTime, invoiceStatusTone, normalizeLabel } from './shared/utils.js';
 import { renderAdminPage } from './views/admin.js';
 import { renderAnalyticsPage } from './views/analytics.js';
 import { renderContractsPage } from './views/contracts.js';
@@ -48,19 +48,9 @@ type InvoiceColumnLayout = {
   insightsWidth: number;
 };
 
-type ReportsPrintState = {
-  reportsDateRange: AppState['reportsDateRange'];
-  reportsDateFrom: string;
-  reportsDateTo: string;
-};
-
 const api = new InvoiceLensApiClient(window.location.origin);
 const compactTypographyStorageKey = 'InvoiceLens:compactTypography';
 const queueAutoScrollStorageKey = 'InvoiceLens:queueAutoScroll';
-const emailAlertsEnabledStorageKey = 'InvoiceLens:emailAlertsEnabled';
-const emailAlertSyncFailuresStorageKey = 'InvoiceLens:emailAlertSyncFailures';
-const emailAlertQueueBacklogStorageKey = 'InvoiceLens:emailAlertQueueBacklog';
-const emailAlertApprovalChangesStorageKey = 'InvoiceLens:emailAlertApprovalChanges';
 const invoiceColumnLayoutStorageKey = 'InvoiceLens:invoice-columns';
 const notificationReadStorageKey = 'InvoiceLens:notification-read';
 const userRoleLabel = 'Finance Operations';
@@ -79,10 +69,6 @@ const state: AppState = {
   reportsDateRange: 'Last 30 Days',
   reportsDateFrom: '',
   reportsDateTo: '',
-  vendorInvoiceSearch: '',
-  vendorInvoiceStatusFilter: 'All Statuses',
-  vendorInvoiceSort: 'Newest First',
-  vendorInvoiceExpandedCompanies: null,
   invoiceStatusFilter: 'All Statuses',
   invoiceDateRange: 'All Time',
   invoiceDateFrom: '',
@@ -90,10 +76,6 @@ const state: AppState = {
   queueSort: 'Oldest First',
   compactTypography: true,
   queueAutoScroll: true,
-  emailAlertsEnabled: true,
-  emailAlertSyncFailures: true,
-  emailAlertQueueBacklog: true,
-  emailAlertApprovalChanges: false,
   loading: true,
   error: null,
 };
@@ -554,10 +536,6 @@ function persistBooleanSetting(storageKey: string, value: boolean): void {
 function loadWorkspaceSettings(): void {
   state.compactTypography = readBooleanSetting(compactTypographyStorageKey, true);
   state.queueAutoScroll = readBooleanSetting(queueAutoScrollStorageKey, true);
-  state.emailAlertsEnabled = readBooleanSetting(emailAlertsEnabledStorageKey, true);
-  state.emailAlertSyncFailures = readBooleanSetting(emailAlertSyncFailuresStorageKey, true);
-  state.emailAlertQueueBacklog = readBooleanSetting(emailAlertQueueBacklogStorageKey, true);
-  state.emailAlertApprovalChanges = readBooleanSetting(emailAlertApprovalChangesStorageKey, false);
 }
 
 function applyWorkspaceSettings(): void {
@@ -568,10 +546,6 @@ function applyWorkspaceSettings(): void {
 function persistWorkspaceSettings(): void {
   persistBooleanSetting(compactTypographyStorageKey, state.compactTypography);
   persistBooleanSetting(queueAutoScrollStorageKey, state.queueAutoScroll);
-  persistBooleanSetting(emailAlertsEnabledStorageKey, state.emailAlertsEnabled);
-  persistBooleanSetting(emailAlertSyncFailuresStorageKey, state.emailAlertSyncFailures);
-  persistBooleanSetting(emailAlertQueueBacklogStorageKey, state.emailAlertQueueBacklog);
-  persistBooleanSetting(emailAlertApprovalChangesStorageKey, state.emailAlertApprovalChanges);
   applyWorkspaceSettings();
 }
 
@@ -886,20 +860,6 @@ function buildReportsPrintTitle(): string {
   return `reports-${state.reportsDateRange.toLowerCase().replace(/\s+/g, '-')}`;
 }
 
-function readReportsPrintState(): ReportsPrintState {
-  return {
-    reportsDateRange: state.reportsDateRange,
-    reportsDateFrom: state.reportsDateFrom,
-    reportsDateTo: state.reportsDateTo,
-  };
-}
-
-function applyReportsPrintState(nextState: ReportsPrintState): void {
-  state.reportsDateRange = nextState.reportsDateRange;
-  state.reportsDateFrom = nextState.reportsDateFrom;
-  state.reportsDateTo = nextState.reportsDateTo;
-}
-
 async function printReportWithCurrentDesign(): Promise<void> {
   const reportsRoot = getActiveReportsPage();
   if (!reportsRoot) {
@@ -911,57 +871,6 @@ async function printReportWithCurrentDesign(): Promise<void> {
   const html = buildInvoiceStandaloneHtml(reportClone.outerHTML, buildReportsPrintTitle());
   const printWindow = window.open('', '_blank', 'noopener,noreferrer');
 
-  if (!printWindow) {
-    showToast('Enable pop-ups to print the report.');
-    return;
-  }
-
-  printWindow.document.open();
-  printWindow.document.write(html);
-  printWindow.document.close();
-
-  const runPrint = () => {
-    printWindow.focus();
-    printWindow.print();
-  };
-
-  printWindow.addEventListener('load', () => {
-    window.setTimeout(runPrint, 120);
-  }, { once: true });
-
-  window.setTimeout(runPrint, 300);
-}
-
-async function printReportForRange(nextState: ReportsPrintState): Promise<void> {
-  const previousState = readReportsPrintState();
-  const sameRange =
-    previousState.reportsDateRange === nextState.reportsDateRange &&
-    previousState.reportsDateFrom === nextState.reportsDateFrom &&
-    previousState.reportsDateTo === nextState.reportsDateTo;
-
-  if (sameRange) {
-    await printReportWithCurrentDesign();
-    return;
-  }
-
-  applyReportsPrintState(nextState);
-  render();
-
-  const reportsRoot = getActiveReportsPage();
-  if (!reportsRoot) {
-    applyReportsPrintState(previousState);
-    render();
-    showToast('Open Reports page to print the report.');
-    return;
-  }
-
-  const reportClone = cloneWithInlineStyles(reportsRoot);
-  const html = buildInvoiceStandaloneHtml(reportClone.outerHTML, buildReportsPrintTitle());
-
-  applyReportsPrintState(previousState);
-  render();
-
-  const printWindow = window.open('', '_blank', 'noopener,noreferrer');
   if (!printWindow) {
     showToast('Enable pop-ups to print the report.');
     return;
@@ -1238,18 +1147,19 @@ function buildValidationViewData(): ValidationSummaryViewData {
 }
 
 function buildAdminData(): AdminViewData {
-  const profile = getCurrentAuthProfile();
+  const selectedInvoice = store.invoices.find((invoice) => invoice.invoiceId === state.selectedInvoiceId) ?? store.invoices[0];
 
   return {
     syncStatus: store.syncStatus,
+    invoiceCount: store.invoices.length,
+    queueCount: store.queueRows.length,
+    approvedCount: store.invoices.filter((invoice) => normalizeLabel(invoice.status) === 'Approved').length,
+    selectedInvoiceId: state.selectedInvoiceId,
+    selectedInvoiceStatus: selectedInvoice ? normalizeLabel(selectedInvoice.status) : 'Pending',
+    lastUpdated: selectedInvoice ? formatDateTime(selectedInvoice.updatedAtUtc) : 'Pending',
     compactTypography: state.compactTypography,
     queueAutoScroll: state.queueAutoScroll,
-    emailAlertsEnabled: state.emailAlertsEnabled,
-    emailAlertSyncFailures: state.emailAlertSyncFailures,
-    emailAlertQueueBacklog: state.emailAlertQueueBacklog,
-    emailAlertApprovalChanges: state.emailAlertApprovalChanges,
-    notificationTargetEmail: profile?.email?.trim() || 'Not available',
-    profile,
+    profile: getCurrentAuthProfile(),
   };
 }
 
@@ -1671,25 +1581,7 @@ function render(): void {
       ),
     analytics: () => renderAnalyticsPage(store.invoices, store.queueRows, dashboardData.validationAlerts, store.syncStatus),
     contracts: () => renderContractsPage(store.invoices, store.queueRows, dashboardData.validationAlerts, store.syncStatus),
-    vendors: () => {
-      if (state.vendorInvoiceExpandedCompanies === null) {
-        const defaultCompany = store.invoices.find((invoice) => invoice.company.trim())?.company.trim() || store.invoices[0]?.vendor.trim() || '';
-        state.vendorInvoiceExpandedCompanies = defaultCompany ? [defaultCompany] : [];
-      }
-
-      return renderVendorsPage(
-        store.invoices,
-        store.queueRows,
-        dashboardData.validationAlerts,
-        store.syncStatus,
-        {
-          search: state.vendorInvoiceSearch,
-          status: state.vendorInvoiceStatusFilter,
-          sort: state.vendorInvoiceSort,
-          expandedCompanies: state.vendorInvoiceExpandedCompanies ?? [],
-        },
-      );
-    },
+    vendors: () => renderVendorsPage(store.invoices, store.queueRows, dashboardData.validationAlerts, store.syncStatus),
     reports: () => {
       const reportsInvoices = applyInvoiceFilters(store.invoices, {
         dateRange: state.reportsDateRange,
@@ -1755,13 +1647,6 @@ function resetInvoiceFilters(): void {
   render();
 }
 
-function resetVendorInvoiceFilters(): void {
-  state.vendorInvoiceSearch = '';
-  state.vendorInvoiceStatusFilter = 'All Statuses';
-  state.vendorInvoiceSort = 'Newest First';
-  render();
-}
-
 function setFilter(filter: string, value: string): void {
   switch (filter) {
     case 'dashboard-date-range':
@@ -1796,15 +1681,6 @@ function setFilter(filter: string, value: string): void {
       break;
     case 'queue-sort':
       state.queueSort = value as AppState['queueSort'];
-      break;
-    case 'vendor-invoices-search':
-      state.vendorInvoiceSearch = value;
-      break;
-    case 'vendor-invoices-status':
-      state.vendorInvoiceStatusFilter = value as AppState['vendorInvoiceStatusFilter'];
-      break;
-    case 'vendor-invoices-sort':
-      state.vendorInvoiceSort = value as AppState['vendorInvoiceSort'];
       break;
     default:
       return;
@@ -1845,28 +1721,6 @@ function handleSearchUpdate(value: string, sourceInput?: HTMLInputElement): void
       const nextEnd = Math.min(selectionEnd ?? value.length, nextSearchInput.value.length);
       nextSearchInput.setSelectionRange(nextStart, nextEnd);
     }
-  }
-}
-
-function handleVendorInvoiceSearchUpdate(value: string, sourceInput?: HTMLInputElement): void {
-  state.vendorInvoiceSearch = value;
-
-  if (state.route !== 'vendors') {
-    render();
-    return;
-  }
-
-  const selectionStart = sourceInput?.selectionStart ?? value.length;
-  const selectionEnd = sourceInput?.selectionEnd ?? value.length;
-
-  render();
-
-  const nextSearchInput = pageHost.querySelector<HTMLInputElement>('[data-filter="vendor-invoices-search"]');
-  if (nextSearchInput) {
-    nextSearchInput.focus({ preventScroll: true });
-    const nextStart = Math.min(selectionStart, nextSearchInput.value.length);
-    const nextEnd = Math.min(selectionEnd, nextSearchInput.value.length);
-    nextSearchInput.setSelectionRange(nextStart, nextEnd);
   }
 }
 
@@ -2026,23 +1880,6 @@ function showMutationError(actionLabel: string, error: unknown): void {
   showToast(`${actionLabel} failed: ${message}`);
 }
 
-async function sendAdminTestEmail(): Promise<void> {
-  const profile = getCurrentAuthProfile();
-  const recipientEmail = profile?.email?.trim() ?? '';
-
-  if (!recipientEmail) {
-    showToast('Your Microsoft profile does not expose an email address yet.');
-    return;
-  }
-
-  try {
-    const result = await api.sendAdminTestEmail(recipientEmail);
-    showToast(result.message || `Test email sent to ${recipientEmail}.`);
-  } catch (error) {
-    showMutationError('Send test email', error);
-  }
-}
-
 document.addEventListener('click', (event) => {
   const target = event.target;
 
@@ -2122,9 +1959,6 @@ document.addEventListener('click', (event) => {
     case 'reset-invoice-filters':
       resetInvoiceFilters();
       break;
-    case 'reset-vendor-invoice-filters':
-      resetVendorInvoiceFilters();
-      break;
     case 'reset-dashboard-filters':
       state.dashboardDateFrom = '';
       state.dashboardDateTo = '';
@@ -2140,18 +1974,6 @@ document.addEventListener('click', (event) => {
       break;
     case 'print-report':
       void printReportWithCurrentDesign();
-      break;
-    case 'print-report-all-time':
-      void printReportForRange({ reportsDateRange: 'All Time', reportsDateFrom: '', reportsDateTo: '' });
-      break;
-    case 'print-report-last-30-days':
-      void printReportForRange({ reportsDateRange: 'Last 30 Days', reportsDateFrom: '', reportsDateTo: '' });
-      break;
-    case 'print-report-this-week':
-      void printReportForRange({ reportsDateRange: 'This Week', reportsDateFrom: '', reportsDateTo: '' });
-      break;
-    case 'print-report-this-quarter':
-      void printReportForRange({ reportsDateRange: 'This Quarter', reportsDateFrom: '', reportsDateTo: '' });
       break;
     case 'more-actions':
       if (state.selectedInvoiceId) {
@@ -2233,41 +2055,12 @@ document.addEventListener('click', (event) => {
           state.compactTypography = !state.compactTypography;
         } else if (setting === 'queue-auto-scroll') {
           state.queueAutoScroll = !state.queueAutoScroll;
-        } else if (setting === 'email-alerts-enabled') {
-          state.emailAlertsEnabled = !state.emailAlertsEnabled;
-        } else if (setting === 'email-alert-sync-failures') {
-          state.emailAlertSyncFailures = !state.emailAlertSyncFailures;
-        } else if (setting === 'email-alert-queue-backlog') {
-          state.emailAlertQueueBacklog = !state.emailAlertQueueBacklog;
-        } else if (setting === 'email-alert-approval-changes') {
-          state.emailAlertApprovalChanges = !state.emailAlertApprovalChanges;
         } else {
           break;
         }
 
         actionElement.classList.toggle('active');
         actionElement.setAttribute('aria-pressed', String(actionElement.classList.contains('active')));
-        render();
-      }
-      break;
-    case 'send-test-email-alert':
-      void sendAdminTestEmail();
-      break;
-    case 'toggle-vendor-company':
-      {
-        const company = actionElement.getAttribute('data-company')?.trim();
-        if (!company) {
-          break;
-        }
-
-        const nextExpanded = new Set(state.vendorInvoiceExpandedCompanies ?? []);
-        if (nextExpanded.has(company)) {
-          nextExpanded.delete(company);
-        } else {
-          nextExpanded.add(company);
-        }
-
-        state.vendorInvoiceExpandedCompanies = [...nextExpanded];
         render();
       }
       break;
@@ -2299,11 +2092,7 @@ document.addEventListener('input', (event) => {
   }
 
   const filter = target.getAttribute('data-filter');
-  if (filter === 'vendor-invoices-search') {
-    handleVendorInvoiceSearchUpdate(target.value, target);
-    return;
-  }
-  if (filter) {
+  if (filter && target.type === 'date') {
     setFilter(filter, target.value);
   }
 });

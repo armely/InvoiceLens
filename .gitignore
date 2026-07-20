@@ -24,3 +24,6 @@ obj/
 # OS files
 Thumbs.db
 .DS_Store
+
+# Sample/sensitive configs
+samples/configs.md

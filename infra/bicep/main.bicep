@@ -2,6 +2,7 @@ targetScope = 'subscription'
 
 param location string
 param sqlLocation string = location
+param appServiceLocation string = location
 param environment string
 param resourcePrefix string
 
@@ -14,6 +15,8 @@ param authTenantId string = ''
 param authRedirectUri string = ''
 param authPostLogoutRedirectUri string = ''
 param authScopes string = 'openid profile email'
+param webPublicBaseUrl string = ''
+param apiPublicBaseUrl string = ''
 param openInvoiceHmacSigningKey string = ''
 
 param apiImage string = 'invoicelens-api:latest'
@@ -42,8 +45,10 @@ var appServicePlanName = '${resourcePrefix}-${environment}-plan'
 var apiAppName = '${resourcePrefix}-${environment}-api'
 var webAppName = '${resourcePrefix}-${environment}-web'
 var openInvoiceMockAppName = '${resourcePrefix}-${environment}-openinvoicemock'
+var webAppOrigin = webPublicBaseUrl == '' ? 'https://${webAppName}.azurewebsites.net' : webPublicBaseUrl
+var apiAppOrigin = apiPublicBaseUrl == '' ? 'https://${apiAppName}.azurewebsites.net' : apiPublicBaseUrl
 var openInvoiceBaseUrl = 'https://${openInvoiceMockAppName}.azurewebsites.net'
-var webAppBaseUrl = 'https://${webAppName}.azurewebsites.net/'
+var webAppBaseUrl = '${webAppOrigin}/'
 var webAppAuthRedirectUri = authRedirectUri == '' ? webAppBaseUrl : authRedirectUri
 var webAppAuthPostLogoutRedirectUri = authPostLogoutRedirectUri == '' ? webAppBaseUrl : authPostLogoutRedirectUri
 var caeName = '${resourcePrefix}-${environment}-cae'
@@ -121,7 +126,7 @@ module appServicePlan './modules/app-service-plan.bicep' = {
 	scope: rg
 	params: {
 		name: appServicePlanName
-		location: location
+		location: appServiceLocation
 		skuName: appServicePlanSkuName
 		skuTier: appServicePlanSkuTier
 		skuCapacity: appServicePlanSkuCapacity
@@ -132,7 +137,7 @@ module apiAppService './modules/api-app-service.bicep' = if (deployAppServiceWeb
 	scope: rg
 	params: {
 		name: apiAppName
-		location: location
+		location: appServiceLocation
 		appServicePlanId: appServicePlan.outputs.id
 		acrServer: acr.outputs.loginServer
 		apiImage: apiImage
@@ -152,12 +157,12 @@ module webAppService './modules/web-app-service.bicep' = if (deployAppServiceWeb
 	scope: rg
 	params: {
 		name: webAppName
-		location: location
+		location: appServiceLocation
 		appServicePlanId: appServicePlan.outputs.id
 		acrServer: acr.outputs.loginServer
 		webImage: webImage
 		userAssignedIdentityId: managedIdentity.outputs.id
-		apiBaseUrl: 'https://${apiAppName}.azurewebsites.net'
+		apiBaseUrl: apiAppOrigin
 		authClientId: authClientId
 		authTenantId: authTenantId
 		authRedirectUri: webAppAuthRedirectUri
@@ -215,6 +220,7 @@ module containerWeb './modules/container-app-web.bicep' = if (deployContainerApp
 		authRedirectUri: authRedirectUri
 		authPostLogoutRedirectUri: authPostLogoutRedirectUri
 		authScopes: authScopes
+		appBaseUrl: webAppOrigin
 	}
 }
 

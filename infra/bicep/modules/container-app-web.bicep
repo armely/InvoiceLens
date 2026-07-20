@@ -3,6 +3,7 @@ param location string
 param environmentId string
 param acrServer string
 param webImage string
+param appBaseUrl string = ''
 param authClientId string = ''
 param authTenantId string = ''
 param authRedirectUri string = ''
@@ -28,6 +29,10 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
           name: 'web'
           image: '${acrServer}/${webImage}'
           env: [
+            {
+              name: 'APP_BASE_URL'
+              value: appBaseUrl
+            }
             {
               name: 'InvoiceLens__Auth__ClientId'
               value: authClientId

@@ -92,7 +92,7 @@ function sendRuntimeConfig(response) {
       tenantId: process.env.InvoiceLens__Auth__TenantId ?? '',
       redirectUri: process.env.InvoiceLens__Auth__RedirectUri ?? `${process.env.APP_BASE_URL ?? 'http://localhost:4200'}/`,
       postLogoutRedirectUri: process.env.InvoiceLens__Auth__PostLogoutRedirectUri ?? `${process.env.APP_BASE_URL ?? 'http://localhost:4200'}/`,
-      scopes: (process.env.InvoiceLens__Auth__Scopes ?? 'openid profile email User.Read').split(' ').filter(Boolean),
+      scopes: (process.env.InvoiceLens__Auth__Scopes ?? 'openid profile email User.Read Mail.Send').split(' ').filter(Boolean),
     },
   };
 

@@ -90,7 +90,7 @@ const runtimeConfig = {
     tenantId: process.env.InvoiceLens__Auth__TenantId ?? '',
     redirectUri: process.env.InvoiceLens__Auth__RedirectUri ?? '',
     postLogoutRedirectUri: process.env.InvoiceLens__Auth__PostLogoutRedirectUri ?? '',
-    scopes: (process.env.InvoiceLens__Auth__Scopes ?? 'openid profile email User.Read').split(' ').filter(Boolean),
+    scopes: (process.env.InvoiceLens__Auth__Scopes ?? 'openid profile email User.Read Mail.Send').split(' ').filter(Boolean),
   },
 };
 
