@@ -148,6 +148,12 @@ function getInvoiceDate(invoice: InvoiceSummaryDto): Date | null {
   return parseDate(invoice.updatedAtUtc) ?? parseDate(invoice.createdAtUtc);
 }
 
+function compareUnapprovedFirst(leftStatus: unknown, rightStatus: unknown): number {
+  const leftApproved = invoiceStatusTone(leftStatus) === 'approved' ? 1 : 0;
+  const rightApproved = invoiceStatusTone(rightStatus) === 'approved' ? 1 : 0;
+  return leftApproved - rightApproved;
+}
+
 export function matchesDateRange(invoice: InvoiceSummaryDto, dateRange: DateRangeFilter, referenceInvoices: InvoiceSummaryDto[]): boolean {
   if (dateRange === 'All Time') {
     return true;
@@ -248,6 +254,11 @@ export function applyInvoiceFilters(
 
   if (options.sort === 'Newest First') {
     return [...dateFiltered].sort((left, right) => {
+      const priority = compareUnapprovedFirst(left.status, right.status);
+      if (priority !== 0) {
+        return priority;
+      }
+
       const leftDate = parseDate(left.updatedAtUtc)?.getTime() ?? parseDate(left.createdAtUtc)?.getTime() ?? 0;
       const rightDate = parseDate(right.updatedAtUtc)?.getTime() ?? parseDate(right.createdAtUtc)?.getTime() ?? 0;
       return rightDate - leftDate;
@@ -256,6 +267,11 @@ export function applyInvoiceFilters(
 
   if (options.sort === 'Oldest First') {
     return [...dateFiltered].sort((left, right) => {
+      const priority = compareUnapprovedFirst(left.status, right.status);
+      if (priority !== 0) {
+        return priority;
+      }
+
       const leftDate = parseDate(left.createdAtUtc)?.getTime() ?? parseDate(left.updatedAtUtc)?.getTime() ?? 0;
       const rightDate = parseDate(right.createdAtUtc)?.getTime() ?? parseDate(right.updatedAtUtc)?.getTime() ?? 0;
       return leftDate - rightDate;
@@ -263,10 +279,26 @@ export function applyInvoiceFilters(
   }
 
   if (options.sort === 'Highest Amount') {
-    return [...dateFiltered].sort((left, right) => right.amount - left.amount);
+    return [...dateFiltered].sort((left, right) => {
+      const priority = compareUnapprovedFirst(left.status, right.status);
+      if (priority !== 0) {
+        return priority;
+      }
+
+      return right.amount - left.amount;
+    });
   }
 
-  return dateFiltered;
+  return [...dateFiltered].sort((left, right) => {
+    const priority = compareUnapprovedFirst(left.status, right.status);
+    if (priority !== 0) {
+      return priority;
+    }
+
+    const leftDate = parseDate(left.updatedAtUtc)?.getTime() ?? parseDate(left.createdAtUtc)?.getTime() ?? 0;
+    const rightDate = parseDate(right.updatedAtUtc)?.getTime() ?? parseDate(right.createdAtUtc)?.getTime() ?? 0;
+    return rightDate - leftDate;
+  });
 }
 
 export function applyQueueFilters(rows: QueueRow[], search: string, sort: 'Oldest First' | 'Newest First' | 'Highest Amount'): QueueRow[] {
@@ -280,10 +312,22 @@ export function applyQueueFilters(rows: QueueRow[], search: string, sort: 'Oldes
     : rows;
 
   if (sort === 'Highest Amount') {
-    return [...filtered].sort((left, right) => right.amount - left.amount);
+    return [...filtered].sort((left, right) => {
+      const priority = compareUnapprovedFirst(left.status, right.status);
+      if (priority !== 0) {
+        return priority;
+      }
+
+      return right.amount - left.amount;
+    });
   }
 
   return [...filtered].sort((left, right) => {
+    const priority = compareUnapprovedFirst(left.status, right.status);
+    if (priority !== 0) {
+      return priority;
+    }
+
     const leftDate = parseDate(left.queuedAt)?.getTime() ?? 0;
     const rightDate = parseDate(right.queuedAt)?.getTime() ?? 0;
     return sort === 'Newest First' ? rightDate - leftDate : leftDate - rightDate;

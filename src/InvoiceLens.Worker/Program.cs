@@ -14,6 +14,7 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.Configuration["ConnectionStrings:InvoiceLensDb"] = SqlConnectionStringFactory.Build();
 
 builder.Services.Configure<SyncScheduleOptions>(builder.Configuration.GetSection("SyncSchedule"));
+builder.Services.AddHttpClient();
 
 builder.Services.AddInvoiceLensInfrastructure(
     OpenInvoiceOptionsFactory.Create(builder.Configuration),
