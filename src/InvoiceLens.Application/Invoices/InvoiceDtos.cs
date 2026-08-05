@@ -9,6 +9,7 @@ public record InvoiceSummaryDto(
     decimal Amount,
     string Currency,
     string Status,
+    bool HasAttachments,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc);
 

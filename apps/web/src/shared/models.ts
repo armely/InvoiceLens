@@ -55,6 +55,7 @@ export interface InvoiceSummaryDto {
   amount: number;
   currency: string;
   status: string;
+  hasAttachments: boolean;
   createdAtUtc: string;
   updatedAtUtc: string;
 }

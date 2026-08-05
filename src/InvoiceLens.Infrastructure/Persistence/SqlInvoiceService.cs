@@ -26,21 +26,51 @@ public class SqlInvoiceService(
             if (string.IsNullOrEmpty(trimmedQuery))
             {
                 command.CommandText = """
-                    SELECT InvoiceId, InvoiceNumber, VendorCode, CompanyCode, ISNULL(AfeCode, '') AS AfeCode, TotalAmount, CurrencyCode, Status, CreatedAtUtc, UpdatedAtUtc
-                    FROM dbo.Invoice
-                    ORDER BY UpdatedAtUtc DESC, InvoiceNumber ASC;
+                    SELECT
+                        i.InvoiceId,
+                        i.InvoiceNumber,
+                        i.VendorCode,
+                        i.CompanyCode,
+                        ISNULL(i.AfeCode, '') AS AfeCode,
+                        i.TotalAmount,
+                        i.CurrencyCode,
+                        i.Status,
+                        CAST(CASE WHEN EXISTS (
+                            SELECT 1
+                            FROM dbo.InvoiceAttachmentReference air
+                            WHERE air.InvoiceId = i.InvoiceId
+                        ) THEN 1 ELSE 0 END AS bit) AS HasAttachments,
+                        i.CreatedAtUtc,
+                        i.UpdatedAtUtc
+                    FROM dbo.Invoice i
+                    ORDER BY i.UpdatedAtUtc DESC, i.InvoiceNumber ASC;
                     """;
             }
             else
             {
                 command.CommandText = """
-                    SELECT InvoiceId, InvoiceNumber, VendorCode, CompanyCode, ISNULL(AfeCode, '') AS AfeCode, TotalAmount, CurrencyCode, Status, CreatedAtUtc, UpdatedAtUtc
-                    FROM dbo.Invoice
-                    WHERE InvoiceNumber LIKE @Pattern
-                       OR VendorCode LIKE @Pattern
-                       OR CompanyCode LIKE @Pattern
-                       OR ISNULL(AfeCode, '') LIKE @Pattern
-                    ORDER BY UpdatedAtUtc DESC, InvoiceNumber ASC;
+                    SELECT
+                        i.InvoiceId,
+                        i.InvoiceNumber,
+                        i.VendorCode,
+                        i.CompanyCode,
+                        ISNULL(i.AfeCode, '') AS AfeCode,
+                        i.TotalAmount,
+                        i.CurrencyCode,
+                        i.Status,
+                        CAST(CASE WHEN EXISTS (
+                            SELECT 1
+                            FROM dbo.InvoiceAttachmentReference air
+                            WHERE air.InvoiceId = i.InvoiceId
+                        ) THEN 1 ELSE 0 END AS bit) AS HasAttachments,
+                        i.CreatedAtUtc,
+                        i.UpdatedAtUtc
+                    FROM dbo.Invoice i
+                    WHERE i.InvoiceNumber LIKE @Pattern
+                       OR i.VendorCode LIKE @Pattern
+                       OR i.CompanyCode LIKE @Pattern
+                       OR ISNULL(i.AfeCode, '') LIKE @Pattern
+                    ORDER BY i.UpdatedAtUtc DESC, i.InvoiceNumber ASC;
                     """;
 
                 command.Parameters.Add("@Pattern", System.Data.SqlDbType.NVarChar, 4000).Value = $"%{trimmedQuery}%";
@@ -59,6 +89,7 @@ public class SqlInvoiceService(
                     reader.GetDecimalValue("TotalAmount"),
                     reader.GetStringValue("CurrencyCode"),
                     reader.GetStringValue("Status"),
+                    reader.GetBooleanValue("HasAttachments"),
                     reader.GetDateTimeOffsetValue("CreatedAtUtc"),
                     reader.GetDateTimeOffsetValue("UpdatedAtUtc")));
             }

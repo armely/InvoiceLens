@@ -274,8 +274,17 @@ function setInvoiceZoom(next: number): void {
   applyInvoiceZoom();
 }
 
+function getQueueInvoiceSet(): Set<string> {
+  return new Set(store.queue.map((item) => item.invoiceId));
+}
+
+function getQueueInvoices(): InvoiceSummaryDto[] {
+  const queueInvoiceIds = getQueueInvoiceSet();
+  return store.invoices.filter((invoice) => queueInvoiceIds.has(invoice.invoiceId));
+}
+
 function getQueueOrderedInvoices(): InvoiceSummaryDto[] {
-  return applyInvoiceFilters(store.invoices, {
+  return applyInvoiceFilters(getQueueInvoices(), {
     search: state.globalSearch,
     status: state.invoiceStatusFilter,
     dateRange: state.invoiceDateRange,
@@ -1574,7 +1583,7 @@ function render(): void {
     dashboard: () => renderDashboard(dashboardData),
     invoices: () =>
       renderInvoicesPage(
-        store.invoices,
+        getQueueInvoices(),
         state.globalSearch,
         state.invoiceStatusFilter,
         state.invoiceDateRange,
@@ -1807,7 +1816,10 @@ async function reloadData(selectedInvoiceId = state.selectedInvoiceId, options: 
     store.syncStatus = syncStatus;
 
     if (!selectedInvoiceId || !store.invoices.some((invoice) => invoice.invoiceId === selectedInvoiceId)) {
-      selectedInvoiceId = store.invoices[0]?.invoiceId ?? '';
+      selectedInvoiceId =
+        store.invoices.find((invoice) => invoice.hasAttachments)?.invoiceId
+        ?? store.invoices[0]?.invoiceId
+        ?? '';
     }
 
     state.selectedInvoiceId = selectedInvoiceId;
