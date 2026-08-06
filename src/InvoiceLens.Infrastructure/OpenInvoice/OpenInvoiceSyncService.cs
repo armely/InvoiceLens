@@ -230,29 +230,125 @@ public sealed class OpenInvoiceSyncService(
     {
         using var document = JsonDocument.Parse(json);
         var root = document.RootElement;
+        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        if (!root.TryGetProperty("links", out var links))
+        if (root.TryGetProperty("links", out var links) && links.ValueKind == JsonValueKind.Array)
         {
-            return [];
+            foreach (var link in links.EnumerateArray())
+            {
+                if (link.TryGetProperty("href", out var href) && href.ValueKind == JsonValueKind.String &&
+                    TryExtractInvoiceIdFromHref(href.GetString(), out var fromHref))
+                {
+                    ids.Add(fromHref);
+                }
+            }
         }
 
-        var ids = new List<string>();
-        foreach (var link in links.EnumerateArray())
+        CollectIdsFromArrayProperty(root, "invoices", ids);
+        CollectIdsFromArrayProperty(root, "items", ids);
+        CollectIdsFromArrayProperty(root, "data", ids);
+
+        return ids.ToArray();
+    }
+
+    private static void CollectIdsFromArrayProperty(JsonElement root, string propertyName, ISet<string> ids)
+    {
+        if (!root.TryGetProperty(propertyName, out var array) || array.ValueKind != JsonValueKind.Array)
         {
-            if (!link.TryGetProperty("href", out var href))
+            return;
+        }
+
+        foreach (var item in array.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object)
             {
                 continue;
             }
 
-            var value = href.GetString() ?? string.Empty;
-            var id = value.Split('/', StringSplitOptions.RemoveEmptyEntries).LastOrDefault();
-            if (!string.IsNullOrWhiteSpace(id))
+            if (TryGetStringProperty(item, "documentId", out var documentId) && !string.IsNullOrWhiteSpace(documentId))
             {
-                ids.Add(id);
+                ids.Add(documentId.Trim());
+            }
+
+            if (TryGetStringProperty(item, "invoiceId", out var invoiceId) && !string.IsNullOrWhiteSpace(invoiceId))
+            {
+                ids.Add(invoiceId.Trim());
+            }
+
+            if (TryGetStringProperty(item, "id", out var id) && !string.IsNullOrWhiteSpace(id))
+            {
+                ids.Add(id.Trim());
+            }
+
+            if (item.TryGetProperty("links", out var links) && links.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var link in links.EnumerateArray())
+                {
+                    if (link.TryGetProperty("href", out var href) && href.ValueKind == JsonValueKind.String &&
+                        TryExtractInvoiceIdFromHref(href.GetString(), out var fromHref))
+                    {
+                        ids.Add(fromHref);
+                    }
+                }
+            }
+        }
+    }
+
+    private static bool TryGetStringProperty(JsonElement element, string propertyName, out string value)
+    {
+        value = string.Empty;
+        if (!element.TryGetProperty(propertyName, out var property) || property.ValueKind != JsonValueKind.String)
+        {
+            return false;
+        }
+
+        value = property.GetString() ?? string.Empty;
+        return true;
+    }
+
+    private static bool TryExtractInvoiceIdFromHref(string? href, out string invoiceId)
+    {
+        invoiceId = string.Empty;
+        if (string.IsNullOrWhiteSpace(href))
+        {
+            return false;
+        }
+
+        var path = href;
+        if (Uri.TryCreate(href, UriKind.Absolute, out var absoluteUri))
+        {
+            path = absoluteUri.AbsolutePath;
+        }
+        else
+        {
+            var queryIndex = path.IndexOf('?');
+            if (queryIndex >= 0)
+            {
+                path = path[..queryIndex];
             }
         }
 
-        return ids;
+        var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        for (var index = 0; index < segments.Length - 1; index++)
+        {
+            if (!segments[index].Equals("invoices", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var candidate = Uri.UnescapeDataString(segments[index + 1]);
+            if (string.IsNullOrWhiteSpace(candidate) ||
+                candidate.Equals("attachments", StringComparison.OrdinalIgnoreCase) ||
+                candidate.Equals("snapshot", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            invoiceId = candidate;
+            return true;
+        }
+
+        return false;
     }
 
     private static async Task<string> WriteBinaryAsync(string subDirectory, string fileName, byte[] bytes, CancellationToken cancellationToken)

@@ -1,5 +1,6 @@
 import {
   AuditEntryDto,
+  InvoiceAttachmentDto,
   DashboardMetric,
   InvoiceDetailDto,
   InvoiceReviewDto,
@@ -667,7 +668,7 @@ export function renderInvoiceModal(
   `;
 }
 
-export function renderAttachmentList(attachments: string[]): string {
+export function renderAttachmentList(invoiceId: string, attachments: InvoiceAttachmentDto[]): string {
   if (attachments.length === 0) {
     return `<div class="empty-state">No attachments available.</div>`;
   }
@@ -679,10 +680,18 @@ export function renderAttachmentList(attachments: string[]): string {
           (attachment) => `
             <div class="validation-check">
               <div>
-                <strong>${attachment}</strong>
-                <small>Stored in SQL-backed invoice attachments</small>
+                <strong>${escapeHtml(attachment.fileName)}</strong>
+                <small>${
+                  attachment.url && !attachment.isFallback
+                    ? 'Fetched from OpenInvoice and embedded on demand'
+                    : 'Fallback reference only; shown when OpenInvoice has no attachment content'
+                }</small>
               </div>
-              <span class="check-pass pass">✓</span>
+              ${
+                attachment.url && !attachment.isFallback
+                  ? `<button class="check-pass pass" type="button" data-action="open-attachment" data-invoice-id="${escapeHtml(invoiceId)}" data-attachment-id="${escapeHtml(attachment.attachmentId)}">Embed</button>`
+                  : '<span class="check-pass pass">✓</span>'
+              }
             </div>
           `,
         )

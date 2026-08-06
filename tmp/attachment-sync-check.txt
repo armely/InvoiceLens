@@ -1,0 +1,57 @@
+
+===== Connection Target =====
+DatabaseName|ServerName
+------------|----------
+invoicelens_db|sponsorshipserver
+
+(1 rows affected)
+
+===== Table Counts =====
+TableName|TotalRows
+---------|---------
+Invoice|30
+InvoiceAttachmentReference|31
+InvoiceAttachments|31
+OpenInvoiceRawDocuments|5264
+OpenInvoiceSyncRuns|24
+
+(5 rows affected)
+
+===== Top Invoices By Attachments =====
+InvoiceNumber|VendorCode|LegacyAttachmentRefs|SyncedAttachments
+-------------|----------|--------------------|-----------------
+INV-260701-0019|Mesa Consulting|4|4
+INV-260701-0001|BluePeak Services LLC|1|1
+INV-260701-0002|NorthWind Drilling|1|1
+INV-260701-0003|Summit Logistics|1|1
+INV-260701-0004|Velocity Rentals|1|1
+INV-260701-0005|Global Fuel Supply|1|1
+INV-260701-0006|Prairie Equipment|1|1
+INV-260701-0007|Atlas Hauling|1|1
+INV-260701-0008|Sunline Chemicals|1|1
+INV-260701-0009|Peak Field Services|1|1
+INV-260701-0010|Canyon Maintenance|1|1
+INV-260701-0011|IronGate Supply|1|1
+INV-260701-0012|Driftwood Energy|1|1
+INV-260701-0013|LoneStar Rentals|1|1
+INV-260701-0014|Harbor Transport|1|1
+
+(15 rows affected)
+
+===== Latest Sync Runs =====
+JobName|Status|StartedAtUtc|CompletedAtUtc|RecordsRequested|RecordsImported|RecordsFailed|ErrorPreview
+-------|------|------------|--------------|----------------|---------------|-------------|------------
+invoice-attachments|Running|2026-08-05 18:37:31.0573703|NULL|0|0|0|
+invoice-detail|Running|2026-08-05 18:37:31.0573703|NULL|0|0|0|
+invoice-list|Running|2026-08-05 18:37:30.8660369|NULL|0|0|0|
+invoice-attachments|Running|2026-08-05 18:31:10.5785277|NULL|0|0|0|
+invoice-list|Running|2026-08-05 18:31:10.5768612|NULL|0|0|0|
+invoice-detail|Running|2026-08-05 18:31:10.3811949|NULL|0|0|0|
+invoice-attachments|Running|2026-08-05 18:26:57.3660829|NULL|0|0|0|
+invoice-list|Running|2026-08-05 18:26:57.3640458|NULL|0|0|0|
+invoice-detail|Running|2026-08-05 18:26:57.0785305|NULL|0|0|0|
+invoice-attachments|Running|2026-08-05 18:23:16.0515471|NULL|0|0|0|
+invoice-list|Running|2026-08-05 18:23:16.0496640|NULL|0|0|0|
+invoice-detail|Running|2026-08-05 18:23:15.8612101|NULL|0|0|0|
+
+(12 rows affected)

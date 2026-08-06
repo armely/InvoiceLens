@@ -24,6 +24,7 @@ export type InvoicePanelTab = 'insights' | 'details';
 export interface AppState {
   route: Route;
   selectedInvoiceId: string;
+  selectedAttachmentUrl: string | null;
   invoicePreviewOpen: boolean;
   activeInvoicePanel: InvoicePanelTab;
   globalSearch: string;
@@ -100,7 +101,14 @@ export interface InvoiceDetailDto extends InvoiceSummaryDto {
 export interface InvoiceReviewDto {
   invoice: InvoiceDetailDto;
   validationHighlights: string[];
-  attachments: string[];
+  attachments: InvoiceAttachmentDto[];
+}
+
+export interface InvoiceAttachmentDto {
+  attachmentId: string;
+  fileName: string;
+  url: string | null;
+  isFallback: boolean;
 }
 
 export interface QueueItemDto {

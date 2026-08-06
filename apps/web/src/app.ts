@@ -58,6 +58,7 @@ const userRoleLabel = 'Finance Operations';
 const state: AppState = {
   route: 'dashboard',
   selectedInvoiceId: '',
+  selectedAttachmentUrl: null,
   invoicePreviewOpen: false,
   activeInvoicePanel: 'insights',
   globalSearch: '',
@@ -127,7 +128,8 @@ const toast = toastElement;
 let toastTimer: number | undefined;
 let bootstrapping = false;
 let invoiceChartInstances: Array<{ destroy: () => void }> = [];
-let invoiceZoom = 1;
+const defaultInvoiceZoom = 1;
+let invoiceZoom = defaultInvoiceZoom;
 let invoiceMutationInFlight = false;
 const readNotificationIds = new Set<string>();
 
@@ -263,6 +265,15 @@ function applyInvoiceZoom(): void {
     paper.style.transformOrigin = 'top center';
   }
 
+  const pdfFrame = pageHost.querySelector<HTMLElement>('.invoice-pdf-frame');
+  if (pdfFrame) {
+    // Let the browser PDF viewer handle fit/scrolling to avoid artificial horizontal/vertical overflow.
+    pdfFrame.style.transform = '';
+    pdfFrame.style.transformOrigin = '';
+    pdfFrame.style.width = '';
+    pdfFrame.style.height = '';
+  }
+
   const label = pageHost.querySelector<HTMLElement>('.zoom');
   if (label) {
     label.textContent = `${Math.round(invoiceZoom * 100)}%`;
@@ -294,6 +305,34 @@ function getQueueOrderedInvoices(): InvoiceSummaryDto[] {
   });
 }
 
+function getLatestInvoiceId(invoices: InvoiceSummaryDto[]): string {
+  const latest = invoices
+    .slice()
+    .sort((left, right) => {
+      const leftUpdated = Date.parse(left.updatedAtUtc || left.createdAtUtc || '');
+      const rightUpdated = Date.parse(right.updatedAtUtc || right.createdAtUtc || '');
+      const leftValue = Number.isNaN(leftUpdated) ? 0 : leftUpdated;
+      const rightValue = Number.isNaN(rightUpdated) ? 0 : rightUpdated;
+      return rightValue - leftValue;
+    })[0];
+
+  return latest?.invoiceId ?? '';
+}
+
+function resolveInvoicesPageSelection(preferredInvoiceId = ''): string {
+  const queueInvoices = getQueueOrderedInvoices();
+
+  if (preferredInvoiceId && queueInvoices.some((invoice) => invoice.invoiceId === preferredInvoiceId)) {
+    return preferredInvoiceId;
+  }
+
+  if (queueInvoices.length > 0) {
+    return queueInvoices[0].invoiceId;
+  }
+
+  return getLatestInvoiceId(store.invoices);
+}
+
 function navigateInvoiceBy(delta: number): void {
   const rows = getQueueOrderedInvoices();
   if (rows.length === 0) {
@@ -306,7 +345,7 @@ function navigateInvoiceBy(delta: number): void {
   const nextInvoice = rows[nextIndex];
 
   if (nextInvoice && nextInvoice.invoiceId !== state.selectedInvoiceId) {
-    invoiceZoom = 1;
+    invoiceZoom = defaultInvoiceZoom;
     void openInvoicePreview(nextInvoice.invoiceId);
   }
 }
@@ -706,7 +745,7 @@ function navigateTo(route: Route, selectedInvoiceId = state.selectedInvoiceId, r
   state.invoicePreviewOpen = false;
 
   if (state.route === 'invoices') {
-    state.selectedInvoiceId = selectedInvoiceId || (store.invoices[0]?.invoiceId ?? state.selectedInvoiceId);
+    state.selectedInvoiceId = resolveInvoicesPageSelection(selectedInvoiceId || state.selectedInvoiceId);
   }
 
   syncBrowserLocation(state.route, state.route === 'invoices' ? state.selectedInvoiceId : '', replace, false);
@@ -1121,6 +1160,35 @@ function buildDashboardData(): DashboardViewData {
 
 function getSelectedReviewBundle(): ReviewBundle | null {
   return store.selected.get(state.selectedInvoiceId) ?? null;
+}
+
+function getSelectedInvoiceAttachments(): NonNullable<ReviewBundle['review']>['attachments'] {
+  return getSelectedReviewBundle()?.review?.attachments ?? [];
+}
+
+function buildAttachmentUrl(invoiceId: string, attachmentId: string): string {
+  return `/api/invoices/${encodeURIComponent(invoiceId)}/attachments/${encodeURIComponent(attachmentId)}`;
+}
+
+function selectAttachmentByOffset(delta: number): void {
+  if (!state.selectedInvoiceId) {
+    return;
+  }
+
+  const attachments = getSelectedInvoiceAttachments().filter((attachment) => Boolean(attachment.url) && !attachment.isFallback);
+  if (attachments.length === 0) {
+    return;
+  }
+
+  const currentIndex = attachments.findIndex((attachment) => buildAttachmentUrl(state.selectedInvoiceId, attachment.attachmentId) === state.selectedAttachmentUrl);
+  const baseIndex = currentIndex < 0 ? 0 : currentIndex;
+  const nextIndex = Math.min(attachments.length - 1, Math.max(0, baseIndex + delta));
+  const nextAttachment = attachments[nextIndex];
+
+  if (nextAttachment) {
+    state.selectedAttachmentUrl = buildAttachmentUrl(state.selectedInvoiceId, nextAttachment.attachmentId);
+    render();
+  }
 }
 
 function buildReviewViewData(): ReviewViewData {
@@ -1593,6 +1661,7 @@ function render(): void {
         state.selectedInvoiceId,
         reviewData,
         state.activeInvoicePanel,
+        state.selectedAttachmentUrl,
       ),
     analytics: () => renderAnalyticsPage(store.invoices, store.queueRows, dashboardData.validationAlerts, store.syncStatus),
     contracts: () => renderContractsPage(store.invoices, store.queueRows, dashboardData.validationAlerts, store.syncStatus),
@@ -1815,11 +1884,10 @@ async function reloadData(selectedInvoiceId = state.selectedInvoiceId, options: 
     store.queueRows = buildQueueRows();
     store.syncStatus = syncStatus;
 
-    if (!selectedInvoiceId || !store.invoices.some((invoice) => invoice.invoiceId === selectedInvoiceId)) {
-      selectedInvoiceId =
-        store.invoices.find((invoice) => invoice.hasAttachments)?.invoiceId
-        ?? store.invoices[0]?.invoiceId
-        ?? '';
+    if (state.route === 'invoices') {
+      selectedInvoiceId = resolveInvoicesPageSelection(selectedInvoiceId);
+    } else if (!selectedInvoiceId || !store.invoices.some((invoice) => invoice.invoiceId === selectedInvoiceId)) {
+      selectedInvoiceId = getLatestInvoiceId(store.invoices);
     }
 
     state.selectedInvoiceId = selectedInvoiceId;
@@ -1852,10 +1920,15 @@ async function reloadData(selectedInvoiceId = state.selectedInvoiceId, options: 
 async function openInvoicePreview(invoiceId: string): Promise<void> {
   state.route = 'invoices';
   state.selectedInvoiceId = invoiceId;
+  state.selectedAttachmentUrl = null;
+  invoiceZoom = defaultInvoiceZoom;
   state.activeInvoicePanel = 'insights';
   state.invoicePreviewOpen = false;
   syncBrowserLocation('invoices', '', false, false);
   await loadReviewBundle(invoiceId);
+  const firstAttachment = getSelectedReviewBundle()?.review?.attachments.find((attachment) => Boolean(attachment.url) && !attachment.isFallback);
+  const firstAttachmentUrl = firstAttachment ? buildAttachmentUrl(invoiceId, firstAttachment.attachmentId) : null;
+  state.selectedAttachmentUrl = firstAttachmentUrl;
   render();
 }
 
@@ -1974,6 +2047,22 @@ document.addEventListener('click', (event) => {
         }
       }
       break;
+    case 'open-attachment':
+      {
+        const invoiceId = actionElement.getAttribute('data-invoice-id');
+        const attachmentId = actionElement.getAttribute('data-attachment-id');
+        if (invoiceId && attachmentId) {
+          state.selectedAttachmentUrl = buildAttachmentUrl(invoiceId, attachmentId);
+          render();
+        }
+      }
+      break;
+    case 'prev-attachment':
+      selectAttachmentByOffset(-1);
+      break;
+    case 'next-attachment':
+      selectAttachmentByOffset(1);
+      break;
     case 'toggle-sidebar':
       toggleSidebar();
       break;
@@ -2019,7 +2108,7 @@ document.addEventListener('click', (event) => {
       setInvoiceZoom(invoiceZoom - 0.1);
       break;
     case 'zoom-reset':
-      setInvoiceZoom(1);
+      setInvoiceZoom(defaultInvoiceZoom);
       break;
     case 'load-more':
       showToast('All available invoices are already loaded.');

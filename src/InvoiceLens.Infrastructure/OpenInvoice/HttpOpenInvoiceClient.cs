@@ -26,7 +26,7 @@ public class HttpOpenInvoiceClient(HttpClient httpClient, OpenInvoiceOptions opt
 
     public Task<HttpResponseMessage> GetInvoiceAsync(string invoiceId, CancellationToken cancellationToken)
     {
-        return SendAsync(HttpMethod.Get, $"/docp/supply-chain/v1/invoices/{Uri.EscapeDataString(invoiceId)}?$select=all", null, "application/xml", cancellationToken);
+        return SendAsync(HttpMethod.Get, $"/docp/supply-chain/v1/invoices/{Uri.EscapeDataString(invoiceId)}?$select=*", null, "application/xml", cancellationToken);
     }
 
     public Task<HttpResponseMessage> GetInvoiceAttachmentsAsync(string invoiceId, CancellationToken cancellationToken)

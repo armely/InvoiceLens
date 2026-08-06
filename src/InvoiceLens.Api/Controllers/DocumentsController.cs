@@ -34,6 +34,7 @@ public class DocumentsController(IDocumentQueries documentQueries) : ControllerB
             return NotFound();
         }
 
-        return File(attachment.Content, attachment.ContentType, attachment.FileName);
+        Response.Headers.ContentDisposition = $"inline; filename=\"{attachment.FileName}\"";
+        return File(attachment.Content, attachment.ContentType);
     }
 }
