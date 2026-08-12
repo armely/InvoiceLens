@@ -1,4 +1,5 @@
 using InvoiceLens.Application.Documents;
+using InvoiceLens.Infrastructure.OpenInvoice;
 using Microsoft.AspNetCore.Mvc;
 
 namespace InvoiceLens.Api.Controllers;
@@ -16,13 +17,12 @@ public class DocumentsController(IDocumentQueries documentQueries) : ControllerB
             return NotFound();
         }
 
-        var contentType = string.IsNullOrWhiteSpace(snapshot.ContentType) || snapshot.ContentType == "application/octet-stream"
-            ? "application/pdf"
-            : snapshot.ContentType;
+        var contentType = ResolveResponseContentType(snapshot.FileName, snapshot.ContentType);
+        var metadata = AttachmentFileMetadataResolver.Resolve(snapshot.FileName, contentType);
 
         // Serve inline so browsers embed the PDF instead of downloading it.
-        Response.Headers.ContentDisposition = $"inline; filename=\"{snapshot.FileName}\"";
-        return File(snapshot.Content, contentType);
+        Response.Headers.ContentDisposition = $"inline; filename=\"{metadata.FileName}\"";
+        return File(snapshot.Content, metadata.ContentType);
     }
 
     [HttpGet("attachments/{attachmentId}")]
@@ -34,7 +34,37 @@ public class DocumentsController(IDocumentQueries documentQueries) : ControllerB
             return NotFound();
         }
 
-        Response.Headers.ContentDisposition = $"inline; filename=\"{attachment.FileName}\"";
-        return File(attachment.Content, attachment.ContentType);
+        var contentType = ResolveResponseContentType(attachment.FileName, attachment.ContentType);
+        var metadata = AttachmentFileMetadataResolver.Resolve(attachment.FileName, contentType);
+
+        Response.Headers.ContentDisposition = $"inline; filename=\"{metadata.FileName}\"";
+        return File(attachment.Content, metadata.ContentType);
+    }
+
+    private static string ResolveResponseContentType(string? fileName, string? contentType)
+    {
+        if (!string.IsNullOrWhiteSpace(contentType) && !string.Equals(contentType, "application/octet-stream", StringComparison.OrdinalIgnoreCase))
+        {
+            return contentType;
+        }
+
+        var extension = Path.GetExtension(fileName ?? string.Empty).ToLowerInvariant();
+        return extension switch
+        {
+            ".pdf" => "application/pdf",
+            ".png" => "image/png",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".gif" => "image/gif",
+            ".txt" => "text/plain",
+            ".csv" => "text/csv",
+            ".json" => "application/json",
+            ".xml" => "application/xml",
+            ".html" => "text/html",
+            ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ".xls" => "application/vnd.ms-excel",
+            ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ".doc" => "application/msword",
+            _ => string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType,
+        };
     }
 }

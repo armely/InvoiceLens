@@ -78,7 +78,31 @@ function Wait-ForHttpEndpoint {
     return $false
 }
 
+function Stop-ProcessesOnPort {
+    param(
+        [int]$Port
+    )
+
+    $connections = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue | Where-Object { $_.State -eq 'Listen' }
+    foreach ($connection in $connections) {
+        if ($null -ne $connection.OwningProcess) {
+            try {
+                Stop-Process -Id $connection.OwningProcess -Force -ErrorAction SilentlyContinue
+                Write-Host "Stopped process $($connection.OwningProcess) using port $Port"
+            }
+            catch {
+                Write-Host "Could not stop process $($connection.OwningProcess) using port $Port"
+            }
+        }
+    }
+}
+
 $state = [ordered]@{}
+
+Write-Host 'Clearing stale listeners on local ports...'
+Stop-ProcessesOnPort -Port 5106
+Stop-ProcessesOnPort -Port 5189
+Stop-ProcessesOnPort -Port 4200
 
 if (-not $NoMock) {
     Write-Host 'Starting OpenInvoice mock...'

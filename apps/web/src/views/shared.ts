@@ -34,7 +34,14 @@ function escapeHtml(value: unknown): string {
   });
 }
 
-export function renderInvoicePreviewModalRich(review: InvoiceReviewDto | null, loading = false): string {
+export function renderInvoicePreviewModalRich(
+  review: InvoiceReviewDto | null,
+  loading = false,
+  attachmentUrl: string | null = null,
+  attachmentFileName: string | null = null,
+  attachmentIndex = 0,
+  attachmentTotal = 0,
+): string {
   const invoice = review?.invoice ?? null;
   const isApproved = normalizeLabel(invoice?.status).toLowerCase() === 'approved';
   const lineItems = invoice?.lineItems ?? [];
@@ -45,6 +52,7 @@ export function renderInvoicePreviewModalRich(review: InvoiceReviewDto | null, l
   const updatedAt = invoice?.updatedAtUtc ? formatDateTime(invoice.updatedAtUtc) : 'Pending';
   const paymentTerms = invoice?.paymentTerms ?? '';
   const notes = invoice?.notes ?? 'Thank you for your business. We appreciate the opportunity to support your team.';
+  const supportingDocuments = review?.attachments.filter((attachment) => Boolean(attachment.url) && !attachment.isFallback) ?? [];
 
   const formatLines = (lines: Array<string | null | undefined>): string =>
     lines
@@ -87,7 +95,42 @@ export function renderInvoicePreviewModalRich(review: InvoiceReviewDto | null, l
         </header>
         <div class="invoice-modal-body invoice-modal-body--rich">
           ${
-            invoice
+            invoice && attachmentUrl
+              ? `
+                <section class="archive-attachment-preview" aria-label="${escapeHtml(attachmentFileName ?? 'Invoice attachment')}">
+                  <div class="archive-attachment-toolbar">
+                    <div><strong>${escapeHtml(attachmentFileName ?? 'Invoice attachment')}</strong><span>${attachmentIndex} / ${attachmentTotal}</span></div>
+                    <div class="archive-attachment-controls">
+                      <button class="tool-icon tool-icon-sm" type="button" data-action="prev-attachment" aria-label="Previous attachment" ${attachmentIndex <= 1 ? 'disabled' : ''}>&lsaquo;</button>
+                      <button class="tool-icon tool-icon-sm" type="button" data-action="next-attachment" aria-label="Next attachment" ${attachmentIndex >= attachmentTotal ? 'disabled' : ''}>&rsaquo;</button>
+                    </div>
+                  </div>
+                  <iframe class="archive-attachment-frame" src="${escapeHtml(attachmentUrl)}#page=1&zoom=page-fit&toolbar=1&navpanes=0" title="${escapeHtml(attachmentFileName ?? 'Invoice PDF attachment')}"></iframe>
+                </section>
+              `
+              : supportingDocuments.length > 0
+                ? `
+                  <section class="archive-supporting-documents">
+                    <div class="archive-supporting-documents-header">
+                      <h3>Supporting documents</h3>
+                      <span>${supportingDocuments.length} saved attachment${supportingDocuments.length === 1 ? '' : 's'}</span>
+                    </div>
+                    <div class="archive-supporting-document-list">
+                      ${supportingDocuments.map((attachment) => `
+                        <article class="archive-supporting-document">
+                          <div>
+                            <strong>${escapeHtml(attachment.fileName)}</strong>
+                            <span>${attachment.fileName.toLowerCase().endsWith('.pdf') ? 'PDF document' : 'Supporting document'}</span>
+                          </div>
+                          <div>
+                            <a class="button" href="${escapeHtml(attachment.url)}" target="_blank" rel="noopener">Open</a>
+                            <a class="button ghost" href="${escapeHtml(attachment.url)}" download="${escapeHtml(attachment.fileName)}">Download</a>
+                          </div>
+                        </article>`).join('')}
+                    </div>
+                  </section>
+                `
+                : invoice
               ? `
                 <div class="invoice-document invoice-document--rich">
                   <div class="invoice-document-hero">

@@ -104,7 +104,7 @@ export function renderAdminPage(data: AdminViewData): string {
 
       <section class="settings-grid admin-settings-grid">
         <article class="card admin-sync-card">
-          <div class="card-header"><h2>Sync Status</h2><p>Live status from the backend service.</p></div>
+          <div class="card-header"><h2>Sync Status</h2><p>Live status from the backend service.</p><button class="button" type="button" data-action="run-sync-now">Run now</button></div>
           <div class="settings-list">
             <div class="settings-row">
               <div>

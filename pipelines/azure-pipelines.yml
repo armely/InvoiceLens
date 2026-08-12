@@ -15,9 +15,32 @@ stages:
   jobs:
   - template: deploy-infra.yml
 
-- stage: DeployApps
+- stage: DatabaseMigration
   dependsOn: DeployInfra
+  condition: succeeded()
+  jobs:
+  - template: migrate-database.yml
+
+- stage: DeployApps
+  dependsOn: DatabaseMigration
+  condition: succeeded()
   jobs:
   - template: deploy-api.yml
   - template: deploy-web.yml
-  - template: deploy-worker.yml
+
+- stage: ProductionValidation
+  dependsOn: DeployApps
+  condition: succeeded()
+  jobs:
+  - deployment: SmokeTests
+    environment: invoicelens-production
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - pwsh: |
+              Invoke-RestMethod "$(InvoiceLensApiUrl)/health" | Out-Host
+              Invoke-RestMethod "$(InvoiceLensApiUrl)/health/ready" | Out-Host
+              $response = Invoke-WebRequest "$(InvoiceLensWebUrl)/invoices" -UseBasicParsing
+              if ($response.StatusCode -ne 200) { throw "Web smoke test failed." }
+            displayName: Production smoke tests

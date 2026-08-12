@@ -88,7 +88,23 @@ function buildAttachmentUrl(invoiceId: string, attachmentId: string): string {
   return `/api/invoices/${encodeURIComponent(invoiceId)}/attachments/${encodeURIComponent(attachmentId)}`;
 }
 
-function renderInvoiceDocument(invoice: InvoiceDetailDto | null, fallbackInvoice: InvoiceSummaryDto | null, snapshotUrl: string | null = null): string {
+function buildInlineAttachmentFallback(snapshotUrl: string, fileName: string | null | undefined): string {
+  const safeFileName = escapeHtml(fileName ?? 'attachment');
+  const safeUrl = escapeHtml(snapshotUrl);
+
+  return `
+    <div class="invoice-preview-fallback" style="display:flex;flex-direction:column;gap:12px;justify-content:center;align-items:flex-start;padding:24px;border:1px solid #d8dce6;border-radius:10px;background:#f8fafc;min-height:280px;">
+      <strong>Preview is not available for this file type.</strong>
+      <p style="margin:0;color:#475569;">${safeFileName}</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <a href="${safeUrl}" target="_blank" rel="noopener" style="padding:8px 12px;border-radius:8px;background:#0f172a;color:white;text-decoration:none;">Open in new tab</a>
+        <a href="${safeUrl}" download="${safeFileName}" style="padding:8px 12px;border-radius:8px;background:#e2e8f0;color:#0f172a;text-decoration:none;">Download</a>
+      </div>
+    </div>
+  `;
+}
+
+function renderInvoiceDocument(invoice: InvoiceDetailDto | null, fallbackInvoice: InvoiceSummaryDto | null, snapshotUrl: string | null = null, previewFileName: string | null = null): string {
   if (!invoice && !fallbackInvoice) {
     return '<div class="empty-state">No invoice selected.</div>';
   }
@@ -221,11 +237,40 @@ function renderInvoiceDocument(invoice: InvoiceDetailDto | null, fallbackInvoice
     return paperHtml;
   }
 
-  return `
-    <object class="invoice-pdf-frame" data="${escapeHtml(snapshotUrl)}#toolbar=0&navpanes=0&view=Fit" type="application/pdf" aria-label="Invoice PDF preview">
-      ${paperHtml}
-    </object>
-  `;
+  const normalizedFileName = previewFileName?.trim() ?? '';
+  const normalizedSnapshotUrl = snapshotUrl.toLowerCase().split(/[?#]/, 1)[0];
+  const isPdfPreview =
+    /\.pdf$/i.test(normalizedFileName) ||
+    normalizedSnapshotUrl.endsWith('.pdf') ||
+    normalizedSnapshotUrl.endsWith('/snapshot');
+  const isImagePreview = /\.(png|jpe?g|gif|webp)$/i.test(normalizedFileName) || /\.(png|jpe?g|gif|webp)$/i.test(snapshotUrl);
+
+  if (isPdfPreview) {
+    const safeSnapshotUrl = escapeHtml(snapshotUrl);
+    return `
+      <div
+        class="invoice-pdf-preview"
+        data-source-url="${safeSnapshotUrl}"
+        aria-label="Invoice PDF preview"
+      >
+        <canvas class="invoice-pdf-canvas"></canvas>
+        <div class="invoice-pdf-loading">Loading PDF...</div>
+        <div class="invoice-pdf-design-fallback" hidden>
+          ${paperHtml}
+        </div>
+      </div>
+    `;
+  }
+
+  if (isImagePreview) {
+    return `
+      <div class="invoice-preview-image" style="display:flex;justify-content:center;align-items:center;padding:12px;border:1px solid #d8dce6;border-radius:10px;background:#fff;min-height:280px;">
+        <img src="${escapeHtml(snapshotUrl)}" alt="Invoice attachment preview" style="max-width:100%;max-height:420px;object-fit:contain;border-radius:8px;" />
+      </div>
+    `;
+  }
+
+  return buildInlineAttachmentFallback(snapshotUrl, normalizedFileName || 'attachment');
 }
 
 function renderValidationRow(label: string, value: string, toneClass = 'pass'): string {
@@ -303,31 +348,21 @@ export function renderInvoicesPage(
     reviewData.review && selectedInvoice && reviewData.review.invoice.invoiceId === selectedInvoice.invoiceId
       ? reviewData.review.attachments
       : [];
-  const selectableAttachments = selectedAttachments.filter((attachment) => Boolean(attachment.url) && !attachment.isFallback);
+  const selectableAttachments = selectedAttachments.filter(
+    (attachment) => Boolean(attachment.url) && !attachment.isFallback && attachment.fileName.toLowerCase().endsWith('.pdf'),
+  );
   const selectedAttachment =
     selectableAttachments.find((attachment) => selectedInvoice && buildAttachmentUrl(selectedInvoice.invoiceId, attachment.attachmentId) === selectedAttachmentUrl) ??
     selectableAttachments[0] ??
     null;
   const selectedAttachmentIndex = selectedAttachment ? selectableAttachments.findIndex((attachment) => attachment.url === selectedAttachment.url) + 1 : 0;
   const selectedAttachmentTotal = selectableAttachments.length;
-  const embeddedAttachmentUrl =
-    (selectedAttachment && selectedInvoice ? buildAttachmentUrl(selectedInvoice.invoiceId, selectedAttachment.attachmentId) : null) ??
-    (selectedInvoice
-      ? (() => {
-          const pdfAttachment = selectedAttachments.find((attachment) => attachment.url && !attachment.isFallback && attachment.fileName.toLowerCase().endsWith('.pdf'));
-          return pdfAttachment ? buildAttachmentUrl(selectedInvoice.invoiceId, pdfAttachment.attachmentId) : null;
-        })()
-      : null) ??
-    (selectedInvoice
-      ? (() => {
-          const firstAttachment = selectedAttachments.find((attachment) => Boolean(attachment.url) && !attachment.isFallback);
-          return firstAttachment ? buildAttachmentUrl(selectedInvoice.invoiceId, firstAttachment.attachmentId) : null;
-        })()
-      : null) ??
-    null;
-  const embeddedDocumentUrl = selectedInvoice
-    ? embeddedAttachmentUrl ?? `/api/invoices/${encodeURIComponent(selectedInvoice.invoiceId)}/snapshot`
+  const embeddedAttachmentUrl = selectedAttachment && selectedInvoice
+    ? buildAttachmentUrl(selectedInvoice.invoiceId, selectedAttachment.attachmentId)
     : null;
+  // With no synchronized PDF, render the designed invoice document below.
+  const embeddedDocumentUrl = selectedInvoice ? embeddedAttachmentUrl : null;
+  const previewAttachmentFileName = selectedAttachment?.fileName ?? null;
   const validationSummary =
     reviewData.validationSummary && selectedInvoice && reviewData.validationSummary.invoiceId === selectedInvoice.invoiceId
       ? reviewData.validationSummary
@@ -395,7 +430,7 @@ export function renderInvoicesPage(
             <div class="sortbar">
               <span>Sort:</span>
               <select class="invoice-sort-select" data-filter="queue-sort" aria-label="Sort queue">
-                ${['Oldest First', 'Newest First', 'Highest Amount']
+                ${['Newest First', 'Oldest First', 'Highest Amount']
                   .map((option) => `<option value="${option}" ${queueSort === option ? 'selected' : ''}>${option}</option>`)
                   .join('')}
               </select>
@@ -457,7 +492,7 @@ export function renderInvoicesPage(
             </div>
 
             <div class="document-area">
-              ${renderInvoiceDocument(selectedReviewInvoice, selectedInvoice, embeddedDocumentUrl)}
+              ${renderInvoiceDocument(selectedReviewInvoice, selectedInvoice, embeddedDocumentUrl, previewAttachmentFileName)}
             </div>
           </section>
 

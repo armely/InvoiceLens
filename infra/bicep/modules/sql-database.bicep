@@ -16,4 +16,13 @@ resource database 'Microsoft.Sql/servers/databases@2022-05-01-preview' = {
   }
 }
 
+resource shortTermRetention 'Microsoft.Sql/servers/databases/backupShortTermRetentionPolicies@2022-05-01-preview' = {
+  parent: database
+  name: 'default'
+  properties: {
+    retentionDays: 35
+    diffBackupIntervalInHours: 12
+  }
+}
+
 output id string = database.id

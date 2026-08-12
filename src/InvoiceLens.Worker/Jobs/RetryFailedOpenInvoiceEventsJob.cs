@@ -13,11 +13,15 @@ public sealed class RetryFailedOpenInvoiceEventsJob(
     {
         var interval = TimeSpan.FromMinutes(Math.Max(1, options.Value.RetryMinutes));
 
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            var completed = await syncService.RetryFailedEventsAsync(stoppingToken);
-            logger.LogInformation("OpenInvoice retry job completed {Completed} events.", completed);
-            await Task.Delay(interval, stoppingToken);
-        }
+        await RecurringJobRunner.RunAsync(
+            "OpenInvoice event retry",
+            interval,
+            async token =>
+            {
+                var completed = await syncService.RetryFailedEventsAsync(token);
+                logger.LogInformation("OpenInvoice retry job completed {Completed} events.", completed);
+            },
+            logger,
+            stoppingToken);
     }
 }

@@ -18,6 +18,7 @@ param authScopes string = 'openid profile email'
 param webPublicBaseUrl string = ''
 param apiPublicBaseUrl string = ''
 param openInvoiceHmacSigningKey string = ''
+param operationsEmail string = ''
 
 param apiImage string = 'invoicelens-api:latest'
 param webImage string = 'invoicelens-web:latest'
@@ -91,6 +92,8 @@ module keyVault './modules/key-vault.bicep' = {
 		name: kvName
 		location: location
 		tenantId: tenant().tenantId
+		sqlPassword: sqlAdminPassword
+		keyVaultName: keyVault.outputs.name
 	}
 }
 
@@ -143,13 +146,13 @@ module apiAppService './modules/api-app-service.bicep' = if (deployAppServiceWeb
 		apiImage: apiImage
 		userAssignedIdentityId: managedIdentity.outputs.id
 		openInvoiceBaseUrl: openInvoiceBaseUrl
-		openInvoiceHmacSigningKey: openInvoiceHmacSigningKey
+		keyVaultName: keyVault.outputs.name
 		sqlServerHost: sqlServer.outputs.fullyQualifiedDomainName
 		sqlDatabaseName: sqlDbName
 		sqlUsername: sqlAdminLogin
-		sqlPassword: sqlAdminPassword
 		authClientId: authClientId
 		authTenantId: authTenantId
+		applicationInsightsConnectionString: appInsights.outputs.connectionString
 	}
 }
 
@@ -180,7 +183,7 @@ module openInvoiceMockAppService './modules/api-app-service.bicep' = if (deployO
 		acrServer: acr.outputs.loginServer
 		apiImage: openInvoiceMockImage
 		userAssignedIdentityId: managedIdentity.outputs.id
-		openInvoiceHmacSigningKey: openInvoiceHmacSigningKey
+		keyVaultName: keyVault.outputs.name
 	}
 }
 
@@ -243,6 +246,16 @@ module roleAssignments './modules/role-assignments.bicep' = {
 		principalId: managedIdentity.outputs.principalId
 		keyVaultId: keyVault.outputs.id
 		acrId: acr.outputs.id
+	}
+}
+
+module monitoringAlerts './modules/monitoring-alerts.bicep' = if (deployAppServiceWebApi) {
+	scope: rg
+	params: {
+		location: location
+		namePrefix: '${resourcePrefix}-${environment}'
+		apiResourceId: apiAppService!.outputs.id
+		operationsEmail: operationsEmail
 	}
 }
 

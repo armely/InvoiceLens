@@ -1,10 +1,26 @@
-trigger: none
-
-pool:
-  vmImage: ubuntu-latest
-
-steps:
-- script: |
-    echo "Deploy API placeholder"
-    echo "Add Azure service connection and container deploy steps here."
-  displayName: Deploy API
+jobs:
+- deployment: DeployApi
+  displayName: Deploy API image
+  environment: invoicelens-production
+  strategy:
+    runOnce:
+      deploy:
+        steps:
+        - task: AzureCLI@2
+          inputs:
+            azureSubscription: '$(AzureServiceConnection)'
+            scriptType: pscore
+            scriptLocation: inlineScript
+            inlineScript: |
+              $app = "$(ResourcePrefix)-$(EnvironmentName)-api"
+              $rg = "$(ResourcePrefix)-$(EnvironmentName)-rg"
+              $previous = az webapp config container show -g $rg -n $app --query "[0].value" -o tsv
+              az webapp config container set -g $rg -n $app --docker-custom-image-name "$(AcrServer)/invoicelens-api:$(Build.BuildId)"
+              az webapp restart -g $rg -n $app
+              try {
+                Invoke-RestMethod "https://$app.azurewebsites.net/health/ready" -TimeoutSec 120 | Out-Host
+              } catch {
+                if ($previous) { az webapp config container set -g $rg -n $app --docker-custom-image-name $previous; az webapp restart -g $rg -n $app }
+                throw
+              }
+          displayName: Deploy, verify, and roll back API on failure

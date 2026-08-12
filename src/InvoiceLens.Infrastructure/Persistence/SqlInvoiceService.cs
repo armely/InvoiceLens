@@ -15,6 +15,56 @@ public class SqlInvoiceService(
     INotificationService notificationService,
     NotificationMessageFactory notificationMessageFactory) : IInvoiceQueries, IQueueService, ISyncStatusService
 {
+    public async Task<bool> HasOpenInvoiceInvoiceAsync(string openInvoiceDocumentId, CancellationToken cancellationToken)
+    {
+        await using var connection = SqlConnectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT CASE WHEN EXISTS (SELECT 1 FROM dbo.Invoice WHERE OpenInvoiceDocumentId = @DocumentId) THEN 1 ELSE 0 END;";
+        command.Parameters.AddWithValue("@DocumentId", openInvoiceDocumentId);
+        return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken)) == 1;
+    }
+
+    public async Task<bool> HasCurrentOpenInvoiceAttachmentAsync(string attachmentId, string bodyHash, string storagePath, CancellationToken cancellationToken)
+    {
+        await using var connection = SqlConnectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT CASE WHEN EXISTS (
+                SELECT 1 FROM dbo.InvoiceAttachments
+                WHERE OpenInvoiceAttachmentId = @AttachmentId
+                  AND BodyHash = @BodyHash
+                  AND StoragePath = @StoragePath
+            ) THEN 1 ELSE 0 END;
+            """;
+        command.Parameters.AddWithValue("@AttachmentId", attachmentId);
+        command.Parameters.AddWithValue("@BodyHash", bodyHash);
+        command.Parameters.AddWithValue("@StoragePath", storagePath);
+        return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken)) == 1;
+    }
+
+    public async Task<bool> HasCurrentOpenInvoiceSnapshotAsync(string invoiceNumber, string bodyHash, string storagePath, CancellationToken cancellationToken)
+    {
+        await using var connection = SqlConnectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT CASE WHEN EXISTS (
+                SELECT 1
+                FROM dbo.InvoiceSnapshots snapshot
+                INNER JOIN dbo.Invoice invoice ON invoice.InvoiceId = snapshot.InvoiceId
+                WHERE invoice.InvoiceNumber = @InvoiceNumber
+                  AND snapshot.BodyHash = @BodyHash
+                  AND snapshot.StoragePath = @StoragePath
+            ) THEN 1 ELSE 0 END;
+            """;
+        command.Parameters.AddWithValue("@InvoiceNumber", invoiceNumber);
+        command.Parameters.AddWithValue("@BodyHash", bodyHash);
+        command.Parameters.AddWithValue("@StoragePath", storagePath);
+        return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken)) == 1;
+    }
+
     public async Task<IReadOnlyList<InvoiceSummaryDto>> SearchAsync(string? query, CancellationToken cancellationToken)
     {
         try
@@ -320,8 +370,6 @@ public class SqlInvoiceService(
                         !hasRealContent));
                 }
             }
-
-            await EnrichWithLiveOpenInvoiceAttachmentsAsync(connection, invoiceId, attachments, cancellationToken);
 
             return new InvoiceReviewDto(
                 invoice,
@@ -686,6 +734,16 @@ public class SqlInvoiceService(
         attachmentInsert.Parameters.AddWithValue("@DocumentUrl", $"/api/invoices/{invoiceId.Value}/attachments/{Uri.EscapeDataString(attachment.AttachmentId)}");
         attachmentInsert.Parameters.AddWithValue("@BodyHash", bodyHash);
         await attachmentInsert.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    public async Task RemoveOpenInvoiceAttachmentAsync(string attachmentId, CancellationToken cancellationToken)
+    {
+        await using var connection = SqlConnectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "DELETE FROM dbo.InvoiceAttachments WHERE OpenInvoiceAttachmentId = @AttachmentId;";
+        command.Parameters.AddWithValue("@AttachmentId", attachmentId);
+        await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
     public async Task UpsertOpenInvoiceSnapshotAsync(string invoiceNumber, string storagePath, string contentType, long sizeBytes, string bodyHash, CancellationToken cancellationToken)

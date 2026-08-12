@@ -12,8 +12,8 @@ InvoiceLens is a local-first invoice operations application with a .NET API, a b
 
 ## Prerequisites
 
-- .NET SDK 10.x
-- Node.js 20.x
+- .NET SDK 10.x (bundled at `tmp/dotnet10/`)
+- Node.js 20.x (bundled at `tmp/node/`)
 - SQL Server or Azure SQL access
 
 ## Local configuration
@@ -24,30 +24,45 @@ Create a root [\.env](.env) file from [\.env.example](.env.example) and fill in:
 - OpenInvoice values under `OpenInvoice__*`
 - Auth values under `InvoiceLens__Auth__*`
 
-## Run locally
+## Run locally — one command
 
-### Start the full local stack
+### One-time Windows setup (required once, run as Administrator)
 
-```powershell
-Set-Location "C:\Users\lmwangi\Desktop\InvoiceLens"
-.\scripts\start-local-stack.ps1
-```
-
-### Stop the local stack
+Windows Defender blocks .NET DLLs compiled in the Desktop folder from loading. Run this **once** in a PowerShell terminal opened as Administrator:
 
 ```powershell
-Set-Location "C:\Users\lmwangi\Desktop\InvoiceLens"
-.\scripts\stop-local-stack.ps1
+Add-MpPreference -ExclusionPath "C:\Users\lmwangi\Desktop\InvoiceLens\src"
+Add-MpPreference -ExclusionPath "C:\Users\lmwangi\Desktop\InvoiceLens\tmp"
 ```
 
-### Manual run (if needed)
+> Open PowerShell as Administrator: Start menu → search "PowerShell" → right-click → "Run as administrator"
 
-Backend:
+You only need to do this once. After that, the stack starts reliably every time.
 
-```powershell
-Set-Location "C:\Users\lmwangi\Desktop\InvoiceLens"
-.\tmp\dotnet10\dotnet.exe run --project src\InvoiceLens.Api --no-build
+### Start everything — VS Code task (one command)
+
+Open this folder in VS Code, then press **`Ctrl+Shift+P`** and type:
+
 ```
+Tasks: Run Task
+```
+
+Select **`start-invoicelens-stack`** from the list.
+
+This opens three integrated terminal panels inside VS Code:
+
+| Terminal | What it does |
+|---|---|
+| `build-backend` | Compiles the full .NET solution + unblocks output binaries |
+| `start-api` | Starts the API at `http://localhost:5106` |
+| `start-worker` | Starts the background sync worker |
+| `start-web` | Builds the frontend and serves at `http://localhost:4200` |
+
+Once all panels show "Application started", open **http://localhost:4200** in your browser and sign in.
+
+### Stop the stack
+
+Press **`Ctrl+Shift+P`** → **`Tasks: Run Task`** → **`stop-invoicelens-stack`**
 
 Worker:
 

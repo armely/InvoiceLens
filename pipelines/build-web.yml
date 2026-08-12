@@ -8,6 +8,18 @@ jobs:
 
   - script: |
       cd apps/web
-      npm install
+      npm ci
       npm run build
     displayName: Build TypeScript Web
+
+  - task: Docker@2
+    displayName: Build and push immutable web image
+    inputs:
+      containerRegistry: '$(AcrServiceConnection)'
+      repository: invoicelens-web
+      command: buildAndPush
+      Dockerfile: apps/web/Dockerfile
+      buildContext: apps/web
+      tags: |
+        $(Build.BuildId)
+        $(Build.SourceVersion)

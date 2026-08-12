@@ -3,7 +3,6 @@ using System.Security.Cryptography;
 using InvoiceLens.Application.Documents;
 using InvoiceLens.Application.Invoices;
 using InvoiceLens.Infrastructure.LocalInvoices;
-using InvoiceLens.Infrastructure.OpenInvoice;
 using InvoiceLens.Infrastructure.Persistence;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
@@ -13,11 +12,44 @@ namespace InvoiceLens.Infrastructure.DocumentStreaming;
 public class DocumentStreamService(
     IInvoiceQueries invoiceQueries,
     LocalInvoiceComparisonOptions localInvoiceOptions,
-    IOpenInvoiceClient openInvoiceClient,
     ILogger<DocumentStreamService> logger) : IDocumentQueries
 {
     public async Task<DocumentStreamResult?> GetSnapshotAsync(Guid invoiceId, CancellationToken cancellationToken)
     {
+        await using (var connection = SqlConnectionFactory.CreateConnection())
+        {
+            await connection.OpenAsync(cancellationToken);
+            await using var command = connection.CreateCommand();
+            command.CommandText = """
+                SELECT TOP (1)
+                    invoice.InvoiceNumber,
+                    snapshot.StoragePath,
+                    snapshot.ContentType
+                FROM dbo.InvoiceSnapshots snapshot
+                INNER JOIN dbo.Invoice invoice ON invoice.InvoiceId = snapshot.InvoiceId
+                WHERE snapshot.InvoiceId = @InvoiceId
+                ORDER BY snapshot.CreatedAtUtc DESC;
+                """;
+            command.Parameters.AddWithValue("@InvoiceId", invoiceId);
+
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            if (await reader.ReadAsync(cancellationToken))
+            {
+                var invoiceNumber = reader["InvoiceNumber"] as string ?? invoiceId.ToString();
+                var storagePath = reader["StoragePath"] as string;
+                var contentType = reader["ContentType"] as string ?? "application/pdf";
+                await reader.DisposeAsync();
+
+                if (!string.IsNullOrWhiteSpace(storagePath) && File.Exists(storagePath))
+                {
+                    return new DocumentStreamResult(
+                        $"{Path.GetFileName(invoiceNumber)}.pdf",
+                        contentType,
+                        new FileStream(storagePath, FileMode.Open, FileAccess.Read, FileShare.Read));
+                }
+            }
+        }
+
         var detail = await invoiceQueries.GetDetailAsync(invoiceId, cancellationToken);
         if (detail is null || string.IsNullOrWhiteSpace(detail.InvoiceNumber))
         {
@@ -47,8 +79,7 @@ public class DocumentStreamService(
             SELECT TOP (1)
                 COALESCE(ia.FileName, air.FileName, CONCAT('attachment-', @AttachmentId)) AS FileName,
                 COALESCE(ia.ContentType, air.ContentType, 'application/octet-stream') AS ContentType,
-                ia.StoragePath,
-                i.OpenInvoiceDocumentId
+                ia.StoragePath
             FROM dbo.Invoice i
             LEFT JOIN dbo.InvoiceAttachments ia
                 ON ia.InvoiceId = i.InvoiceId
@@ -68,7 +99,7 @@ public class DocumentStreamService(
             var fileName = reader["FileName"] as string ?? $"attachment-{attachmentId}";
             var contentType = reader["ContentType"] as string;
             var storagePath = reader["StoragePath"] as string;
-            var openInvoiceDocumentId = reader["OpenInvoiceDocumentId"] as string;
+            await reader.DisposeAsync();
 
             if (!string.IsNullOrWhiteSpace(storagePath) &&
                 !storagePath.StartsWith("legacy://", StringComparison.OrdinalIgnoreCase) &&
@@ -81,60 +112,11 @@ public class DocumentStreamService(
                     stream);
             }
 
-            var legacyFilePath = ResolvePdfPath(Path.GetFileName(fileName));
-            if (File.Exists(legacyFilePath))
-            {
-                var legacyStream = new FileStream(legacyFilePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                return new DocumentStreamResult(
-                    Path.GetFileName(fileName),
-                    string.IsNullOrWhiteSpace(contentType) ? "application/pdf" : contentType,
-                    legacyStream);
-            }
-
-            if (!string.IsNullOrWhiteSpace(openInvoiceDocumentId))
-            {
-                try
-                {
-                    using var response = await openInvoiceClient.GetInvoiceAttachmentAsync(openInvoiceDocumentId, attachmentId, cancellationToken);
-                    if (response.IsSuccessStatusCode)
-                    {
-                        var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
-                        if (bytes.Length > 0)
-                        {
-                            var fetchedContentType = response.Content.Headers.ContentType?.MediaType;
-                            var resolvedContentType = string.IsNullOrWhiteSpace(fetchedContentType)
-                                ? (string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType)
-                                : fetchedContentType;
-
-                            var hydratedStoragePath = await WriteHydratedAttachmentAsync(attachmentId, fileName, bytes, cancellationToken);
-                            await SaveHydratedAttachmentMetadataAsync(
-                                connection,
-                                invoiceId,
-                                attachmentId,
-                                fileName,
-                                resolvedContentType,
-                                hydratedStoragePath,
-                                bytes.LongLength,
-                                bytes,
-                                cancellationToken);
-
-                            return new DocumentStreamResult(
-                                fileName,
-                                resolvedContentType,
-                                new MemoryStream(bytes));
-                        }
-                    }
-                    else
-                    {
-                        logger.LogWarning("OpenInvoice attachment fetch failed for InvoiceId={InvoiceId}, OpenInvoiceDocumentId={OpenInvoiceDocumentId}, AttachmentId={AttachmentId}, Status={StatusCode}", invoiceId, openInvoiceDocumentId, attachmentId, (int)response.StatusCode);
-                    }
-                }
-                catch (Exception exception)
-                {
-                    logger.LogWarning(exception, "OpenInvoice attachment hydration failed for InvoiceId={InvoiceId}, OpenInvoiceDocumentId={OpenInvoiceDocumentId}, AttachmentId={AttachmentId}", invoiceId, openInvoiceDocumentId, attachmentId);
-                }
-            }
-
+            logger.LogWarning(
+                "Saved attachment is unavailable for InvoiceId={InvoiceId}, AttachmentId={AttachmentId}, StoragePath={StoragePath}. The background sync will repair it.",
+                invoiceId,
+                attachmentId,
+                storagePath);
             return null;
         }
 
@@ -148,6 +130,48 @@ public class DocumentStreamService(
             ? localInvoiceOptions.PdfFolder
             : Path.GetFullPath(Path.Combine(root, localInvoiceOptions.PdfFolder));
         return Path.Combine(pdfFolder, fileName);
+    }
+
+    private string? ResolveLocalAttachmentPath(string attachmentId, string fileName)
+    {
+        var root = ResolveWorkspaceRoot();
+        var searchDirectories = new[]
+        {
+            Path.Combine(root, "src", "InvoiceLens.OpenInvoiceMock", "Storage", "attachments"),
+            Path.Combine(root, "tmp", "openinvoice-hydrated-attachments"),
+            Path.Combine(root, "Storage", "attachments")
+        };
+
+        var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            attachmentId,
+            Path.GetFileName(fileName),
+            Path.GetFileNameWithoutExtension(fileName),
+            $"{attachmentId}{Path.GetExtension(fileName)}",
+            $"{attachmentId}-{Path.GetFileName(fileName)}"
+        };
+
+        foreach (var directory in searchDirectories)
+        {
+            if (!Directory.Exists(directory))
+            {
+                continue;
+            }
+
+            foreach (var path in Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly))
+            {
+                var name = Path.GetFileName(path);
+                if (candidates.Contains(name) ||
+                    name.StartsWith($"{attachmentId}-", StringComparison.OrdinalIgnoreCase) ||
+                    name.StartsWith($"{attachmentId}.", StringComparison.OrdinalIgnoreCase) ||
+                    name.Contains(attachmentId, StringComparison.OrdinalIgnoreCase))
+                {
+                    return path;
+                }
+            }
+        }
+
+        return null;
     }
 
     private static string ResolveWorkspaceRoot()

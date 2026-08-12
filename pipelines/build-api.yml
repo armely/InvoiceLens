@@ -12,3 +12,15 @@ jobs:
 
   - script: dotnet build src/InvoiceLens.Api/InvoiceLens.Api.csproj --configuration Release --no-restore
     displayName: Build API
+
+  - task: Docker@2
+    displayName: Build and push immutable API image
+    inputs:
+      containerRegistry: '$(AcrServiceConnection)'
+      repository: invoicelens-api
+      command: buildAndPush
+      Dockerfile: src/InvoiceLens.Api/Dockerfile
+      buildContext: .
+      tags: |
+        $(Build.BuildId)
+        $(Build.SourceVersion)

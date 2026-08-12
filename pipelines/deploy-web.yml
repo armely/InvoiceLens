@@ -1,10 +1,27 @@
-trigger: none
-
-pool:
-  vmImage: ubuntu-latest
-
-steps:
-- script: |
-    echo "Deploy Web placeholder"
-    echo "Add web deployment steps here."
-  displayName: Deploy Web
+jobs:
+- deployment: DeployWeb
+  displayName: Deploy web image
+  environment: invoicelens-production
+  strategy:
+    runOnce:
+      deploy:
+        steps:
+        - task: AzureCLI@2
+          inputs:
+            azureSubscription: '$(AzureServiceConnection)'
+            scriptType: pscore
+            scriptLocation: inlineScript
+            inlineScript: |
+              $app = "$(ResourcePrefix)-$(EnvironmentName)-web"
+              $rg = "$(ResourcePrefix)-$(EnvironmentName)-rg"
+              $previous = az webapp config container show -g $rg -n $app --query "[0].value" -o tsv
+              az webapp config container set -g $rg -n $app --docker-custom-image-name "$(AcrServer)/invoicelens-web:$(Build.BuildId)"
+              az webapp restart -g $rg -n $app
+              try {
+                $response = Invoke-WebRequest "https://$app.azurewebsites.net/invoices" -UseBasicParsing -TimeoutSec 120
+                if ($response.StatusCode -ne 200) { throw "Web smoke test failed." }
+              } catch {
+                if ($previous) { az webapp config container set -g $rg -n $app --docker-custom-image-name $previous; az webapp restart -g $rg -n $app }
+                throw
+              }
+          displayName: Deploy, verify, and roll back web on failure

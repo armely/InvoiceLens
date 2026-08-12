@@ -1,6 +1,7 @@
 export type Route =
   | 'dashboard'
   | 'invoices'
+  | 'archive'
   | 'analytics'
   | 'contracts'
   | 'vendors'
@@ -43,6 +44,10 @@ export interface AppState {
   queueSort: QueueSortFilter;
   compactTypography: boolean;
   queueAutoScroll: boolean;
+  emailAlertsEnabled: boolean;
+  emailAlertSyncFailures: boolean;
+  emailAlertQueueBacklog: boolean;
+  emailAlertApprovalChanges: boolean;
   loading: boolean;
   error: string | null;
 }

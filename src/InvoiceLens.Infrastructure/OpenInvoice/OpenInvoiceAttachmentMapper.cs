@@ -12,11 +12,9 @@ public static class OpenInvoiceAttachmentMapper
         var root = document.RootElement;
 
         var attachments = new List<OpenInvoiceAttachmentSnapshot>();
-        if (root.TryGetProperty("attachments", out var attachmentArray) && attachmentArray.ValueKind == JsonValueKind.Array)
+        foreach (var item in EnumerateAttachmentItems(root))
         {
-            foreach (var item in attachmentArray.EnumerateArray())
-            {
-                var attachmentId = TryGetString(item, "attachmentId");
+                var attachmentId = TryGetFirstString(item, "attachmentId", "documentId", "contentId", "cid", "id", "href", "url");
                 if (string.IsNullOrWhiteSpace(attachmentId) && item.TryGetProperty("links", out var links) && links.ValueKind == JsonValueKind.Array)
                 {
                     foreach (var link in links.EnumerateArray())
@@ -39,27 +37,29 @@ public static class OpenInvoiceAttachmentMapper
                     continue;
                 }
 
-                var fileName = TryGetString(item, "fileName");
+                attachmentId = NormalizeAttachmentId(attachmentId);
+                var fileName = TryGetFirstString(item, "fileName", "filename", "name", "documentName");
                 if (string.IsNullOrWhiteSpace(fileName))
                 {
-                    fileName = $"{attachmentId}.bin";
+                    fileName = attachmentId;
                 }
 
-                var contentType = TryGetString(item, "contentType");
+                var contentType = TryGetFirstString(item, "contentType", "mimeType", "mediaType");
                 if (string.IsNullOrWhiteSpace(contentType))
                 {
                     contentType = "application/octet-stream";
                 }
 
+                var metadata = AttachmentFileMetadataResolver.Resolve(fileName, contentType);
+
                 var sizeBytes = TryGetInt64(item, "sizeBytes") ?? 0;
 
                 attachments.Add(new OpenInvoiceAttachmentSnapshot(
                     attachmentId,
-                    fileName,
-                    contentType,
+                    metadata.FileName,
+                    metadata.ContentType,
                     sizeBytes,
                     item.TryGetProperty("storageFileName", out var storageFileName) && storageFileName.ValueKind == JsonValueKind.String ? storageFileName.GetString() : null));
-            }
         }
 
         var completeIndicator = false;
@@ -81,6 +81,73 @@ public static class OpenInvoiceAttachmentMapper
             completeIndicator,
             number,
             attachments);
+    }
+
+    private static IEnumerable<JsonElement> EnumerateAttachmentItems(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var property in element.EnumerateObject())
+            {
+                if (property.Value.ValueKind == JsonValueKind.Array &&
+                    (property.Name.Contains("attachment", StringComparison.OrdinalIgnoreCase) ||
+                     property.Name.Contains("supporting", StringComparison.OrdinalIgnoreCase) ||
+                     property.Name.Contains("document", StringComparison.OrdinalIgnoreCase)))
+                {
+                    foreach (var item in property.Value.EnumerateArray())
+                    {
+                        if (item.ValueKind == JsonValueKind.Object)
+                        {
+                            yield return item;
+                        }
+                        else if (item.ValueKind == JsonValueKind.String)
+                        {
+                            using var synthetic = JsonDocument.Parse($"{{\"cid\":{JsonSerializer.Serialize(item.GetString())}}}");
+                            yield return synthetic.RootElement.Clone();
+                        }
+                    }
+                }
+
+                foreach (var nested in EnumerateAttachmentItems(property.Value))
+                {
+                    yield return nested;
+                }
+            }
+        }
+        else if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in element.EnumerateArray())
+            {
+                foreach (var nested in EnumerateAttachmentItems(item))
+                {
+                    yield return nested;
+                }
+            }
+        }
+    }
+
+    private static string? TryGetFirstString(JsonElement element, params string[] names)
+    {
+        foreach (var property in element.EnumerateObject())
+        {
+            if (names.Any(name => property.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) && property.Value.ValueKind == JsonValueKind.String)
+            {
+                return property.Value.GetString();
+            }
+        }
+
+        return null;
+    }
+
+    private static string NormalizeAttachmentId(string? value)
+    {
+        var normalized = value?.Trim() ?? string.Empty;
+        if (normalized.StartsWith("cid:", StringComparison.OrdinalIgnoreCase))
+        {
+            normalized = normalized[4..];
+        }
+
+        return TryExtractAttachmentIdFromHref(normalized, out var fromHref) ? fromHref : normalized;
     }
 
     private static string? TryGetString(JsonElement element, string propertyName)

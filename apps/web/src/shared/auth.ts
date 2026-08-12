@@ -58,9 +58,13 @@ async function sha256(value: string): Promise<string> {
   return base64UrlEncode(digest);
 }
 
+function isLocalhost(): boolean {
+  return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+}
+
 function isAuthDebugEnabled(): boolean {
   try {
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    if (isLocalhost()) {
       return true;
     }
 
@@ -438,9 +442,12 @@ async function fetchMicrosoftSessionProfile(): Promise<MicrosoftSessionProfileRe
 
     if (!response.ok) {
       const backendUnavailable = [502, 503, 504].includes(response.status);
+      const endpointMissing = response.status === 404;
       const unavailableMessage = backendUnavailable
         ? 'The InvoiceLens API is unavailable right now. Start the API, make sure SQL Server is reachable, and refresh the page.'
-        : 'InvoiceLens could not verify the Microsoft session right now. Please refresh the page and try again.';
+        : endpointMissing
+          ? 'InvoiceLens could not find the auth session endpoint. Verify API_BASE_URL points to InvoiceLens.Api and that the web proxy forwards /api requests to it.'
+          : 'InvoiceLens could not verify the Microsoft session right now. Please refresh the page and try again.';
 
       authDebug('Microsoft session profile request failed.', {
         status: response.status,
@@ -491,9 +498,12 @@ async function createMicrosoftSession(idToken: string, accessToken?: string): Pr
   if (!response.ok) {
     const errorText = await response.text().catch(() => '');
     const backendUnavailable = [502, 503, 504].includes(response.status);
+    const endpointMissing = response.status === 404;
     const failureMessage = backendUnavailable
       ? 'Microsoft session could not be established because the InvoiceLens API is unavailable. Start the API and make sure SQL Server is reachable, then try signing in again.'
-      : `Microsoft session could not be established (${response.status} ${response.statusText}).`;
+      : endpointMissing
+        ? 'Microsoft session endpoint was not found (404). Verify API_BASE_URL points to InvoiceLens.Api and that the web proxy forwards /api requests correctly.'
+        : `Microsoft session could not be established (${response.status} ${response.statusText}).`;
     authDebug('Microsoft session creation failed.', {
       status: response.status,
       statusText: response.statusText,
@@ -638,6 +648,14 @@ async function exchangeCodeForToken(code: string, codeVerifier: string): Promise
   return tokenData;
 }
 
+function getLocalDevFallbackProfile(): AuthProfile {
+  return {
+    displayName: 'Local Developer',
+    initials: 'LD',
+    email: 'local@invoicelens.local',
+  };
+}
+
 export function getCurrentAuthProfile(): AuthProfile | null {
   return readStoredProfile();
 }
@@ -649,6 +667,12 @@ export async function initializeMicrosoftAuth(): Promise<MicrosoftAuthBootstrapR
     authDebug('Microsoft auth is not configured; reading stored profile only.');
     if (cachedProfile) {
       return { profile: cachedProfile, unavailableMessage: null };
+    }
+
+    if (isLocalhost()) {
+      const fallbackProfile = getLocalDevFallbackProfile();
+      persistProfile(fallbackProfile);
+      return { profile: fallbackProfile, unavailableMessage: null };
     }
 
     return fetchMicrosoftSessionProfile();
@@ -750,6 +774,12 @@ export async function initializeMicrosoftAuth(): Promise<MicrosoftAuthBootstrapR
       });
 
     return { profile: cachedProfile, unavailableMessage: null };
+  }
+
+  if (isLocalhost()) {
+    const fallbackProfile = getLocalDevFallbackProfile();
+    persistProfile(fallbackProfile);
+    return { profile: fallbackProfile, unavailableMessage: null };
   }
 
   const sessionProfile = await fetchMicrosoftSessionProfile();

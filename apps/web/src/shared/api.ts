@@ -120,6 +120,10 @@ export class InvoiceLensApiClient {
     return this.requestJson<SyncStatusDto>('/api/sync/status');
   }
 
+  async runSync(): Promise<{ imported: number }> {
+    return this.requestJson<{ imported: number }>('/api/sync/run', { method: 'POST' });
+  }
+
   async validateInvoice(invoiceId: string): Promise<ValidationSummaryDto> {
     return this.requestJson<ValidationSummaryDto>(`/api/invoices/${invoiceId}/validate`, { method: 'POST' });
   }

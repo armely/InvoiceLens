@@ -79,6 +79,7 @@ execFileSync(process.execPath, [tscEntryPoint, '-p', 'tsconfig.json'], {
 cpSync(join(srcDir, 'index.html'), join(distDir, 'index.html'));
 cpSync(join(srcDir, 'styles.css'), join(distDir, 'styles.css'));
 cpSync(join(rootDir, 'node_modules', 'chart.js', 'dist', 'chart.umd.js'), join(vendorDir, 'chart.umd.js'));
+cpSync(join(rootDir, 'vendor', 'pdfjs'), join(vendorDir, 'pdfjs'), { recursive: true });
 
 if (existsSync(publicDir)) {
   cpSync(publicDir, distDir, { recursive: true });

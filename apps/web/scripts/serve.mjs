@@ -66,13 +66,13 @@ const apiBaseUrlCandidates = [...new Set([
   configuredApiBaseUrl,
   'http://localhost:5106',
   'http://127.0.0.1:5106',
-  'http://localhost:8080',
 ])];
 
 const mimeTypes = new Map([
   ['.html', 'text/html; charset=utf-8'],
   ['.css', 'text/css; charset=utf-8'],
   ['.js', 'text/javascript; charset=utf-8'],
+  ['.mjs', 'text/javascript; charset=utf-8'],
   ['.json', 'application/json; charset=utf-8'],
   ['.svg', 'image/svg+xml'],
   ['.png', 'image/png'],

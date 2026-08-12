@@ -13,11 +13,15 @@ public sealed class SyncOpenInvoiceAttachmentsJob(
     {
         var interval = TimeSpan.FromMinutes(Math.Max(10, options.Value.ReconciliationMinutes));
 
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            var imported = await syncService.SyncAttachmentsAsync(stoppingToken);
-            logger.LogInformation("OpenInvoice attachment sync processed {Imported} records.", imported);
-            await Task.Delay(interval, stoppingToken);
-        }
+        await RecurringJobRunner.RunAsync(
+            "OpenInvoice attachment sync",
+            interval,
+            async token =>
+            {
+                var imported = await syncService.SyncAttachmentsAsync(token);
+                logger.LogInformation("OpenInvoice attachment sync processed {Imported} records.", imported);
+            },
+            logger,
+            stoppingToken);
     }
 }
