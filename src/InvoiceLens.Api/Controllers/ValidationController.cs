@@ -39,6 +39,6 @@ public class ValidationController(
     public async Task<ActionResult<ValidationSummaryDto>> GetSummary(Guid invoiceId, CancellationToken cancellationToken)
     {
         var result = await getValidationSummary.ExecuteAsync(invoiceId, cancellationToken);
-        return result is null ? NotFound() : Ok(result);
+        return result is null ? NoContent() : Ok(result);
     }
 }

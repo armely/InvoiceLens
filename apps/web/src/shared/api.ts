@@ -22,6 +22,27 @@ export class ApiAuthorizationError extends Error {
 export class InvoiceLensApiClient {
   constructor(private readonly baseUrl = '') {}
 
+  private async buildRequestError(path: string, response: Response): Promise<Error> {
+    let details = '';
+
+    try {
+      const bodyText = (await response.text()).trim();
+      if (bodyText) {
+        try {
+          const parsed = JSON.parse(bodyText) as { message?: string; error?: string };
+          details = (parsed.message ?? parsed.error ?? bodyText).trim();
+        } catch {
+          details = bodyText;
+        }
+      }
+    } catch {
+      // If reading the body fails, fall back to status-only error text.
+    }
+
+    const base = `Request failed (${response.status} ${response.statusText}) for ${path}`;
+    return new Error(details ? `${base}. ${details}` : base);
+  }
+
   private buildUrl(path: string): string {
     if (!this.baseUrl) {
       return path;
@@ -46,7 +67,7 @@ export class InvoiceLensApiClient {
         throw new ApiAuthorizationError(`Microsoft authentication is required for ${path}.`);
       }
 
-      throw new Error(`Request failed (${response.status} ${response.statusText}) for ${path}`);
+      throw await this.buildRequestError(path, response);
     }
 
     if (response.status === 204) {
@@ -76,7 +97,7 @@ export class InvoiceLensApiClient {
         throw new ApiAuthorizationError(`Microsoft authentication is required for ${path}.`);
       }
 
-      throw new Error(`Request failed (${response.status} ${response.statusText}) for ${path}`);
+      throw await this.buildRequestError(path, response);
     }
 
     return (await response.json()) as T;
@@ -136,8 +157,8 @@ export class InvoiceLensApiClient {
     await this.requestJson<void>(`/api/invoices/${invoiceId}/send-back`, { method: 'POST' });
   }
 
-  async sendAdminTestEmail(recipientEmail?: string): Promise<{ message: string; recipientEmail: string }> {
-    return this.requestJson<{ message: string; recipientEmail: string }>('/api/admin/test-email', {
+  async sendAdminTestEmail(recipientEmail?: string): Promise<{ message: string; recipientEmail: string; sent: boolean }> {
+    return this.requestJson<{ message: string; recipientEmail: string; sent: boolean }>('/api/admin/test-email', {
       method: 'POST',
       body: JSON.stringify({ recipientEmail: recipientEmail?.trim() || null }),
     });

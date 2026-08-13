@@ -28,7 +28,7 @@ import { renderAnalyticsPage } from './views/analytics.js';
 import { renderContractsPage } from './views/contracts.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderHelpPage } from './views/help.js';
-import { renderInvoiceQueueItems, renderInvoicesPage } from './views/invoices.js';
+import { renderInvoiceDocument, renderInvoiceQueueItems, renderInvoicesPage } from './views/invoices.js';
 import { renderNotificationsPage } from './views/notifications.js';
 import { renderInvoicePreviewModalRich } from './views/shared.js';
 import { renderReportsPage } from './views/reports.js';
@@ -69,6 +69,8 @@ let archiveDateRange: AppState['invoiceDateRange'] = 'All Time';
 let archiveDateFrom = '';
 let archiveDateTo = '';
 let archiveSort: AppState['queueSort'] = 'Newest First';
+let reportsSignalFilter: 'all' | 'queue-health' | 'vendor-mix' | 'exceptions' = 'all';
+let reportsCompanyFilter = 'All Companies';
 
 const state: AppState = {
   route: 'dashboard',
@@ -673,6 +675,18 @@ function isWorkspaceLocked(): boolean {
   return document.body.dataset['authState'] !== 'signed-in';
 }
 
+function isPublicReadRoute(route: Route): boolean {
+  return route === 'vendors' || route === 'reports';
+}
+
+function isRouteRestricted(route: Route): boolean {
+  return !isPublicReadRoute(route);
+}
+
+function requiresAuthenticationForRoute(route: Route): boolean {
+  return isWorkspaceLocked() && isRouteRestricted(route);
+}
+
 function readBooleanSetting(storageKey: string, fallback: boolean): boolean {
   try {
     const raw = window.localStorage.getItem(storageKey);
@@ -858,7 +872,8 @@ function syncBrowserLocation(route: Route, selectedInvoiceId = '', replace = fal
 }
 
 function navigateTo(route: Route, selectedInvoiceId = state.selectedInvoiceId, replace = false): void {
-  if (isWorkspaceLocked()) {
+  if (requiresAuthenticationForRoute(route)) {
+    renderAuthGate('Sign in with Microsoft to access this workspace area.');
     return;
   }
 
@@ -959,6 +974,39 @@ function buildInvoiceStandaloneHtml(invoiceMarkup: string, pageTitle: string): s
 </html>`;
 }
 
+function openPrintDocument(html: string): boolean {
+  // A noopener feature can make window.open return null, even when the popup
+  // was created. Keep the reference long enough to write and print, then sever
+  // access back to the application explicitly.
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    return false;
+  }
+
+  printWindow.opener = null;
+  let hasPrinted = false;
+  const runPrint = () => {
+    if (hasPrinted || printWindow.closed) {
+      return;
+    }
+
+    hasPrinted = true;
+    printWindow.focus();
+    printWindow.print();
+  };
+
+  printWindow.addEventListener('load', () => {
+    window.setTimeout(runPrint, 120);
+  }, { once: true });
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
+
+  // Some browsers do not emit load for document.write content.
+  window.setTimeout(runPrint, 350);
+  return true;
+}
+
 async function downloadInvoiceWithCurrentDesign(): Promise<void> {
   const invoicePaper = getActiveInvoicePaper();
   if (!invoicePaper) {
@@ -994,28 +1042,9 @@ async function printInvoiceWithCurrentDesign(): Promise<void> {
   const pageTitle = `${getSelectedInvoiceName()}-print`;
   const invoiceClone = cloneWithInlineStyles(invoicePaper);
   const html = buildInvoiceStandaloneHtml(invoiceClone.outerHTML, pageTitle);
-  const printWindow = window.open('', '_blank', 'noopener,noreferrer');
-
-  if (!printWindow) {
+  if (!openPrintDocument(html)) {
     showToast('Enable pop-ups to print the invoice.');
-    return;
   }
-
-  printWindow.document.open();
-  printWindow.document.write(html);
-  printWindow.document.close();
-
-  const runPrint = () => {
-    printWindow.focus();
-    printWindow.print();
-  };
-
-  printWindow.addEventListener('load', () => {
-    window.setTimeout(runPrint, 120);
-  }, { once: true });
-
-  // Fallback for browsers that may not emit load on document.write content.
-  window.setTimeout(runPrint, 300);
 }
 
 function buildReportsPrintTitle(): string {
@@ -1038,27 +1067,9 @@ async function printReportWithCurrentDesign(): Promise<void> {
 
   const reportClone = cloneWithInlineStyles(reportsRoot);
   const html = buildInvoiceStandaloneHtml(reportClone.outerHTML, buildReportsPrintTitle());
-  const printWindow = window.open('', '_blank', 'noopener,noreferrer');
-
-  if (!printWindow) {
+  if (!openPrintDocument(html)) {
     showToast('Enable pop-ups to print the report.');
-    return;
   }
-
-  printWindow.document.open();
-  printWindow.document.write(html);
-  printWindow.document.close();
-
-  const runPrint = () => {
-    printWindow.focus();
-    printWindow.print();
-  };
-
-  printWindow.addEventListener('load', () => {
-    window.setTimeout(runPrint, 120);
-  }, { once: true });
-
-  window.setTimeout(runPrint, 300);
 }
 
 function buildInvoiceLookup(): Map<string, InvoiceSummaryDto> {
@@ -1304,7 +1315,7 @@ function selectAttachmentByOffset(delta: number): void {
   }
 
   const currentIndex = attachments.findIndex((attachment) => buildAttachmentUrl(state.selectedInvoiceId, attachment.attachmentId) === state.selectedAttachmentUrl);
-  const baseIndex = currentIndex < 0 ? 0 : currentIndex;
+  const baseIndex = currentIndex < 0 ? (delta > 0 ? -1 : attachments.length) : currentIndex;
   const nextIndex = Math.min(attachments.length - 1, Math.max(0, baseIndex + delta));
   const nextAttachment = attachments[nextIndex];
 
@@ -1752,7 +1763,7 @@ function renderAuthGate(message?: string): void {
 function render(): void {
   destroyInvoiceCharts();
 
-  if (isWorkspaceLocked()) {
+  if (requiresAuthenticationForRoute(state.route)) {
     renderAuthGate();
     return;
   }
@@ -1822,6 +1833,8 @@ function render(): void {
         state.reportsDateRange,
         state.reportsDateFrom,
         state.reportsDateTo,
+        reportsSignalFilter,
+        reportsCompanyFilter,
       );
     },
     notifications: () => renderNotificationsPage(store.queueRows, getNotificationsFeed(), [...readNotificationIds]),
@@ -1848,6 +1861,7 @@ function render(): void {
           modalAttachment?.fileName ?? null,
           modalAttachment ? modalAttachmentIndex + 1 : 0,
           modalPdfAttachments.length,
+          previewBundle.review?.invoice ? renderInvoiceDocument(previewBundle.review.invoice, null) : null,
         )
       : '';
 
@@ -1902,6 +1916,12 @@ function setFilter(filter: string, value: string): void {
       break;
     case 'reports-date-to':
       state.reportsDateTo = value;
+      break;
+    case 'reports-signal':
+      reportsSignalFilter = value as typeof reportsSignalFilter;
+      break;
+    case 'reports-company':
+      reportsCompanyFilter = value || 'All Companies';
       break;
     case 'invoice-status':
       state.invoiceStatusFilter = value as AppState['invoiceStatusFilter'];
@@ -2081,6 +2101,18 @@ async function reloadData(selectedInvoiceId = state.selectedInvoiceId, options: 
     if (error instanceof ApiAuthorizationError) {
       clearMicrosoftAuth();
       syncProfile(null);
+
+      if (isPublicReadRoute(state.route)) {
+        store.invoices = [];
+        store.queue = [];
+        store.queueRows = [];
+        store.syncStatus = null;
+        store.selected.clear();
+        state.error = null;
+        render();
+        return;
+      }
+
       renderAuthGate('Your Microsoft session expired. Please sign in again.');
       return;
     }
@@ -2101,11 +2133,6 @@ async function openInvoicePreview(invoiceId: string): Promise<void> {
     syncBrowserLocation('invoices', invoiceId, false, false);
   }
   await loadReviewBundle(invoiceId);
-  const firstAttachment = getSelectedReviewBundle()?.review?.attachments.find(
-    (attachment) => Boolean(attachment.url) && !attachment.isFallback && attachment.fileName.toLowerCase().endsWith('.pdf'),
-  );
-  const firstAttachmentUrl = firstAttachment ? buildAttachmentUrl(invoiceId, firstAttachment.attachmentId) : null;
-  state.selectedAttachmentUrl = firstAttachmentUrl;
   render();
 }
 
@@ -2161,10 +2188,6 @@ document.addEventListener('click', (event) => {
     return;
   }
 
-  if (isWorkspaceLocked() && !target.closest<HTMLElement>('[data-action="profile-auth"]')) {
-    return;
-  }
-
   if (event instanceof MouseEvent && (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)) {
     return;
   }
@@ -2195,6 +2218,15 @@ document.addEventListener('click', (event) => {
   }
 
   const action = actionElement.getAttribute('data-action');
+
+  if (
+    isWorkspaceLocked()
+    && action
+    && ['validate-invoice', 'approve-invoice', 'send-back'].includes(action)
+  ) {
+    showToast('Sign in with Microsoft to continue the finance action.');
+    return;
+  }
 
   switch (action) {
     case 'close-invoice-preview':
@@ -2264,6 +2296,30 @@ document.addEventListener('click', (event) => {
       break;
     case 'print-report':
       void printReportWithCurrentDesign();
+      break;
+    case 'open-report':
+      {
+        const selectedReport = actionElement.getAttribute('data-report') as typeof reportsSignalFilter | null;
+
+        if (selectedReport) {
+          reportsSignalFilter = selectedReport;
+        }
+
+        state.invoiceDateRange = state.reportsDateRange;
+        state.invoiceDateFrom = state.reportsDateFrom;
+        state.invoiceDateTo = state.reportsDateTo;
+
+        if (reportsSignalFilter === 'queue-health') {
+          state.invoiceStatusFilter = 'Pending Review';
+        } else if (reportsSignalFilter === 'exceptions') {
+          state.invoiceStatusFilter = 'Sent Back';
+        } else {
+          state.invoiceStatusFilter = 'All Statuses';
+        }
+
+        state.globalSearch = reportsCompanyFilter === 'All Companies' ? '' : reportsCompanyFilter;
+        navigateTo('invoices');
+      }
       break;
     case 'more-actions':
       if (state.selectedInvoiceId) {
@@ -2524,12 +2580,16 @@ window.addEventListener('resize', () => {
 });
 
 window.addEventListener('popstate', () => {
-  if (isWorkspaceLocked()) {
-    renderAuthGate();
+  const next = readRouteFromLocation();
+  if (requiresAuthenticationForRoute(next.route)) {
+    state.route = 'vendors';
+    state.selectedInvoiceId = '';
+    state.invoicePreviewOpen = false;
+    syncBrowserLocation('vendors', '', true, false);
+    void reloadData('');
     return;
   }
 
-  const next = readRouteFromLocation();
   state.route = next.route;
   state.invoicePreviewOpen = next.invoicePreviewOpen;
   void reloadData(next.selectedInvoiceId);
@@ -2569,7 +2629,16 @@ async function start(): Promise<void> {
     });
     if (!profile) {
       syncProfile(null);
-      renderAuthGate(authBootstrap.unavailableMessage ?? undefined);
+
+      const initialRoute = readRouteFromLocation();
+      state.route = isPublicReadRoute(initialRoute.route) ? initialRoute.route : 'vendors';
+      state.selectedInvoiceId = '';
+      state.invoicePreviewOpen = false;
+      renderLoading();
+      await reloadData('');
+      if (!isPublicReadRoute(initialRoute.route)) {
+        showToast(authBootstrap.unavailableMessage ?? 'Sign in to access finance workflows.');
+      }
     } else {
       syncProfile(profile);
       const restoredRoute = restorePostLoginRoute();

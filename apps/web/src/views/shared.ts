@@ -41,6 +41,7 @@ export function renderInvoicePreviewModalRich(
   attachmentFileName: string | null = null,
   attachmentIndex = 0,
   attachmentTotal = 0,
+  fallbackDocumentHtml: string | null = null,
 ): string {
   const invoice = review?.invoice ?? null;
   const isApproved = normalizeLabel(invoice?.status).toLowerCase() === 'approved';
@@ -69,21 +70,13 @@ export function renderInvoicePreviewModalRich(
   `;
 
   return `
-    <div class="invoice-modal-backdrop invoice-modal-backdrop--rich" data-action="close-invoice-preview">
-      <section class="invoice-modal-shell invoice-modal-shell--rich" data-action="modal-shell" role="dialog" aria-modal="true" aria-labelledby="invoicePreviewTitle">
-        <header class="invoice-modal-header invoice-modal-header--rich">
+    <div class="invoice-modal-backdrop invoice-modal-backdrop--rich bootstrap-modal-backdrop" data-action="close-invoice-preview">
+      <section class="invoice-modal-shell invoice-modal-shell--rich bootstrap-modal-dialog" data-action="modal-shell" role="dialog" aria-modal="true" aria-labelledby="invoicePreviewTitle">
+        <header class="invoice-modal-header invoice-modal-header--rich bootstrap-modal-header">
           <div class="invoice-modal-header-left">
-            <div class="invoice-preview-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" role="presentation" focusable="false">
-                <path d="M7 3.75h6.5L19.25 9v10.25A1.75 1.75 0 0 1 17.5 21h-10A1.75 1.75 0 0 1 5.75 19.25v-13.5A1.75 1.75 0 0 1 7.5 4h-.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
-                <path d="M13.25 3.75V9H19.25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                <path d="M8.5 13.25h7M8.5 16.25h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-              </svg>
-            </div>
             <div class="invoice-modal-header-copy">
-              <p class="modal-kicker">Invoice Preview</p>
               <h2 id="invoicePreviewTitle">${invoice ? escapeHtml(invoice.invoiceNumber) : 'Invoice preview'}</h2>
-              <p class="invoice-modal-header-subtitle">${invoice ? `${escapeHtml(invoice.vendor)} <span aria-hidden="true">&bull;</span> ${escapeHtml(normalizeLabel(invoice.status))}` : loading ? 'Loading invoice details...' : 'Select an invoice to inspect.'}</p>
+              <p class="invoice-modal-header-subtitle">${invoice ? escapeHtml(invoice.vendor) : loading ? 'Loading invoice details...' : 'Select an invoice to inspect.'}</p>
             </div>
           </div>
           <div class="invoice-modal-header-badges">
@@ -93,7 +86,7 @@ export function renderInvoicePreviewModalRich(
             </button>
           </div>
         </header>
-        <div class="invoice-modal-body invoice-modal-body--rich">
+        <div class="invoice-modal-body invoice-modal-body--rich bootstrap-modal-body">
           ${
             invoice && attachmentUrl
               ? `
@@ -108,6 +101,8 @@ export function renderInvoicePreviewModalRich(
                   <iframe class="archive-attachment-frame" src="${escapeHtml(attachmentUrl)}#page=1&zoom=page-fit&toolbar=1&navpanes=0" title="${escapeHtml(attachmentFileName ?? 'Invoice PDF attachment')}"></iframe>
                 </section>
               `
+              : invoice && fallbackDocumentHtml
+                ? `<div class="archive-invoice-fallback invoices-page">${fallbackDocumentHtml}</div>`
               : supportingDocuments.length > 0
                 ? `
                   <section class="archive-supporting-documents">
@@ -237,7 +232,7 @@ export function renderInvoicePreviewModalRich(
               : `<div class="empty-state">${loading ? 'Loading invoice preview...' : 'No invoice selected.'}</div>`
           }
         </div>
-        <footer class="invoice-modal-footer invoice-modal-footer--rich">
+        <footer class="invoice-modal-footer invoice-modal-footer--rich bootstrap-modal-footer">
           <div class="modal-footer-copy">
             <span class="status-chip ${isApproved ? 'approved' : 'pending-neutral'}">${invoice ? normalizeLabel(invoice.status) : 'Pending'}</span>
             <span>${invoice ? (isApproved ? 'This invoice has been approved.' : 'Review the invoice details before approving.') : 'Select an invoice to inspect.'}</span>

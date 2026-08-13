@@ -104,7 +104,7 @@ function buildInlineAttachmentFallback(snapshotUrl: string, fileName: string | n
   `;
 }
 
-function renderInvoiceDocument(invoice: InvoiceDetailDto | null, fallbackInvoice: InvoiceSummaryDto | null, snapshotUrl: string | null = null, previewFileName: string | null = null): string {
+export function renderInvoiceDocument(invoice: InvoiceDetailDto | null, fallbackInvoice: InvoiceSummaryDto | null, snapshotUrl: string | null = null, previewFileName: string | null = null): string {
   if (!invoice && !fallbackInvoice) {
     return '<div class="empty-state">No invoice selected.</div>';
   }
@@ -352,16 +352,15 @@ export function renderInvoicesPage(
     (attachment) => Boolean(attachment.url) && !attachment.isFallback && attachment.fileName.toLowerCase().endsWith('.pdf'),
   );
   const selectedAttachment =
-    selectableAttachments.find((attachment) => selectedInvoice && buildAttachmentUrl(selectedInvoice.invoiceId, attachment.attachmentId) === selectedAttachmentUrl) ??
-    selectableAttachments[0] ??
-    null;
+    selectableAttachments.find((attachment) => selectedInvoice && buildAttachmentUrl(selectedInvoice.invoiceId, attachment.attachmentId) === selectedAttachmentUrl) ?? null;
   const selectedAttachmentIndex = selectedAttachment ? selectableAttachments.findIndex((attachment) => attachment.url === selectedAttachment.url) + 1 : 0;
   const selectedAttachmentTotal = selectableAttachments.length;
   const embeddedAttachmentUrl = selectedAttachment && selectedInvoice
     ? buildAttachmentUrl(selectedInvoice.invoiceId, selectedAttachment.attachmentId)
     : null;
-  // With no synchronized PDF, render the designed invoice document below.
-  const embeddedDocumentUrl = selectedInvoice ? embeddedAttachmentUrl : null;
+  // A generated "InvoiceLens Snapshot" is only a placeholder, not an invoice
+  // attachment. With no selected synchronized PDF, render the designed invoice.
+  const embeddedDocumentUrl = embeddedAttachmentUrl;
   const previewAttachmentFileName = selectedAttachment?.fileName ?? null;
   const validationSummary =
     reviewData.validationSummary && selectedInvoice && reviewData.validationSummary.invoiceId === selectedInvoice.invoiceId
@@ -418,7 +417,7 @@ export function renderInvoicesPage(
             <div class="panel-header">
               <div class="title">
                 <span class="queue-header-icon" aria-hidden="true">◫</span>
-                Review Queue
+                Invoice Queue
                 <span class="count">${rows.length}</span>
               </div>
               <div class="queue-header-actions" aria-hidden="true">
@@ -447,7 +446,7 @@ export function renderInvoicesPage(
 
             <div class="queue-footer">
               <span>Showing 1 - ${rows.length} of ${rows.length}</span>
-              <button class="load-more" type="button" data-action="load-more">Load More</button>
+              <span class="queue-loaded-status">All loaded</span>
             </div>
 
           </aside>
@@ -457,7 +456,9 @@ export function renderInvoicesPage(
           <section class="panel viewer">
             <div class="viewer-toolbar">
               <div class="tool-group">
-                <span>Attachment</span>
+                <span class="viewer-title">Document Viewer</span>
+                <span class="toolbar-divider"></span>
+                <span class="attachment-label">Attachment</span>
                 <button class="tool-icon tool-icon-sm" type="button" data-action="prev-attachment" aria-label="Previous attachment" title="Previous attachment" ${selectedAttachmentTotal > 0 ? '' : 'disabled'}>
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
                 </button>
@@ -499,6 +500,10 @@ export function renderInvoicesPage(
           <div class="invoice-column-resizer" data-resizer="insights" role="separator" aria-label="Resize document and insights panels" aria-orientation="vertical" tabindex="0"></div>
 
           <aside class="panel insights">
+            <div class="inspector-header">
+              <strong>Inspector</strong>
+              <span>Extraction Results</span>
+            </div>
             <div class="tabs" role="tablist" aria-label="Invoice side panels">
               <button class="tab ${activePanel === 'insights' ? 'active' : ''}" type="button" data-action="switch-invoice-panel" data-panel="insights" role="tab" aria-selected="${String(activePanel === 'insights')}">Insights</button>
               <button class="tab ${activePanel === 'details' ? 'active' : ''}" type="button" data-action="switch-invoice-panel" data-panel="details" role="tab" aria-selected="${String(activePanel === 'details')}">Line Item Details</button>
@@ -597,7 +602,7 @@ export function renderInvoicesPage(
                           <span>Variance</span>
                           <strong class="variance">${escapeHtml(firstFailedCheck.message)}</strong>
 
-                          <button class="view-btn" data-action="open-portal">View Details</button>
+                          <button class="view-btn" type="button" data-action="switch-invoice-panel" data-panel="details">View Details</button>
                         </div>
                       </section>
                     `

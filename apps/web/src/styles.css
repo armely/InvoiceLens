@@ -32,6 +32,8 @@
   --radius-md: 14px;
   --sidebar-width: 272px;
   --topbar-height: 68px;
+  --page-container-max: 1580px;
+  --page-container-gutter: clamp(16px, 2.2vw, 28px);
   --transition: 180ms ease;
   font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif;
 }
@@ -402,11 +404,11 @@ a:hover { text-decoration: underline; }
   grid-column: 2 / -1;
   grid-row: 2 / -1;
   min-width: 0;
-  padding: 24px;
+  padding: var(--page-container-gutter);
   outline: none;
 }
 .page-host:has(.invoices-page) {
-  padding: 0;
+  padding: clamp(10px, 1.6vw, 18px);
 }
 .auth-gate {
   min-height: calc(100vh - var(--topbar-height) - 48px);
@@ -461,7 +463,11 @@ a:hover { text-decoration: underline; }
 .auth-gate-actions .button.primary:hover {
   background: linear-gradient(135deg, #0a2148 0%, #12306f 100%);
 }
-.page { display: block; }
+.page {
+  display: block;
+  width: min(100%, var(--page-container-max));
+  margin-inline: auto;
+}
 .page-grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start; }
 .workspace { min-width: 0; display: grid; gap: 22px; }
 .side-panel { min-width: 0; display: grid; gap: 16px; }
@@ -5909,5 +5915,490 @@ body.invoice-resizing * {
 
   .archive-page .table-wrap {
     max-height: none;
+  }
+}
+
+/* Dedicated archive preview modal. Kept separate from the legacy rich invoice theme. */
+.bootstrap-modal-backdrop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.bootstrap-modal-dialog {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(1140px, 100%);
+  height: min(860px, calc(100vh - 48px));
+  max-height: calc(100vh - 48px);
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+}
+
+.bootstrap-modal-header {
+  min-height: 0;
+  padding: 16px 20px;
+  align-items: center;
+  border-bottom: 1px solid #dee2e6;
+  background: #ffffff;
+  color: #212529;
+}
+
+.bootstrap-modal-header .invoice-modal-header-left {
+  align-items: center;
+}
+
+.bootstrap-modal-header .invoice-modal-header-copy {
+  gap: 2px;
+}
+
+.bootstrap-modal-header h2 {
+  margin: 0;
+  color: #212529;
+  font-family: inherit;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0;
+}
+
+.bootstrap-modal-header p,
+.bootstrap-modal-header .invoice-modal-header-subtitle {
+  margin: 0;
+  color: #6c757d;
+  font-size: 13px;
+}
+
+.bootstrap-modal-header .invoice-modal-header-badges {
+  gap: 10px;
+}
+
+.bootstrap-modal-header .modal-close-button {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  box-shadow: none;
+  color: #6c757d;
+  font-size: 24px;
+}
+
+.bootstrap-modal-header .modal-close-button:hover {
+  background: #f1f3f5;
+  color: #212529;
+}
+
+.bootstrap-modal-body {
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+  background: #f8f9fa;
+}
+
+.bootstrap-modal-body .archive-attachment-preview,
+.bootstrap-modal-body .archive-supporting-documents,
+.bootstrap-modal-body .archive-invoice-fallback,
+.bootstrap-modal-body .invoice-document--rich {
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.bootstrap-modal-body .archive-attachment-preview,
+.bootstrap-modal-body .archive-attachment-frame {
+  min-height: 100%;
+}
+
+.bootstrap-modal-body .archive-invoice-fallback {
+  min-height: 100%;
+  padding: 16px;
+  overflow: auto;
+  background: #e9ecef;
+}
+
+.bootstrap-modal-body .archive-invoice-fallback .invoice-paper {
+  margin: 0 auto;
+}
+
+.bootstrap-modal-footer {
+  min-height: 62px;
+  padding: 12px 20px;
+  align-items: center;
+  border-top: 1px solid #dee2e6;
+  background: #ffffff;
+}
+
+.bootstrap-modal-footer .modal-footer-copy {
+  max-width: 38%;
+  gap: 3px;
+}
+
+.bootstrap-modal-footer .modal-footer-actions {
+  gap: 8px;
+}
+
+.bootstrap-modal-footer .modal-footer-actions .button {
+  min-height: 36px;
+  border-radius: 4px;
+  box-shadow: none;
+}
+
+@media (max-width: 760px) {
+  .bootstrap-modal-backdrop {
+    padding: 0;
+  }
+
+  .bootstrap-modal-dialog {
+    width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .bootstrap-modal-header {
+    padding: 12px 14px;
+  }
+
+  .bootstrap-modal-header > .invoice-modal-header-badges > .status-chip,
+  .bootstrap-modal-footer .modal-footer-copy {
+    display: none;
+  }
+
+  .bootstrap-modal-body {
+    padding: 8px;
+  }
+
+  .bootstrap-modal-footer {
+    padding: 10px 12px;
+  }
+
+  .bootstrap-modal-footer .modal-footer-actions {
+    width: 100%;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+
+  .bootstrap-modal-footer .modal-footer-actions .button {
+    flex: 0 0 auto;
+  }
+}
+
+/* Invoices: viewport-fitted three-column review workbench. */
+.page-host:has(.invoices-page) {
+  height: calc(100dvh - var(--topbar-height));
+  min-height: 0;
+  overflow: hidden;
+}
+
+.invoices-page,
+.invoices-page .invoice-lens-page {
+  width: 100%;
+  height: calc(100dvh - var(--topbar-height));
+  min-height: 0;
+  overflow: hidden;
+}
+
+.invoices-page .workspace {
+  grid-template-columns: var(--invoice-queue-width, 300px) 6px minmax(460px, 1fr) 6px var(--invoice-insights-width, 390px);
+  height: 100%;
+  padding: 12px;
+  gap: 0;
+  background: #eef3f9;
+}
+
+.invoices-page .invoice-column-resizer {
+  width: 6px;
+}
+
+.invoices-page .panel {
+  border-color: #d6dfeb;
+  border-radius: 8px;
+  box-shadow: 0 3px 12px rgba(15, 35, 65, 0.07);
+}
+
+.invoices-page .panel-header {
+  height: 56px;
+  padding: 0 16px;
+  background: #ffffff;
+}
+
+.invoices-page .panel.queue .title {
+  font-size: 17px;
+  color: var(--navy-800);
+}
+
+.invoices-page .panel.queue .count {
+  min-width: 25px;
+  height: 25px;
+}
+
+.invoices-page .queue {
+  grid-template-rows: 56px 42px minmax(0, 1fr) 40px;
+}
+
+.invoices-page .sortbar {
+  padding: 0 14px;
+  gap: 8px;
+}
+
+.invoices-page .invoice-sort-select {
+  min-height: 30px;
+}
+
+.invoices-page .queue-list {
+  padding: 8px;
+  gap: 6px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.invoices-page .queue-item {
+  min-height: 78px;
+  padding: 9px 10px;
+  border-radius: 6px;
+}
+
+.invoices-page .queue-item-title strong,
+.invoices-page .queue-item .amount {
+  font-size: 13px;
+}
+
+.invoices-page .queue-item-meta,
+.invoices-page .confidence,
+.invoices-page .badge {
+  font-size: 10px;
+}
+
+.invoices-page .badge {
+  height: 20px;
+  padding: 0 8px;
+}
+
+.invoices-page .queue-footer {
+  padding: 0 12px;
+  font-size: 11px;
+}
+
+.invoices-page .viewer {
+  grid-template-rows: 54px minmax(0, 1fr);
+}
+
+.invoices-page .viewer-toolbar {
+  min-width: 0;
+  padding: 0 12px;
+  gap: 10px;
+}
+
+.invoices-page .viewer-toolbar .tool-group {
+  min-width: 0;
+  gap: 8px;
+}
+
+.invoices-page .viewer-toolbar .tool-group:first-child > strong:last-of-type {
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.invoices-page .viewer-title {
+  flex: 0 0 auto;
+  color: var(--navy-800);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.invoices-page .attachment-label {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.invoices-page .viewer-toolbar .toolbar-divider {
+  height: 22px;
+}
+
+.invoices-page .document-area {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  padding: 10px;
+  background: #e7edf5;
+}
+
+.invoices-page .invoice-paper {
+  width: min(100%, 900px);
+  height: 100%;
+  padding: clamp(18px, 2.2vh, 28px) clamp(20px, 2.4vw, 30px);
+  overflow: hidden;
+  box-shadow: 0 5px 18px rgba(15, 23, 42, 0.12);
+}
+
+.invoices-page .invoice-top {
+  margin-bottom: clamp(14px, 2vh, 24px);
+}
+
+.invoices-page .invoice-info {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+  gap: 24px;
+  margin-bottom: 14px;
+}
+
+.invoices-page .invoice-line {
+  margin: 12px 0;
+}
+
+.invoices-page .invoice-table {
+  margin-bottom: 12px;
+}
+
+.invoices-page .invoice-table th,
+.invoices-page .invoice-table td {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.invoices-page .totals {
+  width: min(300px, 46%);
+}
+
+.invoices-page .totals-row {
+  padding: 8px 12px;
+}
+
+.invoices-page .invoice-bottom {
+  margin-top: clamp(18px, 3vh, 42px);
+  padding-top: 12px;
+  gap: 18px;
+}
+
+.invoices-page .insights {
+  grid-template-rows: 72px 42px minmax(0, 1fr);
+}
+
+.invoices-page .inspector-header {
+  display: grid;
+  align-content: center;
+  gap: 1px;
+  padding: 0 18px;
+  border-bottom: 1px solid #dce4ef;
+  background: #ffffff;
+}
+
+.invoices-page .inspector-header strong {
+  color: var(--navy-800);
+  font-size: 21px;
+  line-height: 1.2;
+}
+
+.invoices-page .inspector-header span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.invoices-page .tabs {
+  gap: 18px;
+  padding: 0 14px;
+}
+
+.invoices-page .tab {
+  font-size: 11px;
+}
+
+.invoices-page .insights-content {
+  padding: 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.invoices-page .info-card {
+  padding: 9px 10px;
+  margin-bottom: 7px;
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.invoices-page .card-title {
+  margin-bottom: 6px;
+  font-size: 11px;
+}
+
+.invoices-page .invoice-actions-copy {
+  margin: 4px 0 7px;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.invoices-page .invoice-actions-row {
+  gap: 6px;
+}
+
+.invoices-page .invoice-actions-row .button {
+  min-height: 30px;
+  padding: 0 9px;
+  font-size: 10px;
+}
+
+.invoices-page .summary-grid {
+  grid-template-columns: minmax(0, 1.15fr) minmax(115px, 0.85fr);
+  gap: 8px;
+}
+
+.invoices-page .summary-list > div,
+.invoices-page .metric-row,
+.invoices-page .risk-row,
+.invoices-page .valid-row {
+  min-height: 25px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  font-size: 10px;
+}
+
+.invoices-page .score-box {
+  padding: 8px;
+}
+
+.invoices-page .score-row {
+  gap: 6px;
+}
+
+.invoices-page .score-circle,
+.invoices-page .invoice-score-chart {
+  width: 58px !important;
+  height: 58px !important;
+}
+
+.invoices-page .score-circle-label {
+  font-size: 13px;
+}
+
+.invoices-page .validation-list {
+  gap: 2px;
+}
+
+.invoices-page .alert-card {
+  margin-bottom: 7px;
+}
+
+@media (max-width: 1180px) {
+  .invoices-page .workspace {
+    grid-template-columns: 250px 4px minmax(380px, 1fr) 4px 340px;
+    padding: 8px;
+  }
+
+  .invoices-page .viewer-title,
+  .invoices-page .attachment-label,
+  .invoices-page .viewer-toolbar .toolbar-divider:first-of-type {
+    display: none;
   }
 }
