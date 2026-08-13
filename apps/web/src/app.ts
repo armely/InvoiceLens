@@ -684,7 +684,7 @@ function isRouteRestricted(route: Route): boolean {
 }
 
 function requiresAuthenticationForRoute(route: Route): boolean {
-  return isWorkspaceLocked() && isRouteRestricted(route);
+  return false;
 }
 
 function readBooleanSetting(storageKey: string, fallback: boolean): boolean {
@@ -872,11 +872,6 @@ function syncBrowserLocation(route: Route, selectedInvoiceId = '', replace = fal
 }
 
 function navigateTo(route: Route, selectedInvoiceId = state.selectedInvoiceId, replace = false): void {
-  if (requiresAuthenticationForRoute(route)) {
-    renderAuthGate('Sign in with Microsoft to access this workspace area.');
-    return;
-  }
-
   state.route = route;
   state.invoicePreviewOpen = false;
 
@@ -1763,11 +1758,6 @@ function renderAuthGate(message?: string): void {
 function render(): void {
   destroyInvoiceCharts();
 
-  if (requiresAuthenticationForRoute(state.route)) {
-    renderAuthGate();
-    return;
-  }
-
   if (state.loading) {
     renderLoading();
     return;
@@ -1866,6 +1856,7 @@ function render(): void {
       : '';
 
   pageHost.innerHTML = `${pageMarkup}${invoicePreviewMarkup}`;
+  applyQuoteSubmissionLock();
   if (state.route === 'invoices') {
     applyInvoiceColumnLayout();
   }
@@ -2065,12 +2056,20 @@ async function reloadData(selectedInvoiceId = state.selectedInvoiceId, options: 
     render();
   }
 
+  const loadTimeoutMs = 12000;
+
+  const loadWorkspaceData = Promise.all([
+    api.getInvoices(),
+    api.getQueue(),
+    api.getSyncStatus(),
+  ]);
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    window.setTimeout(() => reject(new Error('Workspace data request timed out.')), loadTimeoutMs);
+  });
+
   try {
-    const [invoices, queue, syncStatus] = await Promise.all([
-      api.getInvoices(),
-      api.getQueue(),
-      api.getSyncStatus(),
-    ]);
+    const [invoices, queue, syncStatus] = await Promise.race([loadWorkspaceData, timeoutPromise]);
 
     store.invoices = invoices;
     store.queue = queue;
@@ -2102,18 +2101,26 @@ async function reloadData(selectedInvoiceId = state.selectedInvoiceId, options: 
       clearMicrosoftAuth();
       syncProfile(null);
 
-      if (isPublicReadRoute(state.route)) {
-        store.invoices = [];
-        store.queue = [];
-        store.queueRows = [];
-        store.syncStatus = null;
-        store.selected.clear();
-        state.error = null;
-        render();
-        return;
-      }
+      store.invoices = [];
+      store.queue = [];
+      store.queueRows = [];
+      store.syncStatus = null;
+      store.selected.clear();
+      state.error = null;
+      render();
+      return;
+    }
 
-      renderAuthGate('Your Microsoft session expired. Please sign in again.');
+    if (state.route === 'reports') {
+      // Keep reports usable even if backend endpoints are unavailable.
+      store.invoices = [];
+      store.queue = [];
+      store.queueRows = [];
+      store.syncStatus = null;
+      store.selected.clear();
+      state.error = null;
+      render();
+      showToast('Reports loaded in offline mode. Data source is temporarily unavailable.');
       return;
     }
 
@@ -2181,6 +2188,36 @@ function showMutationError(actionLabel: string, error: unknown): void {
   showToast(`${actionLabel} failed: ${message}`);
 }
 
+function applyQuoteSubmissionLock(): void {
+  const quoteActionSelectors = [
+    '[data-action="approve-invoice"]',
+    '[data-action="request-quote"]',
+    '[data-action="submit-quote"]',
+  ];
+
+  const quoteButtons = pageHost.querySelectorAll<HTMLButtonElement>(quoteActionSelectors.join(', '));
+  const accountNotActivated = isWorkspaceLocked();
+  const isCartPath = window.location.pathname.startsWith('/cart');
+
+  quoteButtons.forEach((button) => {
+    if (accountNotActivated) {
+      button.disabled = true;
+      button.setAttribute('aria-disabled', 'true');
+      button.setAttribute('title', 'Account not activated. Sign in to submit quote.');
+
+      if (isCartPath) {
+        button.hidden = true;
+      }
+      return;
+    }
+
+    button.disabled = false;
+    button.removeAttribute('aria-disabled');
+    button.removeAttribute('title');
+    button.hidden = false;
+  });
+}
+
 document.addEventListener('click', (event) => {
   const target = event.target;
 
@@ -2222,9 +2259,9 @@ document.addEventListener('click', (event) => {
   if (
     isWorkspaceLocked()
     && action
-    && ['validate-invoice', 'approve-invoice', 'send-back'].includes(action)
+    && ['approve-invoice', 'request-quote', 'submit-quote'].includes(action)
   ) {
-    showToast('Sign in with Microsoft to continue the finance action.');
+    showToast('Quote submission is disabled until you sign in with Microsoft.');
     return;
   }
 
@@ -2581,15 +2618,6 @@ window.addEventListener('resize', () => {
 
 window.addEventListener('popstate', () => {
   const next = readRouteFromLocation();
-  if (requiresAuthenticationForRoute(next.route)) {
-    state.route = 'vendors';
-    state.selectedInvoiceId = '';
-    state.invoicePreviewOpen = false;
-    syncBrowserLocation('vendors', '', true, false);
-    void reloadData('');
-    return;
-  }
-
   state.route = next.route;
   state.invoicePreviewOpen = next.invoicePreviewOpen;
   void reloadData(next.selectedInvoiceId);
@@ -2631,14 +2659,12 @@ async function start(): Promise<void> {
       syncProfile(null);
 
       const initialRoute = readRouteFromLocation();
-      state.route = isPublicReadRoute(initialRoute.route) ? initialRoute.route : 'vendors';
+      state.route = initialRoute.route;
       state.selectedInvoiceId = '';
       state.invoicePreviewOpen = false;
       renderLoading();
       await reloadData('');
-      if (!isPublicReadRoute(initialRoute.route)) {
-        showToast(authBootstrap.unavailableMessage ?? 'Sign in to access finance workflows.');
-      }
+      showToast(authBootstrap.unavailableMessage ?? 'You can browse products while signed out. Quote submission requires sign-in.');
     } else {
       syncProfile(profile);
       const restoredRoute = restorePostLoginRoute();
