@@ -2,16 +2,41 @@ namespace InvoiceLens.Infrastructure.Persistence;
 
 public class SyncCheckpointRepository
 {
-    private DateTimeOffset _lastCheckpointUtc = DateTimeOffset.UtcNow.AddHours(-1);
+    private const string SyncType = "OpenInvoice";
 
-    public Task<DateTimeOffset> GetLastCheckpointAsync(CancellationToken cancellationToken)
+    public async Task<DateTimeOffset> GetLastCheckpointAsync(CancellationToken cancellationToken)
     {
-        return Task.FromResult(_lastCheckpointUtc);
+        await using var connection = SqlConnectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT TOP (1) LastRunUtc
+            FROM dbo.SyncCheckpoint
+            WHERE SyncType = @SyncType
+            ORDER BY LastRunUtc DESC, SyncCheckpointId DESC;
+            """;
+        command.Parameters.AddWithValue("@SyncType", SyncType);
+
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        return result is null || result is DBNull
+            ? DateTimeOffset.UtcNow.AddHours(-1)
+            : new DateTimeOffset((DateTime)result, TimeSpan.Zero);
     }
 
-    public Task SaveCheckpointAsync(DateTimeOffset checkpointUtc, CancellationToken cancellationToken)
+    public async Task SaveCheckpointAsync(DateTimeOffset checkpointUtc, CancellationToken cancellationToken)
     {
-        _lastCheckpointUtc = checkpointUtc;
-        return Task.CompletedTask;
+        await using var connection = SqlConnectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO dbo.SyncCheckpoint (SyncType, LastRunUtc, LastCursor)
+            VALUES (@SyncType, @LastRunUtc, NULL);
+            """;
+        command.Parameters.AddWithValue("@SyncType", SyncType);
+        command.Parameters.AddWithValue("@LastRunUtc", checkpointUtc.UtcDateTime);
+
+        await command.ExecuteNonQueryAsync(cancellationToken);
     }
 }

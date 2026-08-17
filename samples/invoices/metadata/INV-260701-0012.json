@@ -1,0 +1,28 @@
+﻿{
+    "localInvoiceId":  "LOCAL-INV-260701-0012",
+    "fileName":  "INV-260701-0012.pdf",
+    "invoiceNumber":  "INV-260701-0012",
+    "supplierNumber":  "Driftwood Energy",
+    "supplierName":  "Driftwood Energy",
+    "invoiceDate":  "2026-07-02",
+    "purchaseOrderNumber":  "PO-450012",
+    "afeNumber":  "AFE-1012",
+    "costCenter":  "Energy",
+    "currency":  "USD",
+    "subtotal":  55110,
+    "tax":  0,
+    "totalAmount":  55110,
+    "status":  "PendingReview",
+    "exportStatus":  "Pending",
+    "paymentStatus":  "Awaiting Approval",
+    "lineItems":  [
+                      {
+                          "lineNumber":  1,
+                          "description":  "Driftwood Energy service line",
+                          "quantity":  1,
+                          "unitPrice":  55110,
+                          "amount":  55110,
+                          "coding":  ""
+                      }
+                  ]
+}

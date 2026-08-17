@@ -1,0 +1,28 @@
+﻿{
+    "localInvoiceId":  "LOCAL-INV-260701-0009",
+    "fileName":  "INV-260701-0009.pdf",
+    "invoiceNumber":  "INV-260701-0009",
+    "supplierNumber":  "Peak Field Services",
+    "supplierName":  "Peak Field Services",
+    "invoiceDate":  "2026-07-02",
+    "purchaseOrderNumber":  "PO-450009",
+    "afeNumber":  "AFE-1009",
+    "costCenter":  "Field Ops",
+    "currency":  "USD",
+    "subtotal":  75880,
+    "tax":  0,
+    "totalAmount":  75880,
+    "status":  "Approved",
+    "exportStatus":  "Exported",
+    "paymentStatus":  "Pending Payment",
+    "lineItems":  [
+                      {
+                          "lineNumber":  1,
+                          "description":  "Peak Field Services service line",
+                          "quantity":  1,
+                          "unitPrice":  75880,
+                          "amount":  75880,
+                          "coding":  ""
+                      }
+                  ]
+}

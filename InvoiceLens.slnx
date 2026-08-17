@@ -5,5 +5,6 @@
     <Project Path="src/InvoiceLens.Domain/InvoiceLens.Domain.csproj" />
     <Project Path="src/InvoiceLens.Infrastructure/InvoiceLens.Infrastructure.csproj" />
     <Project Path="src/InvoiceLens.Worker/InvoiceLens.Worker.csproj" />
+    <Project Path="src/InvoiceLens.OpenInvoiceMock/InvoiceLens.OpenInvoiceMock.csproj" />
   </Folder>
 </Solution>

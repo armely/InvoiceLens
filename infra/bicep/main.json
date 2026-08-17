@@ -1,0 +1,1867 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+  "languageVersion": "2.0",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.44.1.10279",
+      "templateHash": "13072818341401056913"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string"
+    },
+    "sqlLocation": {
+      "type": "string",
+      "defaultValue": "[parameters('location')]"
+    },
+    "environment": {
+      "type": "string"
+    },
+    "resourcePrefix": {
+      "type": "string"
+    },
+    "sqlAdminLogin": {
+      "type": "string"
+    },
+    "sqlAdminPassword": {
+      "type": "securestring"
+    },
+    "authClientId": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "authTenantId": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "authRedirectUri": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "authPostLogoutRedirectUri": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "authScopes": {
+      "type": "string",
+      "defaultValue": "openid profile email"
+    },
+    "openInvoiceHmacSigningKey": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "apiImage": {
+      "type": "string",
+      "defaultValue": "invoicelens-api:latest"
+    },
+    "webImage": {
+      "type": "string",
+      "defaultValue": "invoicelens-web:latest"
+    },
+    "workerImage": {
+      "type": "string",
+      "defaultValue": "invoicelens-worker:latest"
+    },
+    "openInvoiceMockImage": {
+      "type": "string",
+      "defaultValue": "invoicelens-openinvoicemock:latest"
+    },
+    "deployAppServiceWebApi": {
+      "type": "bool",
+      "defaultValue": true
+    },
+    "deployContainerAppWebApi": {
+      "type": "bool",
+      "defaultValue": false
+    },
+    "deployWorkerJob": {
+      "type": "bool",
+      "defaultValue": false
+    },
+    "deployOpenInvoiceMock": {
+      "type": "bool",
+      "defaultValue": false
+    },
+    "appServicePlanSkuName": {
+      "type": "string",
+      "defaultValue": "P1v3"
+    },
+    "appServicePlanSkuTier": {
+      "type": "string",
+      "defaultValue": "PremiumV3"
+    },
+    "appServicePlanSkuCapacity": {
+      "type": "int",
+      "defaultValue": 1
+    }
+  },
+  "variables": {
+    "rgName": "[format('{0}-{1}-rg', parameters('resourcePrefix'), parameters('environment'))]",
+    "acrName": "[format('{0}{1}acr', take(replace(toLower(parameters('resourcePrefix')), '-', ''), 20), parameters('environment'))]",
+    "appInsightsName": "[format('{0}-{1}-appi', parameters('resourcePrefix'), parameters('environment'))]",
+    "kvName": "[format('{0}-{1}-kv', parameters('resourcePrefix'), parameters('environment'))]",
+    "identityName": "[format('{0}-{1}-id', parameters('resourcePrefix'), parameters('environment'))]",
+    "sqlServerName": "[format('{0}-{1}-sql', parameters('resourcePrefix'), parameters('environment'))]",
+    "sqlDbName": "InvoiceLens",
+    "logWorkspaceName": "[format('{0}-{1}-law', parameters('resourcePrefix'), parameters('environment'))]",
+    "appServicePlanName": "[format('{0}-{1}-plan', parameters('resourcePrefix'), parameters('environment'))]",
+    "apiAppName": "[format('{0}-{1}-api', parameters('resourcePrefix'), parameters('environment'))]",
+    "webAppName": "[format('{0}-{1}-web', parameters('resourcePrefix'), parameters('environment'))]",
+    "openInvoiceMockAppName": "[format('{0}-{1}-openinvoicemock', parameters('resourcePrefix'), parameters('environment'))]",
+    "openInvoiceBaseUrl": "[format('https://{0}.azurewebsites.net', variables('openInvoiceMockAppName'))]",
+    "webAppBaseUrl": "[format('https://{0}.azurewebsites.net/', variables('webAppName'))]",
+    "webAppAuthRedirectUri": "[if(equals(parameters('authRedirectUri'), ''), variables('webAppBaseUrl'), parameters('authRedirectUri'))]",
+    "webAppAuthPostLogoutRedirectUri": "[if(equals(parameters('authPostLogoutRedirectUri'), ''), variables('webAppBaseUrl'), parameters('authPostLogoutRedirectUri'))]",
+    "caeName": "[format('{0}-{1}-cae', parameters('resourcePrefix'), parameters('environment'))]",
+    "apiContainerAppName": "[format('{0}-{1}-api-ca', parameters('resourcePrefix'), parameters('environment'))]",
+    "webContainerAppName": "[format('{0}-{1}-web-ca', parameters('resourcePrefix'), parameters('environment'))]",
+    "workerJobName": "[format('{0}-{1}-worker-job', parameters('resourcePrefix'), parameters('environment'))]"
+  },
+  "resources": {
+    "rg": {
+      "type": "Microsoft.Resources/resourceGroups",
+      "apiVersion": "2023-07-01",
+      "name": "[variables('rgName')]",
+      "location": "[parameters('location')]"
+    },
+    "logAnalytics": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('logAnalytics-{0}', uniqueString('logAnalytics', deployment().name))]",
+      "resourceGroup": "[variables('rgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('logWorkspaceName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "languageVersion": "2.0",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "17482633553090022739"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            }
+          },
+          "resources": {
+            "workspace": {
+              "type": "Microsoft.OperationalInsights/workspaces",
+              "apiVersion": "2023-09-01",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "sku": {
+                  "name": "PerGB2018"
+                },
+                "retentionInDays": 30
+              }
+            }
+          },
+          "outputs": {
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('name'))]"
+            },
+            "customerId": {
+              "type": "string",
+              "value": "[reference('workspace').customerId]"
+            },
+            "primarySharedKey": {
+              "type": "securestring",
+              "value": "[listKeys('workspace', '2023-09-01').primarySharedKey]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "rg"
+      ]
+    },
+    "acr": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('acr-{0}', uniqueString('acr', deployment().name))]",
+      "resourceGroup": "[variables('rgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('acrName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "5781341059013473780"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.ContainerRegistry/registries",
+              "apiVersion": "2023-07-01",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "Basic"
+              },
+              "properties": {
+                "adminUserEnabled": false
+              }
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.ContainerRegistry/registries', parameters('name'))]"
+            },
+            "loginServer": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('name')), '2023-07-01').loginServer]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "rg"
+      ]
+    },
+    "managedIdentity": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('managedIdentity-{0}', uniqueString('managedIdentity', deployment().name))]",
+      "resourceGroup": "[variables('rgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('identityName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "13288859580855480668"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+              "apiVersion": "2023-01-31",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]"
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('name'))]"
+            },
+            "principalId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('name')), '2023-01-31').principalId]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "rg"
+      ]
+    },
+    "keyVault": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('keyVault-{0}', uniqueString('keyVault', deployment().name))]",
+      "resourceGroup": "[variables('rgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('kvName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tenantId": {
+            "value": "[tenant().tenantId]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "17888967101557926382"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            },
+            "tenantId": {
+              "type": "string"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.KeyVault/vaults",
+              "apiVersion": "2023-07-01",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "tenantId": "[parameters('tenantId')]",
+                "sku": {
+                  "family": "A",
+                  "name": "standard"
+                },
+                "enableRbacAuthorization": true,
+                "enabledForDeployment": false,
+                "enabledForTemplateDeployment": false,
+                "enabledForDiskEncryption": false
+              }
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.KeyVault/vaults', parameters('name'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "rg"
+      ]
+    },
+    "appInsights": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('appInsights-{0}', uniqueString('appInsights', deployment().name))]",
+      "resourceGroup": "[variables('rgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('appInsightsName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "workspaceResourceId": {
+            "value": "[reference('logAnalytics').outputs.id.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "6727075640834500076"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            },
+            "workspaceResourceId": {
+              "type": "string"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Insights/components",
+              "apiVersion": "2020-02-02",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "kind": "web",
+              "properties": {
+                "Application_Type": "web",
+                "WorkspaceResourceId": "[parameters('workspaceResourceId')]"
+              }
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Insights/components', parameters('name'))]"
+            },
+            "connectionString": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Insights/components', parameters('name')), '2020-02-02').ConnectionString]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "logAnalytics",
+        "rg"
+      ]
+    },
+    "sqlServer": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('sqlServer-{0}', uniqueString('sqlServer', deployment().name))]",
+      "resourceGroup": "[variables('rgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('sqlServerName')]"
+          },
+          "location": {
+            "value": "[parameters('sqlLocation')]"
+          },
+          "adminLogin": {
+            "value": "[parameters('sqlAdminLogin')]"
+          },
+          "adminPassword": {
+            "value": "[parameters('sqlAdminPassword')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "15225849318205035010"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            },
+            "adminLogin": {
+              "type": "string"
+            },
+            "adminPassword": {
+              "type": "securestring"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Sql/servers",
+              "apiVersion": "2022-05-01-preview",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "administratorLogin": "[parameters('adminLogin')]",
+                "administratorLoginPassword": "[parameters('adminPassword')]",
+                "publicNetworkAccess": "Enabled",
+                "minimalTlsVersion": "1.2"
+              }
+            },
+            {
+              "type": "Microsoft.Sql/servers/firewallRules",
+              "apiVersion": "2022-05-01-preview",
+              "name": "[format('{0}/{1}', parameters('name'), 'AllowAzureServices')]",
+              "properties": {
+                "startIpAddress": "0.0.0.0",
+                "endIpAddress": "0.0.0.0"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers', parameters('name'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Sql/servers', parameters('name'))]"
+            },
+            "name": {
+              "type": "string",
+              "value": "[parameters('name')]"
+            },
+            "fullyQualifiedDomainName": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Sql/servers', parameters('name')), '2022-05-01-preview').fullyQualifiedDomainName]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "rg"
+      ]
+    },
+    "sqlDatabase": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('sqlDatabase-{0}', uniqueString('sqlDatabase', deployment().name))]",
+      "resourceGroup": "[variables('rgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "serverName": {
+            "value": "[reference('sqlServer').outputs.name.value]"
+          },
+          "databaseName": {
+            "value": "[variables('sqlDbName')]"
+          },
+          "location": {
+            "value": "[parameters('sqlLocation')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "9835988676948655040"
+            }
+          },
+          "parameters": {
+            "serverName": {
+              "type": "string"
+            },
+            "databaseName": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Sql/servers/databases",
+              "apiVersion": "2022-05-01-preview",
+              "name": "[format('{0}/{1}', parameters('serverName'), parameters('databaseName'))]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "S0",
+                "tier": "Standard"
+              }
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Sql/servers/databases', parameters('serverName'), parameters('databaseName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "rg",
+        "sqlServer"
+      ]
+    },
+    "appServicePlan": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('appServicePlan-{0}', uniqueString('appServicePlan', deployment().name))]",
+      "resourceGroup": "[variables('rgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('appServicePlanName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "skuName": {
+            "value": "[parameters('appServicePlanSkuName')]"
+          },
+          "skuTier": {
+            "value": "[parameters('appServicePlanSkuTier')]"
+          },
+          "skuCapacity": {
+            "value": "[parameters('appServicePlanSkuCapacity')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "1921533649911365425"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            },
+            "skuName": {
+              "type": "string",
+              "defaultValue": "P1v3"
+            },
+            "skuTier": {
+              "type": "string",
+              "defaultValue": "PremiumV3"
+            },
+            "skuCapacity": {
+              "type": "int",
+              "defaultValue": 1
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Web/serverfarms",
+              "apiVersion": "2023-12-01",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "[parameters('skuName')]",
+                "tier": "[parameters('skuTier')]",
+                "capacity": "[parameters('skuCapacity')]"
+              },
+              "kind": "linux",
+              "properties": {
+                "reserved": true
+              }
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Web/serverfarms', parameters('name'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "rg"
+      ]
+    },
+    "apiAppService": {
+      "condition": "[parameters('deployAppServiceWebApi')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('apiAppService-{0}', uniqueString('apiAppService', deployment().name))]",
+      "resourceGroup": "[variables('rgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('apiAppName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "appServicePlanId": {
+            "value": "[reference('appServicePlan').outputs.id.value]"
+          },
+          "acrServer": {
+            "value": "[reference('acr').outputs.loginServer.value]"
+          },
+          "apiImage": {
+            "value": "[parameters('apiImage')]"
+          },
+          "userAssignedIdentityId": {
+            "value": "[reference('managedIdentity').outputs.id.value]"
+          },
+          "openInvoiceBaseUrl": {
+            "value": "[variables('openInvoiceBaseUrl')]"
+          },
+          "openInvoiceHmacSigningKey": {
+            "value": "[parameters('openInvoiceHmacSigningKey')]"
+          },
+          "sqlServerHost": {
+            "value": "[reference('sqlServer').outputs.fullyQualifiedDomainName.value]"
+          },
+          "sqlDatabaseName": {
+            "value": "[variables('sqlDbName')]"
+          },
+          "sqlUsername": {
+            "value": "[parameters('sqlAdminLogin')]"
+          },
+          "sqlPassword": {
+            "value": "[parameters('sqlAdminPassword')]"
+          },
+          "authClientId": {
+            "value": "[parameters('authClientId')]"
+          },
+          "authTenantId": {
+            "value": "[parameters('authTenantId')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "1082468023876190154"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            },
+            "appServicePlanId": {
+              "type": "string"
+            },
+            "acrServer": {
+              "type": "string"
+            },
+            "apiImage": {
+              "type": "string"
+            },
+            "userAssignedIdentityId": {
+              "type": "string"
+            },
+            "openInvoiceBaseUrl": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "openInvoiceHmacSigningKey": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "sqlServerHost": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "sqlDatabaseName": {
+              "type": "string",
+              "defaultValue": "InvoiceLens"
+            },
+            "sqlUsername": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "sqlPassword": {
+              "type": "securestring",
+              "defaultValue": ""
+            },
+            "authClientId": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "authTenantId": {
+              "type": "string",
+              "defaultValue": ""
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Web/sites",
+              "apiVersion": "2023-12-01",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "kind": "app,linux,container",
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', parameters('userAssignedIdentityId'))]": {}
+                }
+              },
+              "properties": {
+                "serverFarmId": "[parameters('appServicePlanId')]",
+                "siteConfig": {
+                  "acrUseManagedIdentityCreds": true,
+                  "acrUserManagedIdentityID": "[parameters('userAssignedIdentityId')]",
+                  "linuxFxVersion": "[format('DOCKER|{0}/{1}', parameters('acrServer'), parameters('apiImage'))]",
+                  "alwaysOn": true,
+                  "appSettings": [
+                    {
+                      "name": "ASPNETCORE_URLS",
+                      "value": "http://+:8080"
+                    },
+                    {
+                      "name": "WEBSITES_PORT",
+                      "value": "8080"
+                    },
+                    {
+                      "name": "OpenInvoice__BaseUrl",
+                      "value": "[parameters('openInvoiceBaseUrl')]"
+                    },
+                    {
+                      "name": "OpenInvoice__HmacSigningKey",
+                      "value": "[parameters('openInvoiceHmacSigningKey')]"
+                    },
+                    {
+                      "name": "InvoiceLens__Sql__ServerHost",
+                      "value": "[parameters('sqlServerHost')]"
+                    },
+                    {
+                      "name": "InvoiceLens__Sql__DatabaseName",
+                      "value": "[parameters('sqlDatabaseName')]"
+                    },
+                    {
+                      "name": "InvoiceLens__Sql__Username",
+                      "value": "[parameters('sqlUsername')]"
+                    },
+                    {
+                      "name": "InvoiceLens__Sql__Password",
+                      "value": "[parameters('sqlPassword')]"
+                    },
+                    {
+                      "name": "InvoiceLens__Auth__ClientId",
+                      "value": "[parameters('authClientId')]"
+                    },
+                    {
+                      "name": "InvoiceLens__Auth__TenantId",
+                      "value": "[parameters('authTenantId')]"
+                    }
+                  ]
+                },
+                "httpsOnly": true
+              }
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Web/sites', parameters('name'))]"
+            },
+            "defaultHostName": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Web/sites', parameters('name')), '2023-12-01').defaultHostName]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "acr",
+        "appServicePlan",
+        "managedIdentity",
+        "rg",
+        "sqlServer"
+      ]
+    },
+    "webAppService": {
+      "condition": "[parameters('deployAppServiceWebApi')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('webAppService-{0}', uniqueString('webAppService', deployment().name))]",
+      "resourceGroup": "[variables('rgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('webAppName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "appServicePlanId": {
+            "value": "[reference('appServicePlan').outputs.id.value]"
+          },
+          "acrServer": {
+            "value": "[reference('acr').outputs.loginServer.value]"
+          },
+          "webImage": {
+            "value": "[parameters('webImage')]"
+          },
+          "userAssignedIdentityId": {
+            "value": "[reference('managedIdentity').outputs.id.value]"
+          },
+          "apiBaseUrl": {
+            "value": "[format('https://{0}.azurewebsites.net', variables('apiAppName'))]"
+          },
+          "authClientId": {
+            "value": "[parameters('authClientId')]"
+          },
+          "authTenantId": {
+            "value": "[parameters('authTenantId')]"
+          },
+          "authRedirectUri": {
+            "value": "[variables('webAppAuthRedirectUri')]"
+          },
+          "authPostLogoutRedirectUri": {
+            "value": "[variables('webAppAuthPostLogoutRedirectUri')]"
+          },
+          "authScopes": {
+            "value": "[parameters('authScopes')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "13609200875636673561"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            },
+            "appServicePlanId": {
+              "type": "string"
+            },
+            "acrServer": {
+              "type": "string"
+            },
+            "webImage": {
+              "type": "string"
+            },
+            "userAssignedIdentityId": {
+              "type": "string"
+            },
+            "apiBaseUrl": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "authClientId": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "authTenantId": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "authRedirectUri": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "authPostLogoutRedirectUri": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "authScopes": {
+              "type": "string",
+              "defaultValue": "openid profile email"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Web/sites",
+              "apiVersion": "2023-12-01",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "kind": "app,linux,container",
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', parameters('userAssignedIdentityId'))]": {}
+                }
+              },
+              "properties": {
+                "serverFarmId": "[parameters('appServicePlanId')]",
+                "siteConfig": {
+                  "acrUseManagedIdentityCreds": true,
+                  "acrUserManagedIdentityID": "[parameters('userAssignedIdentityId')]",
+                  "linuxFxVersion": "[format('DOCKER|{0}/{1}', parameters('acrServer'), parameters('webImage'))]",
+                  "alwaysOn": true,
+                  "appSettings": [
+                    {
+                      "name": "PORT",
+                      "value": "4200"
+                    },
+                    {
+                      "name": "WEBSITES_PORT",
+                      "value": "4200"
+                    },
+                    {
+                      "name": "API_BASE_URL",
+                      "value": "[parameters('apiBaseUrl')]"
+                    },
+                    {
+                      "name": "InvoiceLens__Auth__ClientId",
+                      "value": "[parameters('authClientId')]"
+                    },
+                    {
+                      "name": "InvoiceLens__Auth__TenantId",
+                      "value": "[parameters('authTenantId')]"
+                    },
+                    {
+                      "name": "InvoiceLens__Auth__RedirectUri",
+                      "value": "[parameters('authRedirectUri')]"
+                    },
+                    {
+                      "name": "InvoiceLens__Auth__PostLogoutRedirectUri",
+                      "value": "[parameters('authPostLogoutRedirectUri')]"
+                    },
+                    {
+                      "name": "InvoiceLens__Auth__Scopes",
+                      "value": "[parameters('authScopes')]"
+                    }
+                  ]
+                },
+                "httpsOnly": true
+              }
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Web/sites', parameters('name'))]"
+            },
+            "defaultHostName": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Web/sites', parameters('name')), '2023-12-01').defaultHostName]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "acr",
+        "appServicePlan",
+        "managedIdentity",
+        "rg"
+      ]
+    },
+    "openInvoiceMockAppService": {
+      "condition": "[parameters('deployOpenInvoiceMock')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('openInvoiceMockAppService-{0}', uniqueString('openInvoiceMockAppService', deployment().name))]",
+      "resourceGroup": "[variables('rgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('openInvoiceMockAppName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "appServicePlanId": {
+            "value": "[reference('appServicePlan').outputs.id.value]"
+          },
+          "acrServer": {
+            "value": "[reference('acr').outputs.loginServer.value]"
+          },
+          "apiImage": {
+            "value": "[parameters('openInvoiceMockImage')]"
+          },
+          "userAssignedIdentityId": {
+            "value": "[reference('managedIdentity').outputs.id.value]"
+          },
+          "openInvoiceHmacSigningKey": {
+            "value": "[parameters('openInvoiceHmacSigningKey')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "1082468023876190154"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            },
+            "appServicePlanId": {
+              "type": "string"
+            },
+            "acrServer": {
+              "type": "string"
+            },
+            "apiImage": {
+              "type": "string"
+            },
+            "userAssignedIdentityId": {
+              "type": "string"
+            },
+            "openInvoiceBaseUrl": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "openInvoiceHmacSigningKey": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "sqlServerHost": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "sqlDatabaseName": {
+              "type": "string",
+              "defaultValue": "InvoiceLens"
+            },
+            "sqlUsername": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "sqlPassword": {
+              "type": "securestring",
+              "defaultValue": ""
+            },
+            "authClientId": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "authTenantId": {
+              "type": "string",
+              "defaultValue": ""
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Web/sites",
+              "apiVersion": "2023-12-01",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "kind": "app,linux,container",
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', parameters('userAssignedIdentityId'))]": {}
+                }
+              },
+              "properties": {
+                "serverFarmId": "[parameters('appServicePlanId')]",
+                "siteConfig": {
+                  "acrUseManagedIdentityCreds": true,
+                  "acrUserManagedIdentityID": "[parameters('userAssignedIdentityId')]",
+                  "linuxFxVersion": "[format('DOCKER|{0}/{1}', parameters('acrServer'), parameters('apiImage'))]",
+                  "alwaysOn": true,
+                  "appSettings": [
+                    {
+                      "name": "ASPNETCORE_URLS",
+                      "value": "http://+:8080"
+                    },
+                    {
+                      "name": "WEBSITES_PORT",
+                      "value": "8080"
+                    },
+                    {
+                      "name": "OpenInvoice__BaseUrl",
+                      "value": "[parameters('openInvoiceBaseUrl')]"
+                    },
+                    {
+                      "name": "OpenInvoice__HmacSigningKey",
+                      "value": "[parameters('openInvoiceHmacSigningKey')]"
+                    },
+                    {
+                      "name": "InvoiceLens__Sql__ServerHost",
+                      "value": "[parameters('sqlServerHost')]"
+                    },
+                    {
+                      "name": "InvoiceLens__Sql__DatabaseName",
+                      "value": "[parameters('sqlDatabaseName')]"
+                    },
+                    {
+                      "name": "InvoiceLens__Sql__Username",
+                      "value": "[parameters('sqlUsername')]"
+                    },
+                    {
+                      "name": "InvoiceLens__Sql__Password",
+                      "value": "[parameters('sqlPassword')]"
+                    },
+                    {
+                      "name": "InvoiceLens__Auth__ClientId",
+                      "value": "[parameters('authClientId')]"
+                    },
+                    {
+                      "name": "InvoiceLens__Auth__TenantId",
+                      "value": "[parameters('authTenantId')]"
+                    }
+                  ]
+                },
+                "httpsOnly": true
+              }
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Web/sites', parameters('name'))]"
+            },
+            "defaultHostName": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Web/sites', parameters('name')), '2023-12-01').defaultHostName]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "acr",
+        "appServicePlan",
+        "managedIdentity",
+        "rg"
+      ]
+    },
+    "containerAppsEnvironment": {
+      "condition": "[or(parameters('deployContainerAppWebApi'), parameters('deployWorkerJob'))]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('containerAppsEnvironment-{0}', uniqueString('containerAppsEnvironment', deployment().name))]",
+      "resourceGroup": "[variables('rgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('caeName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "logAnalyticsCustomerId": {
+            "value": "[reference('logAnalytics').outputs.customerId.value]"
+          },
+          "logAnalyticsSharedKey": {
+            "value": "[listOutputsWithSecureValues('logAnalytics', '2025-04-01').primarySharedKey]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "14732748229964776571"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            },
+            "logAnalyticsCustomerId": {
+              "type": "string"
+            },
+            "logAnalyticsSharedKey": {
+              "type": "securestring"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.App/managedEnvironments",
+              "apiVersion": "2024-03-01",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "appLogsConfiguration": {
+                  "destination": "log-analytics",
+                  "logAnalyticsConfiguration": {
+                    "customerId": "[parameters('logAnalyticsCustomerId')]",
+                    "sharedKey": "[parameters('logAnalyticsSharedKey')]"
+                  }
+                }
+              }
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.App/managedEnvironments', parameters('name'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "logAnalytics",
+        "rg"
+      ]
+    },
+    "containerApi": {
+      "condition": "[parameters('deployContainerAppWebApi')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('containerApi-{0}', uniqueString('containerApi', deployment().name))]",
+      "resourceGroup": "[variables('rgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('apiContainerAppName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "environmentId": {
+            "value": "[reference('containerAppsEnvironment').outputs.id.value]"
+          },
+          "acrServer": {
+            "value": "[reference('acr').outputs.loginServer.value]"
+          },
+          "apiImage": {
+            "value": "[parameters('apiImage')]"
+          },
+          "openInvoiceBaseUrl": {
+            "value": "[variables('openInvoiceBaseUrl')]"
+          },
+          "openInvoiceHmacSigningKey": {
+            "value": "[parameters('openInvoiceHmacSigningKey')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "17870465954479827590"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            },
+            "environmentId": {
+              "type": "string"
+            },
+            "acrServer": {
+              "type": "string"
+            },
+            "apiImage": {
+              "type": "string"
+            },
+            "openInvoiceBaseUrl": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "openInvoiceHmacSigningKey": {
+              "type": "string",
+              "defaultValue": ""
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.App/containerApps",
+              "apiVersion": "2024-03-01",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "managedEnvironmentId": "[parameters('environmentId')]",
+                "configuration": {
+                  "ingress": {
+                    "external": true,
+                    "targetPort": 8080
+                  },
+                  "registries": [],
+                  "secrets": []
+                },
+                "template": {
+                  "containers": [
+                    {
+                      "name": "api",
+                      "image": "[format('{0}/{1}', parameters('acrServer'), parameters('apiImage'))]",
+                      "env": [
+                        {
+                          "name": "OpenInvoice__BaseUrl",
+                          "value": "[parameters('openInvoiceBaseUrl')]"
+                        },
+                        {
+                          "name": "OpenInvoice__HmacSigningKey",
+                          "value": "[parameters('openInvoiceHmacSigningKey')]"
+                        }
+                      ],
+                      "resources": {
+                        "cpu": "[json('0.5')]",
+                        "memory": "1Gi"
+                      }
+                    }
+                  ],
+                  "scale": {
+                    "minReplicas": 1,
+                    "maxReplicas": 3
+                  }
+                }
+              }
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.App/containerApps', parameters('name'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "acr",
+        "containerAppsEnvironment",
+        "rg"
+      ]
+    },
+    "containerWeb": {
+      "condition": "[parameters('deployContainerAppWebApi')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('containerWeb-{0}', uniqueString('containerWeb', deployment().name))]",
+      "resourceGroup": "[variables('rgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('webContainerAppName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "environmentId": {
+            "value": "[reference('containerAppsEnvironment').outputs.id.value]"
+          },
+          "acrServer": {
+            "value": "[reference('acr').outputs.loginServer.value]"
+          },
+          "webImage": {
+            "value": "[parameters('webImage')]"
+          },
+          "authClientId": {
+            "value": "[parameters('authClientId')]"
+          },
+          "authTenantId": {
+            "value": "[parameters('authTenantId')]"
+          },
+          "authRedirectUri": {
+            "value": "[parameters('authRedirectUri')]"
+          },
+          "authPostLogoutRedirectUri": {
+            "value": "[parameters('authPostLogoutRedirectUri')]"
+          },
+          "authScopes": {
+            "value": "[parameters('authScopes')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "5712983499576072423"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            },
+            "environmentId": {
+              "type": "string"
+            },
+            "acrServer": {
+              "type": "string"
+            },
+            "webImage": {
+              "type": "string"
+            },
+            "authClientId": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "authTenantId": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "authRedirectUri": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "authPostLogoutRedirectUri": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "authScopes": {
+              "type": "string",
+              "defaultValue": "openid profile email"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.App/containerApps",
+              "apiVersion": "2024-03-01",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "managedEnvironmentId": "[parameters('environmentId')]",
+                "configuration": {
+                  "ingress": {
+                    "external": true,
+                    "targetPort": 80
+                  },
+                  "registries": [],
+                  "secrets": []
+                },
+                "template": {
+                  "containers": [
+                    {
+                      "name": "web",
+                      "image": "[format('{0}/{1}', parameters('acrServer'), parameters('webImage'))]",
+                      "env": [
+                        {
+                          "name": "InvoiceLens__Auth__ClientId",
+                          "value": "[parameters('authClientId')]"
+                        },
+                        {
+                          "name": "InvoiceLens__Auth__TenantId",
+                          "value": "[parameters('authTenantId')]"
+                        },
+                        {
+                          "name": "InvoiceLens__Auth__RedirectUri",
+                          "value": "[parameters('authRedirectUri')]"
+                        },
+                        {
+                          "name": "InvoiceLens__Auth__PostLogoutRedirectUri",
+                          "value": "[parameters('authPostLogoutRedirectUri')]"
+                        },
+                        {
+                          "name": "InvoiceLens__Auth__Scopes",
+                          "value": "[parameters('authScopes')]"
+                        }
+                      ],
+                      "resources": {
+                        "cpu": "[json('0.5')]",
+                        "memory": "1Gi"
+                      }
+                    }
+                  ],
+                  "scale": {
+                    "minReplicas": 1,
+                    "maxReplicas": 2
+                  }
+                }
+              }
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.App/containerApps', parameters('name'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "acr",
+        "containerAppsEnvironment",
+        "rg"
+      ]
+    },
+    "workerContainerJob": {
+      "condition": "[parameters('deployWorkerJob')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('workerContainerJob-{0}', uniqueString('workerContainerJob', deployment().name))]",
+      "resourceGroup": "[variables('rgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('workerJobName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "managedEnvironmentId": {
+            "value": "[reference('containerAppsEnvironment').outputs.id.value]"
+          },
+          "acrServer": {
+            "value": "[reference('acr').outputs.loginServer.value]"
+          },
+          "workerImage": {
+            "value": "[parameters('workerImage')]"
+          },
+          "openInvoiceBaseUrl": {
+            "value": "[variables('openInvoiceBaseUrl')]"
+          },
+          "openInvoiceHmacSigningKey": {
+            "value": "[parameters('openInvoiceHmacSigningKey')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "337028359222963819"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            },
+            "managedEnvironmentId": {
+              "type": "string"
+            },
+            "acrServer": {
+              "type": "string"
+            },
+            "workerImage": {
+              "type": "string"
+            },
+            "openInvoiceBaseUrl": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "openInvoiceHmacSigningKey": {
+              "type": "string",
+              "defaultValue": ""
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.App/jobs",
+              "apiVersion": "2024-03-01",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "environmentId": "[parameters('managedEnvironmentId')]",
+                "configuration": {
+                  "triggerType": "Schedule",
+                  "replicaTimeout": 1800,
+                  "scheduleTriggerConfig": {
+                    "cronExpression": "0 */1 * * *",
+                    "parallelism": 1,
+                    "replicaCompletionCount": 1
+                  },
+                  "registries": [],
+                  "secrets": []
+                },
+                "template": {
+                  "containers": [
+                    {
+                      "name": "worker",
+                      "image": "[format('{0}/{1}', parameters('acrServer'), parameters('workerImage'))]",
+                      "env": [
+                        {
+                          "name": "OpenInvoice__BaseUrl",
+                          "value": "[parameters('openInvoiceBaseUrl')]"
+                        },
+                        {
+                          "name": "OpenInvoice__HmacSigningKey",
+                          "value": "[parameters('openInvoiceHmacSigningKey')]"
+                        }
+                      ],
+                      "resources": {
+                        "cpu": "[json('0.5')]",
+                        "memory": "1Gi"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.App/jobs', parameters('name'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "acr",
+        "containerAppsEnvironment",
+        "rg"
+      ]
+    },
+    "roleAssignments": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('roleAssignments-{0}', uniqueString('roleAssignments', deployment().name))]",
+      "resourceGroup": "[variables('rgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "principalId": {
+            "value": "[reference('managedIdentity').outputs.principalId.value]"
+          },
+          "keyVaultId": {
+            "value": "[reference('keyVault').outputs.id.value]"
+          },
+          "acrId": {
+            "value": "[reference('acr').outputs.id.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "8496427569009753389"
+            }
+          },
+          "parameters": {
+            "principalId": {
+              "type": "string"
+            },
+            "keyVaultId": {
+              "type": "string"
+            },
+            "acrId": {
+              "type": "string"
+            }
+          },
+          "variables": {
+            "keyVaultName": "[last(split(parameters('keyVaultId'), '/'))]",
+            "acrName": "[last(split(parameters('acrId'), '/'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
+              "name": "[guid(parameters('keyVaultId'), parameters('principalId'), 'KeyVaultSecretsUser')]",
+              "properties": {
+                "principalId": "[parameters('principalId')]",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')]",
+                "principalType": "ServicePrincipal"
+              }
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.ContainerRegistry/registries', variables('acrName'))]",
+              "name": "[guid(parameters('acrId'), parameters('principalId'), 'AcrPull')]",
+              "properties": {
+                "principalId": "[parameters('principalId')]",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]",
+                "principalType": "ServicePrincipal"
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "acr",
+        "keyVault",
+        "managedIdentity",
+        "rg"
+      ]
+    }
+  },
+  "outputs": {
+    "resourceGroupName": {
+      "type": "string",
+      "value": "[variables('rgName')]"
+    }
+  }
+}

@@ -16,7 +16,13 @@ public class DocumentsController(IDocumentQueries documentQueries) : ControllerB
             return NotFound();
         }
 
-        return File(snapshot.Content, snapshot.ContentType, snapshot.FileName);
+        var contentType = string.IsNullOrWhiteSpace(snapshot.ContentType) || snapshot.ContentType == "application/octet-stream"
+            ? "application/pdf"
+            : snapshot.ContentType;
+
+        // Serve inline so browsers embed the PDF instead of downloading it.
+        Response.Headers.ContentDisposition = $"inline; filename=\"{snapshot.FileName}\"";
+        return File(snapshot.Content, contentType);
     }
 
     [HttpGet("attachments/{attachmentId}")]

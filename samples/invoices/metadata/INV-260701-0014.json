@@ -1,0 +1,28 @@
+﻿{
+    "localInvoiceId":  "LOCAL-INV-260701-0014",
+    "fileName":  "INV-260701-0014.pdf",
+    "invoiceNumber":  "INV-260701-0014",
+    "supplierNumber":  "Harbor Transport",
+    "supplierName":  "Harbor Transport",
+    "invoiceDate":  "2026-07-02",
+    "purchaseOrderNumber":  "PO-450014",
+    "afeNumber":  "AFE-1014",
+    "costCenter":  "Logistics",
+    "currency":  "USD",
+    "subtotal":  38760,
+    "tax":  0,
+    "totalAmount":  38760,
+    "status":  "PendingReview",
+    "exportStatus":  "Pending",
+    "paymentStatus":  "Awaiting Approval",
+    "lineItems":  [
+                      {
+                          "lineNumber":  1,
+                          "description":  "Harbor Transport service line",
+                          "quantity":  1,
+                          "unitPrice":  38760,
+                          "amount":  38760,
+                          "coding":  ""
+                      }
+                  ]
+}

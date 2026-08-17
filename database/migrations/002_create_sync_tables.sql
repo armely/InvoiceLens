@@ -24,5 +24,5 @@ CREATE TABLE dbo.SyncError (
     ErrorMessage NVARCHAR(MAX) NOT NULL,
     OccurredAtUtc DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
     RetryCount INT NOT NULL DEFAULT 0,
-    CONSTRAINT FK_SyncError_SyncBatch FOREIGN KEY (SyncBatchId) REFERENCES dbo.SyncBatch(SyncBatchId)
+    CONSTRAINT FK_SyncError_SyncBatch FOREIGN KEY (SyncBatchId) REFERENCES dbo.SyncBatch(SyncBatchId) ON DELETE CASCADE
 );

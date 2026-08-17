@@ -6,8 +6,19 @@ param resourcePrefix = 'invoicelens'
 
 param sqlAdminLogin = 'sqladminuser'
 param sqlAdminPassword = 'replace-with-secure-value'
-param logAnalyticsSharedKey = 'replace-with-secure-value'
 
 param apiImage = 'invoicelens-api:test'
 param webImage = 'invoicelens-web:test'
 param workerImage = 'invoicelens-worker:test'
+param openInvoiceMockImage = 'invoicelens-openinvoicemock:test'
+
+param deployAppServiceWebApi = true
+param deployContainerAppWebApi = false
+param deployWorkerJob = false
+param deployOpenInvoiceMock = false
+
+param authClientId = ''
+param authTenantId = ''
+param authRedirectUri = ''
+param authPostLogoutRedirectUri = ''
+param authScopes = 'openid profile email'

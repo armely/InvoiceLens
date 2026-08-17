@@ -1,13 +1,21 @@
 using InvoiceLens.Application.Audit;
 using InvoiceLens.Application.Invoices;
+using InvoiceLens.Application.Notifications;
 using InvoiceLens.Domain.Enums;
+using InvoiceLens.Infrastructure.Notifications;
+using Microsoft.Data.SqlClient;
 using Microsoft.AspNetCore.Mvc;
 
 namespace InvoiceLens.Api.Controllers;
 
 [ApiController]
 [Route("api/invoices")]
-public class InvoicesController(IInvoiceQueries invoiceQueries, CreateAuditEntryCommand createAuditEntry) : ControllerBase
+public class InvoicesController(
+    IInvoiceQueries invoiceQueries,
+    CreateAuditEntryCommand createAuditEntry,
+    INotificationService notificationService,
+    NotificationMessageFactory notificationMessageFactory,
+    ILogger<InvoicesController> logger) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<InvoiceSummaryDto>>> GetInvoices([FromQuery] string? query, CancellationToken cancellationToken)
@@ -33,22 +41,69 @@ public class InvoicesController(IInvoiceQueries invoiceQueries, CreateAuditEntry
     [HttpPost("{invoiceId:guid}/approve")]
     public async Task<IActionResult> Approve(Guid invoiceId, CancellationToken cancellationToken)
     {
-        var updated = await invoiceQueries.ApproveAsync(invoiceId, cancellationToken);
-        if (updated)
-        {
-            await createAuditEntry.ExecuteAsync(invoiceId, AuditActionType.Approved, "system", "Invoice approved", cancellationToken);
-        }
-        return updated ? NoContent() : NotFound();
+        return await UpdateStatusAsync(
+            invoiceId,
+            () => invoiceQueries.ApproveAsync(invoiceId, cancellationToken),
+            AuditActionType.Approved,
+            "Invoice approved",
+            cancellationToken);
     }
 
     [HttpPost("{invoiceId:guid}/send-back")]
     public async Task<IActionResult> SendBack(Guid invoiceId, CancellationToken cancellationToken)
     {
-        var updated = await invoiceQueries.SendBackAsync(invoiceId, cancellationToken);
-        if (updated)
+        return await UpdateStatusAsync(
+            invoiceId,
+            () => invoiceQueries.SendBackAsync(invoiceId, cancellationToken),
+            AuditActionType.SentBack,
+            "Invoice sent back",
+            cancellationToken);
+    }
+
+    private async Task<IActionResult> UpdateStatusAsync(
+        Guid invoiceId,
+        Func<Task<bool>> update,
+        AuditActionType auditActionType,
+        string auditDetails,
+        CancellationToken cancellationToken)
+    {
+        try
         {
-            await createAuditEntry.ExecuteAsync(invoiceId, AuditActionType.SentBack, "system", "Invoice sent back", cancellationToken);
+            var updated = await update();
+            if (!updated)
+            {
+                return NotFound();
+            }
+
+            try
+            {
+                await createAuditEntry.ExecuteAsync(invoiceId, auditActionType, "system", auditDetails, cancellationToken);
+            }
+            catch (Exception auditError)
+            {
+                logger.LogWarning(auditError, "Invoice {InvoiceId} was updated but the audit entry could not be written.", invoiceId);
+            }
+
+            try
+            {
+                var invoice = await invoiceQueries.GetDetailAsync(invoiceId, cancellationToken);
+                if (invoice is not null)
+                {
+                    var message = notificationMessageFactory.CreateWorkflowUpdate(invoiceId, invoice.InvoiceNumber, auditDetails);
+                    await notificationService.SendAsync(message, cancellationToken);
+                }
+            }
+            catch (Exception notificationError)
+            {
+                logger.LogWarning(notificationError, "Invoice {InvoiceId} was updated but notification delivery failed.", invoiceId);
+            }
+
+            return NoContent();
         }
-        return updated ? NoContent() : NotFound();
+        catch (SqlException sqlException)
+        {
+            logger.LogError(sqlException, "Failed to update invoice {InvoiceId}.", invoiceId);
+            return Problem("The invoice update could not be completed right now.");
+        }
     }
 }

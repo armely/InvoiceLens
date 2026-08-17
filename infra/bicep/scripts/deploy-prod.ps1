@@ -1,7 +1,3 @@
 $ErrorActionPreference = "Stop"
 
-az deployment sub create `
-  --name invoicelens-prod-infra `
-  --location centralus `
-  --template-file ../main.bicep `
-  --parameters ../parameters/prod.bicepparam
+& (Join-Path $PSScriptRoot 'deploy-infra.ps1') -Environment 'prod'

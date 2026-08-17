@@ -1,6 +1,8 @@
 # Build artifacts
 bin/
 obj/
+.tmp-npm-cache/
+**/.tmp-obj/
 
 # User-specific
 *.user
@@ -11,6 +13,10 @@ obj/
 # Logs
 *.log
 
+# Environment files
+.env
+.env.local
+
 # Rider / VS Code
 .idea/
 .vscode/
@@ -18,3 +24,6 @@ obj/
 # OS files
 Thumbs.db
 .DS_Store
+
+# Sample/sensitive configs
+samples/configs.md

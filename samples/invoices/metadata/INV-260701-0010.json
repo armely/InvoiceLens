@@ -1,0 +1,28 @@
+﻿{
+    "localInvoiceId":  "LOCAL-INV-260701-0010",
+    "fileName":  "INV-260701-0010.pdf",
+    "invoiceNumber":  "INV-260701-0010",
+    "supplierNumber":  "Canyon Maintenance",
+    "supplierName":  "Canyon Maintenance",
+    "invoiceDate":  "2026-07-02",
+    "purchaseOrderNumber":  "PO-450010",
+    "afeNumber":  "AFE-1010",
+    "costCenter":  "Maintenance",
+    "currency":  "USD",
+    "subtotal":  14320,
+    "tax":  0,
+    "totalAmount":  14320,
+    "status":  "PendingReview",
+    "exportStatus":  "Pending",
+    "paymentStatus":  "Awaiting Approval",
+    "lineItems":  [
+                      {
+                          "lineNumber":  1,
+                          "description":  "Canyon Maintenance service line",
+                          "quantity":  1,
+                          "unitPrice":  14320,
+                          "amount":  14320,
+                          "coding":  ""
+                      }
+                  ]
+}

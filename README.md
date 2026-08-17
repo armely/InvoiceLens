@@ -1,984 +1,523 @@
-# Target Repository Structure
+# InvoiceLens
 
-This is the final clean repository structure for InvoiceLens.
+## 1. What InvoiceLens Is
 
-It uses Angular and .NET only for the main product. Python, Java, and Node.js are not part of the core backend.
+InvoiceLens is an invoice operations platform for reviewing, validating, and syncing invoice data.
 
-## Target folder tree
+It is a multi-service repository with:
+
+- A .NET API for authenticated backend operations.
+- A .NET Worker for recurring OpenInvoice synchronization and retry workflows.
+- A shared Infrastructure layer for persistence, sync clients, and comparison services.
+- An OpenInvoice-compatible mock service for local/dev/test integration validation.
+- A framework-free TypeScript web frontend.
+
+## 2. Current Repository Structure
 
 ```text
 InvoiceLens/
-  README.md
-  .gitignore
-  .editorconfig
-  global.json
-  Directory.Build.props
-  InvoiceLens.sln
-
-  docs/
-    architecture/
-      target-architecture.md
-      openinvoice-api-flow.md
-      sync-flow.md
-      security-model.md
-    requirements/
-      functional-requirements.md
-      non-functional-requirements.md
-      user-roles.md
-    runbooks/
-      deployment-runbook.md
-      sync-runbook.md
-      incident-runbook.md
-
-  apps/
-    web/
-      angular.json
-      package.json
-      tsconfig.json
-      src/
-        app/
-          core/
-          shared/
-          features/
-            dashboard/
-            invoices/
-            compliance-queue/
-            invoice-viewer/
-            validation-summary/
-            admin/
-        assets/
-        environments/
-      Dockerfile
-      nginx.conf
-
-  src/
+  apps/web/                        TypeScript frontend
+  src/                             .NET services and shared layers
     InvoiceLens.Api/
-      Controllers/
-      Middleware/
-      Auth/
-      Program.cs
-      appsettings.json
-      Dockerfile
-
     InvoiceLens.Application/
-      Invoices/
-      ComplianceQueue/
-      Validation/
-      Sync/
-      Users/
-      Common/
-
     InvoiceLens.Domain/
-      Entities/
-      ValueObjects/
-      Enums/
-      Events/
-      Rules/
-
     InvoiceLens.Infrastructure/
-      Persistence/
-      OpenInvoice/
-      KeyVault/
-      DocumentStreaming/
-      Logging/
-      ExternalServices/
-
     InvoiceLens.Worker/
-      Jobs/
-      Schedules/
-      SyncHandlers/
-      Program.cs
-      appsettings.json
-      Dockerfile
-
-  database/
-    migrations/
-    seed/
+    InvoiceLens.OpenInvoiceMock/
+  database/                        SQL migrations and scripts
+  infra/bicep/                     Azure infrastructure templates
+    main.bicep
+    modules/
+    parameters/
     scripts/
-      create-schema.sql
-      create-indexes.sql
-      seed-local-data.sql
-
-  infra/
-    bicep/
-      main.bicep
-      parameters/
-        dev.bicepparam
-        test.bicepparam
-        prod.bicepparam
-      modules/
-        acr.bicep
-        app-insights.bicep
-        container-apps.bicep
-        key-vault.bicep
-        managed-identity.bicep
-        sql.bicep
-        role-assignments.bicep
-
-  tests/
-    InvoiceLens.UnitTests/
-    InvoiceLens.IntegrationTests/
-    InvoiceLens.ContractTests/
-    InvoiceLens.E2ETests/
-
-  pipelines/
-    azure-pipelines.yml
-    build-api.yml
-    build-web.yml
-    deploy-infra.yml
-    deploy-app.yml
+  pipelines/                       Azure DevOps pipelines
+  docs/                            Architecture, setup, runbooks, discovery
+  front-end/                       Design prototype source
 ```
 
-## Responsibility split
+## 3. Application Components
 
-| Folder | Purpose |
-|---|---|
-| `apps/web` | Angular UI only |
-| `src/InvoiceLens.Api` | REST API for frontend requests |
-| `src/InvoiceLens.Application` | Business use cases and orchestration |
-| `src/InvoiceLens.Domain` | Core business objects and rules |
-| `src/InvoiceLens.Infrastructure` | SQL, OpenInvoice, Key Vault, streaming |
-| `src/InvoiceLens.Worker` | Scheduled sync jobs and background processing |
-| `infra/bicep` | Azure infrastructure as code |
-| `database` | SQL schema, migrations, indexes, seed data |
-| `tests` | Unit, integration, contract, and E2E tests |
+- `InvoiceLens.Api`: backend entry point for frontend calls, auth session, invoice actions, comparison, and document streaming.
+- `InvoiceLens.Worker`: background sync processor for OpenInvoice pull/persist and event outbox post/retry.
+- `InvoiceLens.Infrastructure`: SQL access, OpenInvoice client, sync orchestration, local comparison implementation.
+- `InvoiceLens.OpenInvoiceMock`: OpenInvoice-style endpoint simulator with security middleware.
+- `apps/web`: browser UI and runtime config generation.
 
-## Key design rule
+## 4. Prerequisites
 
-Angular talks only to `InvoiceLens.Api`.
+- .NET SDK 10.x (as used by current solution and pipelines).
+- Node.js 20.x (matches current web build pipeline).
+- SQL Server (local SQL Server, SQL Express, Docker SQL Server, or Azure SQL).
+- Azure CLI for infrastructure deployment.
 
-`InvoiceLens.Api` and `InvoiceLens.Worker` are the only components allowed to call OpenInvoice.
+## 5. Required Configuration
 
-OpenInvoice secrets, certificates, HMAC keys, and access tokens never reach the browser.
+Create `.env` from `.env.example` at repository root:
 
-
----
-
-# Phase 0: Discovery and Current State
-
-## Objective
-
-Understand the existing InvoiceLens environment before changing code.
-
-This phase protects the current live customer workflow.
-
-## Main outcome
-
-A clear baseline of the current system, API calls, data fields, deployment process, and risks.
-
-## Phase folder structure
-
-```text
-InvoiceLens/
-  docs/
-    discovery/
-      current-state-summary.md
-      current-deployment-notes.md
-      current-api-inventory.md
-      current-database-inventory.md
-      current-risk-register.md
-      openinvoice-sample-requests.md
-      openinvoice-sample-responses.md
-    diagrams/
-      current-architecture.png
-      current-sync-flow.png
+```bash
+copy .env.example .env
 ```
 
-## What to document
+At minimum, set:
 
-| Area | What to capture |
-|---|---|
-| Current UI | Screens, filters, search behavior, attachment opening |
-| Current APIs | Java data API, .NET attachment API, endpoints, ports |
-| Current database | Invoice tables, searchable columns, indexes |
-| Current OpenInvoice calls | Invoice list, invoice details, attachments, snapshot |
-| Current deployment | IIS, Task Scheduler, URL rewrite, startup tasks |
-| Current security | Certificates, sessions, HMAC, IP restrictions |
-| Current risks | Service restarts, split codebase, secrets, manual support |
+- SQL values (`InvoiceLens__Sql__*`).
+- OpenInvoice values (`OpenInvoice__*`) for mock or real endpoint mode.
+- Auth values (`InvoiceLens__Auth__*`) for Microsoft sign-in.
 
-## Deliverables
+## 6. Local SQL Server Setup
 
-- Current state architecture diagram
-- API inventory
-- Database inventory
-- Deployment inventory
-- Risk register
-- Sample request and response catalog
+Use one supported host pattern:
 
-## Exit criteria
+- `localhost,1433` (local or Docker SQL)
+- `localhost\SQLEXPRESS` (SQL Express)
+- `<server>.database.windows.net` (Azure SQL)
 
-- We know what the current app does.
-- We know what must not break.
-- We know which calls must be rebuilt in .NET.
-- We have enough sample data to build the facelift safely.
+Required keys:
 
-
----
-
-# Phase 1: UI Facelift
-
-## Objective
-
-Refresh the user experience without changing the production backend.
-
-This phase creates the new InvoiceLens workspace look using Angular and mock data first.
-
-## Main outcome
-
-A cleaner operational interface with search, queue, invoice viewer, and validation summary screens.
-
-## Phase folder structure
-
-```text
-InvoiceLens/
-  apps/
-    web/
-      src/
-        app/
-          core/
-            auth/
-            http/
-            layout/
-            guards/
-          shared/
-            components/
-              status-chip/
-              page-header/
-              filter-bar/
-              empty-state/
-              loading-state/
-            models/
-            pipes/
-          features/
-            dashboard/
-            invoices/
-              invoice-search/
-              invoice-results-table/
-              invoice-detail-shell/
-            compliance-queue/
-              queue-list/
-              queue-filters/
-            invoice-viewer/
-              document-viewer/
-              document-toolbar/
-            validation-summary/
-              validation-checklist/
-              variance-card/
-            admin/
-          mock-data/
-            invoices.mock.ts
-            queue.mock.ts
-            validation.mock.ts
-        assets/
-          images/
-          icons/
-        environments/
-      Dockerfile
-      nginx.conf
+```bash
+InvoiceLens__Sql__ServerHost=
+InvoiceLens__Sql__DatabaseName=InvoiceLens
+InvoiceLens__Sql__Username=
+InvoiceLens__Sql__Password=
+InvoiceLens__Sql__Encrypt=
+InvoiceLens__Sql__TrustServerCertificate=
 ```
 
-## Screens to build
+Initialize schema/scripts as needed from `database/migrations` and `database/scripts`.
 
-| Screen | Purpose |
-|---|---|
-| Dashboard | Overview of volume, queue, exceptions, and recent activity |
-| Invoice Search | Search by invoice ID, invoice number, vendor, AFE, company |
-| Compliance Queue | Show invoices needing review |
-| Invoice Review | Show document viewer and validation summary |
-| Admin Settings | Manage mappings and reference data later |
+## 7. How To Run OpenInvoiceMock
 
-## Angular modules or feature areas
-
-- `dashboard`
-- `invoices`
-- `compliance-queue`
-- `invoice-viewer`
-- `validation-summary`
-- `admin`
-
-## Rules for this phase
-
-- Use mock data first.
-- Do not call OpenInvoice from Angular.
-- Do not expose credentials in the browser.
-- Do not change the live IIS setup yet.
-- Keep the UI simple and readable.
-
-## Exit criteria
-
-- The new UI is approved visually.
-- The main user workflow is clear.
-- The frontend can later connect to the .NET API with minimal rework.
-
-
----
-
-# Phase 2: .NET Backend Consolidation
-
-## Objective
-
-Replace the split backend model with one ASP.NET Core backend.
-
-The target is one clean API that handles data search, invoice details, document streaming, validation, audit logging, and OpenInvoice integration.
-
-## Main outcome
-
-Angular calls one backend only: `InvoiceLens.Api`.
-
-## Phase folder structure
-
-```text
-InvoiceLens/
-  src/
-    InvoiceLens.Api/
-      Controllers/
-        InvoicesController.cs
-        DocumentsController.cs
-        ValidationController.cs
-        QueueController.cs
-        SyncController.cs
-        AdminController.cs
-      Middleware/
-        ExceptionHandlingMiddleware.cs
-        CorrelationIdMiddleware.cs
-      Auth/
-        CurrentUser.cs
-        RolePolicies.cs
-      Program.cs
-      appsettings.json
-      Dockerfile
-
-    InvoiceLens.Application/
-      Invoices/
-        SearchInvoicesQuery.cs
-        GetInvoiceDetailQuery.cs
-        GetInvoiceReviewModelQuery.cs
-      Documents/
-        StreamInvoiceSnapshotQuery.cs
-        StreamInvoiceAttachmentQuery.cs
-      ComplianceQueue/
-        GetQueueItemsQuery.cs
-        UpdateQueueStatusCommand.cs
-      Validation/
-        RunValidationCommand.cs
-        GetValidationSummaryQuery.cs
-      Common/
-        Result.cs
-        PagedResult.cs
-
-    InvoiceLens.Domain/
-      Entities/
-        Invoice.cs
-        InvoiceLine.cs
-        Vendor.cs
-        Afe.cs
-        CostCenter.cs
-        ValidationResult.cs
-        AuditEntry.cs
-      Enums/
-        InvoiceStatus.cs
-        ValidationSeverity.cs
-        QueueStatus.cs
-      Rules/
-        VendorMatchRule.cs
-        AfeMatchRule.cs
-        CostCenterRule.cs
-        CurrencyRule.cs
-
-    InvoiceLens.Infrastructure/
-      Persistence/
-        InvoiceLensDbContext.cs
-        Repositories/
-      OpenInvoice/
-        IOpenInvoiceClient.cs
-        OpenInvoiceClient.cs
-        OpenInvoiceOptions.cs
-        OpenInvoiceAuthHandler.cs
-      DocumentStreaming/
-        DocumentStreamService.cs
-      KeyVault/
-        SecretProvider.cs
-      Logging/
-        AuditLogger.cs
+```bash
+dotnet run --project src/InvoiceLens.OpenInvoiceMock
 ```
 
-## Internal API endpoints
+Health endpoint:
 
-```text
-GET  /api/invoices
-GET  /api/invoices/{invoiceId}
-GET  /api/invoices/{invoiceId}/review
-GET  /api/invoices/{invoiceId}/snapshot
-GET  /api/invoices/{invoiceId}/attachments/{attachmentId}
-GET  /api/queue
-POST /api/invoices/{invoiceId}/validate
-POST /api/invoices/{invoiceId}/approve
-POST /api/invoices/{invoiceId}/send-back
-GET  /api/sync/status
+- `http://localhost:5189/health` (when running on the default local profile/port)
+
+## 8. How To Run API
+
+```bash
+dotnet run --project src/InvoiceLens.Api
 ```
 
-## Backend rules
+Health endpoint:
 
-- The browser never calls OpenInvoice directly.
-- All OpenInvoice calls go through `OpenInvoiceClient`.
-- Attachment and snapshot streaming stay inside .NET.
-- SQL access stays inside the infrastructure layer.
-- Business rules stay inside the application and domain layers.
+- `/health`
 
-## Exit criteria
+Startup behavior:
 
-- The old Java data API has a .NET replacement.
-- The old .NET attachment proxy is merged into the main .NET backend.
-- Angular can call one backend API.
-- Local development can run with mock OpenInvoice responses.
+- API loads root `.env`.
+- API builds SQL connection string from `InvoiceLens__Sql__*` values.
+- API fails fast if SQL is unreachable.
 
+## 9. How To Run Worker
 
----
-
-# Phase 3: OpenInvoice Sync
-
-## Objective
-
-Keep SQL metadata in sync with OpenInvoice.
-
-SQL is the searchable operational index. OpenInvoice remains the source of truth.
-
-## Main outcome
-
-A .NET Worker pulls invoice metadata from OpenInvoice, upserts SQL, logs errors, and supports reconciliation.
-
-## Phase folder structure
-
-```text
-InvoiceLens/
-  src/
-    InvoiceLens.Worker/
-      Jobs/
-        InitialInvoiceHydrationJob.cs
-        IncrementalInvoiceSyncJob.cs
-        ReconciliationJob.cs
-        FailedRecordRetryJob.cs
-      Schedules/
-        SyncScheduleOptions.cs
-      SyncHandlers/
-        InvoiceListSyncHandler.cs
-        InvoiceDetailSyncHandler.cs
-        InvoiceUpsertHandler.cs
-        SyncCheckpointHandler.cs
-      Program.cs
-      appsettings.json
-      Dockerfile
-
-    InvoiceLens.Application/
-      Sync/
-        RunInitialHydrationCommand.cs
-        RunIncrementalSyncCommand.cs
-        RunReconciliationCommand.cs
-        RetryFailedSyncRecordsCommand.cs
-
-    InvoiceLens.Infrastructure/
-      OpenInvoice/
-        InvoiceListResponseParser.cs
-        InvoiceDetailXmlParser.cs
-        OpenInvoicePagingService.cs
-      Persistence/
-        SyncCheckpointRepository.cs
-        SyncErrorRepository.cs
-
-  database/
-    migrations/
-      001_create_invoice_tables.sql
-      002_create_sync_tables.sql
-      003_create_invoice_indexes.sql
-    scripts/
-      upsert-invoice.sql
-      reconcile-invoices.sql
+```bash
+dotnet run --project src/InvoiceLens.Worker
 ```
 
-## SQL tables
+Worker runs recurring hosted jobs for:
 
-```text
-Invoice
-InvoiceLine
-InvoiceAttachmentReference
-InvoiceActionHistory
-Vendor
-Afe
-CostCenter
-SyncCheckpoint
-SyncBatch
-SyncError
-ReconciliationResult
+- Invoice list sync
+- Invoice detail sync
+- Attachment/snapshot sync
+- Event post and retry
+- Local invoice load/optional auto-compare
+
+## 10. How To Run Web App
+
+```bash
+cd apps/web
+npm install
+npm run build
+npm run start
 ```
 
-## Sync flow
+The web server proxies API calls to `API_BASE_URL` (default `http://localhost:5106`).
 
-```text
-OpenInvoice API
-  -> .NET Worker
-  -> Parse list response
-  -> Fetch invoice details where needed
-  -> Upsert Azure SQL
-  -> Save checkpoint
-  -> Log errors
-  -> Reconcile counts and totals
+## 11. How Runtime Flow Works
+
+1. Browser calls API endpoints only.
+2. API reads/writes SQL-backed invoice, queue, validation, and audit data.
+3. Worker syncs upstream OpenInvoice data into SQL.
+4. UI reflects SQL-backed operational state.
+
+## 12. How OpenInvoice Sync Works
+
+1. Worker requests invoice list from OpenInvoice-style endpoints.
+2. Worker fetches invoice details, attachments, and snapshot documents.
+3. Worker stores raw upstream payloads and hashes.
+4. Worker maps normalized snapshots into SQL tables.
+5. Worker posts queued outbox events and retries failures.
+
+## 13. How Local Invoice Comparison Works
+
+This feature has been removed from the current UI and default deployment path.
+The app now focuses on the Dashboard, Invoices, Analytics, Contracts, Vendors, Reports, Notifications, Help, and Admin screens.
+
+## 14. Azure Deployment Overview
+
+Infrastructure is currently defined in `infra/bicep/main.bicep` with environment parameter files:
+
+- `infra/bicep/parameters/dev.bicepparam`
+- `infra/bicep/parameters/test.bicepparam`
+- `infra/bicep/parameters/prod.bicepparam`
+
+Current template coverage includes:
+
+- Resource group
+- ACR
+- Managed identity
+- Key Vault
+- Azure SQL Server + Database
+- Log Analytics
+- Application Insights
+- App Service plan
+- API and Web App Service deployment path
+- Optional API/Web Container Apps path
+- The default deployment path now targets only the backend API App Service and the frontend Web App Service.
+
+## 15. How To Deploy Infrastructure (Current Bicep)
+
+PowerShell scripts:
+
+- `infra/bicep/scripts/deploy-dev.ps1`
+- `infra/bicep/scripts/deploy-test.ps1`
+- `infra/bicep/scripts/deploy-prod.ps1`
+
+Manual equivalent command pattern:
+
+```bash
+az deployment sub create \
+  --name invoicelens-<env>-infra \
+  --location <location> \
+  --template-file infra/bicep/main.bicep \
+  --parameters infra/bicep/parameters/<env>.bicepparam
 ```
 
-## Sync types
+If ARM JSON is required for review/tooling, compile from existing Bicep:
 
-| Sync type | Purpose |
-|---|---|
-| Initial hydration | Pull first 30 days or agreed range |
-| Incremental sync | Pull new and changed invoices hourly |
-| Detail refresh | Pull details for selected or changed invoices |
-| Reconciliation | Compare OpenInvoice and SQL counts, totals, status |
-| Retry | Reprocess failed records |
-
-## Exit criteria
-
-- SQL can be populated from OpenInvoice metadata.
-- Upsert logic prevents duplicate invoice records.
-- Sync checkpoints are stored.
-- Failed invoices are logged and retryable.
-- The UI can search SQL without live OpenInvoice calls for every search.
-
-
----
-
-# Phase 4: Validation and Audit
-
-## Objective
-
-Add operational compliance checks to InvoiceLens.
-
-The system should highlight issues before approval or ERP push.
-
-## Main outcome
-
-Each invoice review page shows validation results, exceptions, and a permanent audit trail.
-
-## Phase folder structure
-
-```text
-InvoiceLens/
-  src/
-    InvoiceLens.Application/
-      Validation/
-        RunInvoiceValidationCommand.cs
-        GetValidationSummaryQuery.cs
-        ValidationOrchestrator.cs
-        Rules/
-          VendorMatchValidation.cs
-          AfeValidation.cs
-          CostCenterValidation.cs
-          CurrencyValidation.cs
-          AmountVarianceValidation.cs
-          MsaRateValidation.cs
-      Audit/
-        CreateAuditEntryCommand.cs
-        GetAuditTrailQuery.cs
-        AuditEventFactory.cs
-
-    InvoiceLens.Domain/
-      Entities/
-        ValidationResult.cs
-        ValidationRule.cs
-        MsaContract.cs
-        AuditEntry.cs
-      Enums/
-        ValidationStatus.cs
-        ValidationSeverity.cs
-        AuditActionType.cs
-
-    InvoiceLens.Infrastructure/
-      Persistence/
-        Repositories/
-          ValidationRepository.cs
-          AuditRepository.cs
-          MsaContractRepository.cs
-
-  apps/
-    web/
-      src/
-        app/
-          features/
-            validation-summary/
-              validation-checklist/
-              validation-detail-drawer/
-              rate-variance-card/
-            invoice-viewer/
-              approval-actions/
-            admin/
-              msa-contracts/
-
-  database/
-    migrations/
-      004_create_validation_tables.sql
-      005_create_audit_tables.sql
-      006_create_msa_contract_tables.sql
+```bash
+az bicep build --file infra/bicep/main.bicep
 ```
 
-## Validation checks
+### Optional .env Naming Overrides For Infra
 
-| Check | Purpose |
-|---|---|
-| Vendor match | Confirm supplier matches approved vendor master |
-| AFE match | Confirm invoice AFE exists and is active |
-| Cost center | Confirm cost center exists and is valid |
-| Currency | Confirm invoice currency matches expected coding or agreement |
-| Amount variance | Detect abnormal invoice amount changes |
-| MSA rate | Compare line item rate against contract cap |
+The deployment scripts in `infra/bicep/scripts` now read optional values from the repository root `.env` file.
 
-## Audit actions
+Use these keys to change naming and regions without editing bicep parameter files:
 
-```text
-Invoice viewed
-Validation executed
-Exception detected
-Approved
-Sent back
-Comment added
-Document downloaded
-ERP push requested
+- `INVOICELENS_INFRA_RESOURCE_PREFIX`
+- `INVOICELENS_INFRA_DEV_DEPLOYMENT_NAME`
+- `INVOICELENS_INFRA_TEST_DEPLOYMENT_NAME`
+- `INVOICELENS_INFRA_PROD_DEPLOYMENT_NAME`
+- `INVOICELENS_INFRA_DEV_LOCATION`
+- `INVOICELENS_INFRA_TEST_LOCATION`
+- `INVOICELENS_INFRA_PROD_LOCATION`
+- `INVOICELENS_INFRA_DEV_SQL_LOCATION`
+- `INVOICELENS_INFRA_TEST_SQL_LOCATION`
+- `INVOICELENS_INFRA_PROD_SQL_LOCATION`
+
+Optional SQL admin overrides for script-driven deployment:
+
+- `INVOICELENS_INFRA_SQL_ADMIN_LOGIN`
+- `INVOICELENS_INFRA_SQL_ADMIN_PASSWORD`
+
+## 16. How To Deploy API
+
+Current pipeline file `pipelines/deploy-api.yml` is a placeholder.
+
+Recommended current path:
+
+1. Build and push the API container image to the ACR created by Bicep.
+2. Run the app deployment script to update the backend App Service.
+3. Configure required app settings for SQL/Auth/monitoring.
+
+For dev environments after infra is created, use:
+
+```bash
+pwsh ./infra/bicep/scripts/deploy-app-dev.ps1
 ```
 
-## Exit criteria
+That script updates the backend and frontend App Service container images.
 
-- Validation summary appears on the review page.
-- Exceptions are stored in SQL.
-- Approve and send-back actions write audit entries.
-- MSA contract checks can detect rate variance.
-- Audit trail can be reviewed by invoice.
+## 18. How To Deploy Web App
 
+Current pipeline file `pipelines/deploy-web.yml` is a placeholder.
 
----
+Recommended current path:
 
-# Phase 5: Azure Bicep Deployment
+1. Build and push web image to ACR.
+2. Update the Web App Service image.
+3. Set `InvoiceLens__Auth__*` values for runtime auth configuration.
 
-## Objective
+The dev deployment script reads image tags from `.env`:
 
-Deploy InvoiceLens using repeatable infrastructure as code.
+- `INVOICELENS_API_IMAGE`
+- `INVOICELENS_WEB_IMAGE`
 
-Bicep is the source of truth for Azure resources.
+## 19. Environment Differences (Dev, Test, Prod)
 
-## Main outcome
+- `dev`: backend and frontend App Services deployed for local integration-style testing.
+- `test`: backend and frontend App Services deployed for controlled non-prod testing.
+- `prod`: backend and frontend App Services deployed.
+- SQL, auth redirect URIs, image tags, and secret values differ by environment.
 
-A consistent dev, test, and production deployment model.
+## 20. Troubleshooting
 
-## Phase folder structure
+### SQL connection timeout
 
-```text
-InvoiceLens/
-  infra/
-    bicep/
-      main.bicep
-      parameters/
-        dev.bicepparam
-        test.bicepparam
-        prod.bicepparam
-      modules/
-        resource-group.bicep
-        acr.bicep
-        managed-identity.bicep
-        key-vault.bicep
-        sql-server.bicep
-        sql-database.bicep
-        app-insights.bicep
-        log-analytics.bicep
-        app-service-plan.bicep
-        api-app-service.bicep
-        web-app-service.bicep
-        worker-container-job.bicep
-        container-apps-environment.bicep
-        container-app-api.bicep
-        container-app-web.bicep
-        role-assignments.bicep
-      scripts/
-        deploy-dev.ps1
-        deploy-test.ps1
-        deploy-prod.ps1
-        compile-bicep.ps1
+- Verify SQL host/port and firewall.
+- Check `InvoiceLens__Sql__ServerHost` and encryption settings.
 
-  pipelines/
-    deploy-infra.yml
-    deploy-api.yml
-    deploy-web.yml
-    deploy-worker.yml
+### Missing database
+
+- Create `InvoiceLens` database and run schema scripts/migrations.
+
+### Wrong connection string behavior
+
+- Confirm `InvoiceLens__Sql__*` keys are loaded from root `.env`.
+- Check for conflicting environment variables at process level.
+
+### Azure SQL firewall issue
+
+- Allow client IP or VNet path for the API hosting resource.
+
+### App settings not loaded
+
+- Confirm settings were applied on the actual deployed resource (API/Web).
+- Restart app after settings changes.
+
+### Frontend cannot reach API
+
+- Confirm `API_BASE_URL` and API local port.
+- Check CORS/proxy behavior from web server.
+
+### Authentication errors
+
+- Validate Entra app registration values in `InvoiceLens__Auth__*`.
+- Confirm redirect URIs exactly match deployed web URL.
+
+### Missing secrets
+
+- Populate SQL/OpenInvoice/Auth settings in app settings or Key Vault integration workflow.
+
+### Failed Azure deployment
+
+- Validate secure parameter values in `.bicepparam` files.
+- Check subscription scope permissions and deployment location.
+
+## 21. Common Startup Issues
+
+- API starts then exits: SQL unreachable at startup.
+- API returns 401 in UI: session not established or auth config missing.
+- Background sync path does no useful work when enabled: OpenInvoice base URL/HMAC mismatch.
+- Web starts but blank/locked UX: missing runtime auth values.
+
+## 22. Next Development Steps
+
+1. Implement concrete `deploy-api.yml` and `deploy-web.yml` steps.
+2. Add explicit SQL readiness health endpoints (`/health/sql`).
+3. Add automated migration execution in deployment workflow.
+4. Add first test projects in existing `tests/*` placeholders.
+
+## Local Startup Order
+
+Use this order for local development:
+
+1. Start SQL Server.
+2. Confirm the `InvoiceLens` database exists.
+3. Configure root `.env`.
+4. Start `InvoiceLens.Api`.
+5. Start `apps/web`.
+
+The API requires SQL connectivity.
+
+## Azure Deployment Sequence (Step-by-Step)
+
+This section is the recommended deployment playbook with copy/paste commands.
+
+### 1. Prerequisites
+
+Install and verify:
+
+- Azure CLI
+- Docker Desktop (for image build/push)
+- PowerShell 7+
+
+```powershell
+az --version
+docker --version
+pwsh --version
 ```
 
-## Azure resources
+### 2. Configure Environment File
 
-| Resource | Purpose |
-|---|---|
-| Azure SQL | Invoice metadata, queue, validation, audit |
-| Azure Key Vault | OpenInvoice certificate, HMAC key, secrets |
-| Managed Identity | Secure access to Key Vault and registry |
-| Azure App Service or Container Apps | Host UI and API |
-| Container App Job or Worker | Run scheduled sync |
-| Application Insights | Telemetry and diagnostics |
-| Log Analytics | Centralized logs |
-| Azure Container Registry | Store built container images |
+Create and update root .env:
 
-## Deployment options
-
-### Option A: Simpler start
-
-```text
-Angular static app -> Azure App Service or Static Web Apps
-ASP.NET Core API -> Azure App Service
-.NET Worker -> Azure WebJob, Function, or Container App Job
-Azure SQL -> Metadata database
-Key Vault -> Secrets
+```powershell
+copy .env.example .env
 ```
 
-### Option B: Productized container deployment
+Set at least these keys in .env:
 
-```text
-Angular container -> Azure Container Apps
-ASP.NET Core API container -> Azure Container Apps
-.NET Worker job -> Azure Container Apps Job
-Azure SQL -> Metadata database
-Key Vault -> Secrets
+- INVOICELENS_INFRA_RESOURCE_PREFIX
+- INVOICELENS_INFRA_ENVIRONMENT
+- INVOICELENS_API_IMAGE
+- INVOICELENS_WEB_IMAGE
+- INVOICELENS_OPENINVOICEMOCK_IMAGE
+- INVOICELENS_WORKER_IMAGE
+- InvoiceLens__Auth__ClientId
+- InvoiceLens__Auth__TenantId
+- InvoiceLens__Auth__RedirectUri
+- InvoiceLens__Auth__PostLogoutRedirectUri
+- INVOICELENS_INFRA_SQL_ADMIN_LOGIN
+- INVOICELENS_INFRA_SQL_ADMIN_PASSWORD
+
+### 3. Login and Select Subscription
+
+```powershell
+az login
+az account set --subscription <subscription-id-or-name>
+az account show --query "{name:name,id:id}" -o table
 ```
 
-## Exit criteria
+### 4. Deploy Infrastructure
 
-- Infrastructure deploys from Bicep.
-- No secrets are hardcoded.
-- Managed Identity can read Key Vault secrets.
-- App settings are environment-specific.
-- The same pattern works for dev, test, and production.
+Choose one environment script:
 
-
----
-
-# Phase 6: QA, Release, and Operations
-
-## Objective
-
-Make InvoiceLens production-ready.
-
-This phase focuses on testing, release control, monitoring, support, and operational runbooks.
-
-## Main outcome
-
-A stable release process and support model.
-
-## Phase folder structure
-
-```text
-InvoiceLens/
-  tests/
-    InvoiceLens.UnitTests/
-      Validation/
-      Domain/
-      Application/
-    InvoiceLens.IntegrationTests/
-      Api/
-      Database/
-      OpenInvoiceMock/
-    InvoiceLens.ContractTests/
-      OpenInvoice/
-      ApiContracts/
-    InvoiceLens.E2ETests/
-      Playwright/
-        invoice-search.spec.ts
-        invoice-review.spec.ts
-        validation-summary.spec.ts
-
-  docs/
-    qa/
-      test-plan.md
-      regression-checklist.md
-      uat-script.md
-      performance-test-plan.md
-    runbooks/
-      production-deployment-runbook.md
-      sync-failure-runbook.md
-      document-streaming-failure-runbook.md
-      rollback-runbook.md
-      key-rotation-runbook.md
-    operations/
-      monitoring-dashboard.md
-      alert-rules.md
-      support-model.md
-
-  pipelines/
-    build.yml
-    test.yml
-    release-dev.yml
-    release-test.yml
-    release-prod.yml
+```powershell
+pwsh ./infra/bicep/scripts/deploy-dev.ps1
+pwsh ./infra/bicep/scripts/deploy-test.ps1
+pwsh ./infra/bicep/scripts/deploy-prod.ps1
 ```
 
-## Test coverage
+Manual equivalent (if needed):
 
-| Test type | Purpose |
-|---|---|
-| Unit tests | Validate business rules and domain behavior |
-| Integration tests | Validate API, database, Key Vault, and mock OpenInvoice flow |
-| Contract tests | Confirm OpenInvoice request and response expectations |
-| E2E tests | Test user workflows in the browser |
-| Performance tests | Test search, document streaming, and sync load |
-| Security tests | Check auth, roles, secrets, and access control |
-
-## Production alerts
-
-```text
-OpenInvoice API failures
-Document streaming failures
-Sync job failures
-Sync delay greater than threshold
-Validation failure spikes
-SQL performance degradation
-Unauthorized access attempts
-Application error rate increase
+```powershell
+az deployment sub create --name invoicelens-<env>-infra --location <location> --template-file infra/bicep/main.bicep --parameters infra/bicep/parameters/<env>.bicepparam
 ```
 
-## Exit criteria
+### 5. Build and Push Container Images to ACR
 
-- Test plan is approved.
-- UAT is complete.
-- Release pipeline is working.
-- Monitoring is active.
-- Runbooks are available.
-- Rollback steps are tested.
+The fastest path is ACR Tasks using az acr build.
 
+1) Set deployment variables:
 
----
-
-# Phase 7: Fabric, AI, and Marketplace Future
-
-## Objective
-
-Add advanced product capabilities after the core product is stable.
-
-Do not start here. This phase comes after the .NET backend, sync, validation, and Azure deployment are stable.
-
-## Main outcome
-
-InvoiceLens becomes a stronger analytics and productized offering.
-
-## Phase folder structure
-
-```text
-InvoiceLens/
-  analytics/
-    fabric/
-      lakehouse/
-      warehouse/
-      semantic-model/
-      notebooks/
-      pipelines/
-      powerbi/
-        invoice-compliance-dashboard.pbix
-        vendor-exceptions-dashboard.pbix
-
-  ai/
-    document-intelligence/
-      prompts/
-      evaluation/
-      sample-documents/
-    validation-assistant/
-      rules-summary.md
-      model-evaluation.md
-      human-review-policy.md
-
-  marketplace/
-    managed-application/
-      createUiDefinition.json
-      mainTemplate.json
-      marketplace-offer-notes.md
-      customer-setup-guide.md
-    bicep-source/
-      main.bicep
-      modules/
-
-  docs/
-    future/
-      fabric-roadmap.md
-      ai-validation-roadmap.md
-      marketplace-roadmap.md
+```powershell
+$EnvName = "dev"
+$Prefix = "invoicelensx"
+$ResourceGroup = "$Prefix-$EnvName-rg"
+$AcrName = az acr list --resource-group $ResourceGroup --query "[0].name" -o tsv
+$AcrLoginServer = az acr show --name $AcrName --query loginServer -o tsv
 ```
 
-## Fabric use cases
+2) Build images in ACR:
 
-| Use case | Purpose |
-|---|---|
-| Historical invoice analytics | Trends, volume, aging, vendor patterns |
-| Exception analytics | Vendor mismatch, rate variance, missing AFE |
-| Power BI dashboards | Operational and executive reporting |
-| Semantic model | Reusable reporting layer |
+```powershell
+az acr build --registry $AcrName --image invoicelens-api:$EnvName --file src/InvoiceLens.Api/Dockerfile .
+az acr build --registry $AcrName --image invoicelens-web:$EnvName --file apps/web/Dockerfile .
+az acr build --registry $AcrName --image invoicelens-openinvoicemock:$EnvName --file src/InvoiceLens.OpenInvoiceMock/Dockerfile .
+az acr build --registry $AcrName --image invoicelens-worker:$EnvName --file src/InvoiceLens.Worker/Dockerfile .
+```
 
-## AI use cases
+If your .env uses custom tags, build with those exact tags.
 
-| Use case | Purpose |
-|---|---|
-| Invoice field extraction | Read invoice PDFs when XML is incomplete |
-| Anomaly explanation | Explain why an invoice was flagged |
-| Reviewer assistant | Summarize validation issues for the user |
-| Contract comparison | Compare line items against agreement terms |
+### 6. Deploy App Containers (API and Web)
 
-## Marketplace use cases
+For dev, use the repository script (reads .env and updates app images):
 
-| Use case | Purpose |
-|---|---|
-| Managed deployment | Deploy into customer Azure tenant |
-| Customer configuration | Capture tenant, sync settings, and secret references |
-| Repeatable onboarding | Faster client rollout |
+```powershell
+pwsh ./infra/bicep/scripts/deploy-app-dev.ps1
+```
 
-## Exit criteria
+This script updates:
 
-- Core app is stable first.
-- Fabric reporting is connected to trusted SQL or curated data.
-- AI is assistive, not the approval authority.
-- Marketplace packaging uses Bicep source and compiled ARM only when required.
+- API App Service container image
+- Web App Service container image
+- Optional OpenInvoiceMock and Worker image targets (based on flags)
 
+### 7. Apply Database Schema
 
----
+Run SQL scripts against your target SQL database.
 
-# InvoiceLens Project Structure Guide
+Example with sqlcmd:
 
-This folder contains the recommended project structure for InvoiceLens by phase.
+```powershell
+sqlcmd -S <server> -d <database> -U <username> -P <password> -i database/scripts/create-schema.sql
+sqlcmd -S <server> -d <database> -U <username> -P <password> -i database/scripts/create-indexes.sql
+```
 
-The agreed stack is:
+Optional seed data for non-prod:
 
-- Frontend: Angular with TypeScript
-- Backend: ASP.NET Core Web API
-- Background processing: .NET Worker Service or Azure Container Apps Job
-- Database: SQL Server first, Azure SQL as target
-- Infrastructure: Azure Bicep
-- Identity: Microsoft Entra ID
-- Secrets: Azure Key Vault
-- Hosting target: Azure App Service or Azure Container Apps
-- Reporting later: Microsoft Fabric
+```powershell
+sqlcmd -S <server> -d <database> -U <username> -P <password> -i database/scripts/seed-local-data.sql
+```
 
-The goal is to move away from the current mixed backend model.
+### 8. Verify Deployment
 
-Do not keep one Java API for data and a separate .NET API for attachments as the target design. Use one clean .NET backend layer that owns search, details, document streaming, validation, sync, audit logging, and OpenInvoice integration.
+```powershell
+$ApiAppName = "$Prefix-$EnvName-api"
+$WebAppName = "$Prefix-$EnvName-web"
 
-## Phase files
+$ApiHost = az webapp show --resource-group $ResourceGroup --name $ApiAppName --query defaultHostName -o tsv
+$WebHost = az webapp show --resource-group $ResourceGroup --name $WebAppName --query defaultHostName -o tsv
 
-| File | Purpose |
-|---|---|
-| `00_TARGET_REPOSITORY_STRUCTURE.md` | Final clean target repository layout |
-| `01_PHASE_0_DISCOVERY_AND_CURRENT_STATE.md` | Discovery, current state, and migration baseline |
-| `02_PHASE_1_UI_FACELIFT.md` | Angular facelift without disrupting production |
-| `03_PHASE_2_DOTNET_BACKEND_CONSOLIDATION.md` | Replace split APIs with one ASP.NET Core backend |
-| `04_PHASE_3_OPENINVOICE_SYNC.md` | Build metadata sync, SQL upsert, and reconciliation |
-| `05_PHASE_4_VALIDATION_AND_AUDIT.md` | Add validation, MSA checks, and audit trail |
-| `06_PHASE_5_AZURE_BICEP_DEPLOYMENT.md` | Bicep, Key Vault, Azure SQL, hosting, and identity |
-| `07_PHASE_6_QA_RELEASE_AND_OPERATIONS.md` | Testing, CI/CD, monitoring, and production runbook |
-| `08_PHASE_7_FABRIC_AI_MARKETPLACE_FUTURE.md` | Future analytics, AI, and marketplace productization |
+Write-Host "API Health: https://$ApiHost/health"
+Write-Host "Web URL:    https://$WebHost"
+```
 
-## Recommended delivery sequence
+Open the printed URLs and confirm:
 
-1. Build the facelift first using mock data.
-2. Consolidate backend services into .NET.
-3. Add OpenInvoice sync and document streaming.
-4. Add validation and audit logging.
-5. Deploy with Bicep into Azure.
-6. Harden operations, monitoring, and release process.
-7. Add Fabric, AI, and Marketplace later.
+- API health endpoint returns 200
+- Web loads and can authenticate
+- Web can fetch API data
 
+### 9. Quick Command Packs
 
+Dev full flow:
+
+```powershell
+az login
+az account set --subscription <subscription-id-or-name>
+pwsh ./infra/bicep/scripts/deploy-dev.ps1
+
+$EnvName = "dev"
+$Prefix = "invoicelensx"
+$ResourceGroup = "$Prefix-$EnvName-rg"
+$AcrName = az acr list --resource-group $ResourceGroup --query "[0].name" -o tsv
+
+az acr build --registry $AcrName --image invoicelens-api:$EnvName --file src/InvoiceLens.Api/Dockerfile .
+az acr build --registry $AcrName --image invoicelens-web:$EnvName --file apps/web/Dockerfile .
+
+pwsh ./infra/bicep/scripts/deploy-app-dev.ps1
+```
+
+Test infra only:
+
+```powershell
+az login
+az account set --subscription <subscription-id-or-name>
+pwsh ./infra/bicep/scripts/deploy-test.ps1
+```
+
+Prod infra only:
+
+```powershell
+az login
+az account set --subscription <subscription-id-or-name>
+pwsh ./infra/bicep/scripts/deploy-prod.ps1
+```
+
+### 10. Common Deployment Errors
+
+- ACR not found in resource group:
+  - Run infra deployment first.
+  - Confirm Prefix and EnvName values match deployed resource naming.
+- Web starts but API calls fail:
+  - Verify API app is running and healthy.
+  - Check API_BASE_URL and app settings.
+- SQL connection failures after deployment:
+  - Confirm SQL firewall rules.
+  - Confirm InvoiceLens__Sql__ values and restart app.

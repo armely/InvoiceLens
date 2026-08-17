@@ -1,0 +1,28 @@
+﻿{
+    "localInvoiceId":  "LOCAL-INV-260701-0008",
+    "fileName":  "INV-260701-0008.pdf",
+    "invoiceNumber":  "INV-260701-0008",
+    "supplierNumber":  "Sunline Chemicals",
+    "supplierName":  "Sunline Chemicals",
+    "invoiceDate":  "2026-07-02",
+    "purchaseOrderNumber":  "PO-450008",
+    "afeNumber":  "AFE-1008",
+    "costCenter":  "North Ops",
+    "currency":  "USD",
+    "subtotal":  29210,
+    "tax":  0,
+    "totalAmount":  29210,
+    "status":  "PendingReview",
+    "exportStatus":  "Pending",
+    "paymentStatus":  "Awaiting Approval",
+    "lineItems":  [
+                      {
+                          "lineNumber":  1,
+                          "description":  "Sunline Chemicals service line",
+                          "quantity":  1,
+                          "unitPrice":  29210,
+                          "amount":  29210,
+                          "coding":  ""
+                      }
+                  ]
+}

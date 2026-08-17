@@ -1,6 +1,8 @@
 targetScope = 'subscription'
 
 param location string
+param sqlLocation string = location
+param appServiceLocation string = location
 param environment string
 param resourcePrefix string
 
@@ -8,12 +10,28 @@ param sqlAdminLogin string
 @secure()
 param sqlAdminPassword string
 
-@secure()
-param logAnalyticsSharedKey string
+param authClientId string = ''
+param authTenantId string = ''
+param authRedirectUri string = ''
+param authPostLogoutRedirectUri string = ''
+param authScopes string = 'openid profile email'
+param webPublicBaseUrl string = ''
+param apiPublicBaseUrl string = ''
+param openInvoiceHmacSigningKey string = ''
 
 param apiImage string = 'invoicelens-api:latest'
 param webImage string = 'invoicelens-web:latest'
 param workerImage string = 'invoicelens-worker:latest'
+param openInvoiceMockImage string = 'invoicelens-openinvoicemock:latest'
+
+param deployAppServiceWebApi bool = true
+param deployContainerAppWebApi bool = false
+param deployWorkerJob bool = false
+param deployOpenInvoiceMock bool = false
+
+param appServicePlanSkuName string = 'P1v3'
+param appServicePlanSkuTier string = 'PremiumV3'
+param appServicePlanSkuCapacity int = 1
 
 var rgName = '${resourcePrefix}-${environment}-rg'
 var acrName = '${take(replace(toLower(resourcePrefix), '-', ''), 20)}${environment}acr'
@@ -26,21 +44,25 @@ var logWorkspaceName = '${resourcePrefix}-${environment}-law'
 var appServicePlanName = '${resourcePrefix}-${environment}-plan'
 var apiAppName = '${resourcePrefix}-${environment}-api'
 var webAppName = '${resourcePrefix}-${environment}-web'
+var openInvoiceMockAppName = '${resourcePrefix}-${environment}-openinvoicemock'
+var webAppOrigin = webPublicBaseUrl == '' ? 'https://${webAppName}.azurewebsites.net' : webPublicBaseUrl
+var apiAppOrigin = apiPublicBaseUrl == '' ? 'https://${apiAppName}.azurewebsites.net' : apiPublicBaseUrl
+var openInvoiceBaseUrl = 'https://${openInvoiceMockAppName}.azurewebsites.net'
+var webAppBaseUrl = '${webAppOrigin}/'
+var webAppAuthRedirectUri = authRedirectUri == '' ? webAppBaseUrl : authRedirectUri
+var webAppAuthPostLogoutRedirectUri = authPostLogoutRedirectUri == '' ? webAppBaseUrl : authPostLogoutRedirectUri
 var caeName = '${resourcePrefix}-${environment}-cae'
 var apiContainerAppName = '${resourcePrefix}-${environment}-api-ca'
 var webContainerAppName = '${resourcePrefix}-${environment}-web-ca'
 var workerJobName = '${resourcePrefix}-${environment}-worker-job'
 
-module resourceGroup './modules/resource-group.bicep' = {
-	scope: subscription()
-	params: {
-		resourceGroupName: rgName
-		location: location
-	}
+resource rg 'Microsoft.Resources/resourceGroups@2023-07-01' = {
+	name: rgName
+	location: location
 }
 
 module logAnalytics './modules/log-analytics.bicep' = {
-	scope: resourceGroup(resourceGroup.outputs.name)
+	scope: rg
 	params: {
 		name: logWorkspaceName
 		location: location
@@ -48,7 +70,7 @@ module logAnalytics './modules/log-analytics.bicep' = {
 }
 
 module acr './modules/acr.bicep' = {
-	scope: resourceGroup(resourceGroup.outputs.name)
+	scope: rg
 	params: {
 		name: acrName
 		location: location
@@ -56,7 +78,7 @@ module acr './modules/acr.bicep' = {
 }
 
 module managedIdentity './modules/managed-identity.bicep' = {
-	scope: resourceGroup(resourceGroup.outputs.name)
+	scope: rg
 	params: {
 		name: identityName
 		location: location
@@ -64,7 +86,7 @@ module managedIdentity './modules/managed-identity.bicep' = {
 }
 
 module keyVault './modules/key-vault.bicep' = {
-	scope: resourceGroup(resourceGroup.outputs.name)
+	scope: rg
 	params: {
 		name: kvName
 		location: location
@@ -73,7 +95,7 @@ module keyVault './modules/key-vault.bicep' = {
 }
 
 module appInsights './modules/app-insights.bicep' = {
-	scope: resourceGroup(resourceGroup.outputs.name)
+	scope: rg
 	params: {
 		name: appInsightsName
 		location: location
@@ -82,99 +104,141 @@ module appInsights './modules/app-insights.bicep' = {
 }
 
 module sqlServer './modules/sql-server.bicep' = {
-	scope: resourceGroup(resourceGroup.outputs.name)
+	scope: rg
 	params: {
 		name: sqlServerName
-		location: location
+		location: sqlLocation
 		adminLogin: sqlAdminLogin
 		adminPassword: sqlAdminPassword
 	}
 }
 
 module sqlDatabase './modules/sql-database.bicep' = {
-	scope: resourceGroup(resourceGroup.outputs.name)
+	scope: rg
 	params: {
 		serverName: sqlServer.outputs.name
 		databaseName: sqlDbName
-		location: location
+		location: sqlLocation
 	}
 }
 
 module appServicePlan './modules/app-service-plan.bicep' = {
-	scope: resourceGroup(resourceGroup.outputs.name)
+	scope: rg
 	params: {
 		name: appServicePlanName
-		location: location
+		location: appServiceLocation
+		skuName: appServicePlanSkuName
+		skuTier: appServicePlanSkuTier
+		skuCapacity: appServicePlanSkuCapacity
 	}
 }
 
-module apiAppService './modules/api-app-service.bicep' = {
-	scope: resourceGroup(resourceGroup.outputs.name)
+module apiAppService './modules/api-app-service.bicep' = if (deployAppServiceWebApi) {
+	scope: rg
 	params: {
 		name: apiAppName
-		location: location
+		location: appServiceLocation
 		appServicePlanId: appServicePlan.outputs.id
 		acrServer: acr.outputs.loginServer
 		apiImage: apiImage
+		userAssignedIdentityId: managedIdentity.outputs.id
+		openInvoiceBaseUrl: openInvoiceBaseUrl
+		openInvoiceHmacSigningKey: openInvoiceHmacSigningKey
+		sqlServerHost: sqlServer.outputs.fullyQualifiedDomainName
+		sqlDatabaseName: sqlDbName
+		sqlUsername: sqlAdminLogin
+		sqlPassword: sqlAdminPassword
+		authClientId: authClientId
+		authTenantId: authTenantId
 	}
 }
 
-module webAppService './modules/web-app-service.bicep' = {
-	scope: resourceGroup(resourceGroup.outputs.name)
+module webAppService './modules/web-app-service.bicep' = if (deployAppServiceWebApi) {
+	scope: rg
 	params: {
 		name: webAppName
-		location: location
+		location: appServiceLocation
 		appServicePlanId: appServicePlan.outputs.id
 		acrServer: acr.outputs.loginServer
 		webImage: webImage
+		userAssignedIdentityId: managedIdentity.outputs.id
+		apiBaseUrl: apiAppOrigin
+		authClientId: authClientId
+		authTenantId: authTenantId
+		authRedirectUri: webAppAuthRedirectUri
+		authPostLogoutRedirectUri: webAppAuthPostLogoutRedirectUri
+		authScopes: authScopes
 	}
 }
 
-module containerAppsEnvironment './modules/container-apps-environment.bicep' = {
-	scope: resourceGroup(resourceGroup.outputs.name)
+module openInvoiceMockAppService './modules/api-app-service.bicep' = if (deployOpenInvoiceMock) {
+	scope: rg
+	params: {
+		name: openInvoiceMockAppName
+		location: location
+		appServicePlanId: appServicePlan.outputs.id
+		acrServer: acr.outputs.loginServer
+		apiImage: openInvoiceMockImage
+		userAssignedIdentityId: managedIdentity.outputs.id
+		openInvoiceHmacSigningKey: openInvoiceHmacSigningKey
+	}
+}
+
+module containerAppsEnvironment './modules/container-apps-environment.bicep' = if (deployContainerAppWebApi || deployWorkerJob) {
+	scope: rg
 	params: {
 		name: caeName
 		location: location
 		logAnalyticsCustomerId: logAnalytics.outputs.customerId
-		logAnalyticsSharedKey: logAnalyticsSharedKey
+		logAnalyticsSharedKey: logAnalytics.outputs.primarySharedKey
 	}
 }
 
-module containerApi './modules/container-app-api.bicep' = {
-	scope: resourceGroup(resourceGroup.outputs.name)
+module containerApi './modules/container-app-api.bicep' = if (deployContainerAppWebApi) {
+	scope: rg
 	params: {
 		name: apiContainerAppName
 		location: location
-		environmentId: containerAppsEnvironment.outputs.id
+		environmentId: containerAppsEnvironment!.outputs.id
 		acrServer: acr.outputs.loginServer
 		apiImage: apiImage
+		openInvoiceBaseUrl: openInvoiceBaseUrl
+		openInvoiceHmacSigningKey: openInvoiceHmacSigningKey
 	}
 }
 
-module containerWeb './modules/container-app-web.bicep' = {
-	scope: resourceGroup(resourceGroup.outputs.name)
+module containerWeb './modules/container-app-web.bicep' = if (deployContainerAppWebApi) {
+	scope: rg
 	params: {
 		name: webContainerAppName
 		location: location
-		environmentId: containerAppsEnvironment.outputs.id
+		environmentId: containerAppsEnvironment!.outputs.id
 		acrServer: acr.outputs.loginServer
 		webImage: webImage
+		authClientId: authClientId
+		authTenantId: authTenantId
+		authRedirectUri: authRedirectUri
+		authPostLogoutRedirectUri: authPostLogoutRedirectUri
+		authScopes: authScopes
+		appBaseUrl: webAppOrigin
 	}
 }
 
-module workerContainerJob './modules/worker-container-job.bicep' = {
-	scope: resourceGroup(resourceGroup.outputs.name)
+module workerContainerJob './modules/worker-container-job.bicep' = if (deployWorkerJob) {
+	scope: rg
 	params: {
 		name: workerJobName
 		location: location
-		managedEnvironmentId: containerAppsEnvironment.outputs.id
+		managedEnvironmentId: containerAppsEnvironment!.outputs.id
 		acrServer: acr.outputs.loginServer
 		workerImage: workerImage
+		openInvoiceBaseUrl: openInvoiceBaseUrl
+		openInvoiceHmacSigningKey: openInvoiceHmacSigningKey
 	}
 }
 
 module roleAssignments './modules/role-assignments.bicep' = {
-	scope: resourceGroup(resourceGroup.outputs.name)
+	scope: rg
 	params: {
 		principalId: managedIdentity.outputs.principalId
 		keyVaultId: keyVault.outputs.id
@@ -182,4 +246,4 @@ module roleAssignments './modules/role-assignments.bicep' = {
 	}
 }
 
-output resourceGroupName string = resourceGroup.outputs.name
+output resourceGroupName string = rg.name

@@ -1,0 +1,11 @@
+.git
+.gitignore
+bin
+obj
+node_modules
+dist
+.vs
+*.user
+*.suo
+project.assets.json
+project.nuget.cache

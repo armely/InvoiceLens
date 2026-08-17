@@ -1,0 +1,28 @@
+﻿{
+    "localInvoiceId":  "LOCAL-INV-260701-0013",
+    "fileName":  "INV-260701-0013.pdf",
+    "invoiceNumber":  "INV-260701-0013",
+    "supplierNumber":  "LoneStar Rentals",
+    "supplierName":  "LoneStar Rentals",
+    "invoiceDate":  "2026-07-02",
+    "purchaseOrderNumber":  "PO-450013",
+    "afeNumber":  "AFE-1013",
+    "costCenter":  "Field Ops",
+    "currency":  "USD",
+    "subtotal":  21440,
+    "tax":  0,
+    "totalAmount":  21440,
+    "status":  "Approved",
+    "exportStatus":  "Exported",
+    "paymentStatus":  "Pending Payment",
+    "lineItems":  [
+                      {
+                          "lineNumber":  1,
+                          "description":  "LoneStar Rentals service line",
+                          "quantity":  1,
+                          "unitPrice":  21440,
+                          "amount":  21440,
+                          "coding":  ""
+                      }
+                  ]
+}

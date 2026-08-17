@@ -7,10 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.5" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\InvoiceLens.Application\InvoiceLens.Application.csproj" />
     <ProjectReference Include="..\InvoiceLens.Infrastructure\InvoiceLens.Infrastructure.csproj" />
   </ItemGroup>

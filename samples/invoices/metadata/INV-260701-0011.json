@@ -1,0 +1,28 @@
+﻿{
+    "localInvoiceId":  "LOCAL-INV-260701-0011",
+    "fileName":  "INV-260701-0011.pdf",
+    "invoiceNumber":  "INV-260701-0011",
+    "supplierNumber":  "IronGate Supply",
+    "supplierName":  "IronGate Supply",
+    "invoiceDate":  "2026-07-02",
+    "purchaseOrderNumber":  "PO-450011",
+    "afeNumber":  "AFE-1011",
+    "costCenter":  "Procurement",
+    "currency":  "USD",
+    "subtotal":  86400,
+    "tax":  0,
+    "totalAmount":  86400,
+    "status":  "SentBack",
+    "exportStatus":  "Not Exported",
+    "paymentStatus":  "On Hold",
+    "lineItems":  [
+                      {
+                          "lineNumber":  1,
+                          "description":  "IronGate Supply service line",
+                          "quantity":  1,
+                          "unitPrice":  86400,
+                          "amount":  86400,
+                          "coding":  ""
+                      }
+                  ]
+}

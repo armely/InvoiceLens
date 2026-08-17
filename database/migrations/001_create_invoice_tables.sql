@@ -7,7 +7,8 @@ CREATE TABLE dbo.Invoice (
     TotalAmount DECIMAL(18,2) NOT NULL,
     CurrencyCode NVARCHAR(10) NOT NULL,
     Status NVARCHAR(30) NOT NULL,
-    UpdatedAtUtc DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+    UpdatedAtUtc DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    CreatedAtUtc DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
 );
 
 CREATE TABLE dbo.InvoiceLine (
@@ -18,7 +19,8 @@ CREATE TABLE dbo.InvoiceLine (
     Quantity DECIMAL(18,4) NOT NULL,
     UnitPrice DECIMAL(18,4) NOT NULL,
     Amount DECIMAL(18,2) NOT NULL,
-    CONSTRAINT FK_InvoiceLine_Invoice FOREIGN KEY (InvoiceId) REFERENCES dbo.Invoice(InvoiceId)
+    CreatedAtUtc DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    CONSTRAINT FK_InvoiceLine_Invoice FOREIGN KEY (InvoiceId) REFERENCES dbo.Invoice(InvoiceId) ON DELETE CASCADE
 );
 
 CREATE TABLE dbo.InvoiceAttachmentReference (
@@ -27,5 +29,6 @@ CREATE TABLE dbo.InvoiceAttachmentReference (
     ExternalAttachmentId NVARCHAR(120) NOT NULL,
     FileName NVARCHAR(260) NOT NULL,
     ContentType NVARCHAR(120) NOT NULL,
-    CONSTRAINT FK_InvoiceAttachmentReference_Invoice FOREIGN KEY (InvoiceId) REFERENCES dbo.Invoice(InvoiceId)
+    CreatedAtUtc DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    CONSTRAINT FK_InvoiceAttachmentReference_Invoice FOREIGN KEY (InvoiceId) REFERENCES dbo.Invoice(InvoiceId) ON DELETE CASCADE
 );

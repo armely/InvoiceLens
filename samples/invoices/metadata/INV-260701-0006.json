@@ -1,0 +1,28 @@
+﻿{
+    "localInvoiceId":  "LOCAL-INV-260701-0006",
+    "fileName":  "INV-260701-0006.pdf",
+    "invoiceNumber":  "INV-260701-0006",
+    "supplierNumber":  "Prairie Equipment",
+    "supplierName":  "Prairie Equipment",
+    "invoiceDate":  "2026-07-02",
+    "purchaseOrderNumber":  "PO-450006",
+    "afeNumber":  "AFE-1006",
+    "costCenter":  "Logistics",
+    "currency":  "USD",
+    "subtotal":  12450,
+    "tax":  0,
+    "totalAmount":  12450,
+    "status":  "PendingReview",
+    "exportStatus":  "Pending",
+    "paymentStatus":  "Awaiting Approval",
+    "lineItems":  [
+                      {
+                          "lineNumber":  1,
+                          "description":  "Prairie Equipment service line",
+                          "quantity":  1,
+                          "unitPrice":  12450,
+                          "amount":  12450,
+                          "coding":  ""
+                      }
+                  ]
+}
