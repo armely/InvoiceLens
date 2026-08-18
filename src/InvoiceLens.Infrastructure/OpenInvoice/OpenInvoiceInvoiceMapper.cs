@@ -50,7 +50,14 @@ public static class OpenInvoiceInvoiceMapper
             GetDateTimeOffset(root, "lastActionDate"),
             root.Element("lineItems")?.Elements("lineItem").Select(MapLineItem).ToArray() ?? [],
             root.Element("codingFields")?.Elements("field").Where(field => !string.IsNullOrWhiteSpace(field.Attribute("name")?.Value)).ToDictionary(field => field.Attribute("name")!.Value, field => field.Value) ?? new Dictionary<string, string>(),
-            root.Element("attachments")?.Elements("attachment").Select(MapAttachment).ToArray() ?? []);
+            root.Descendants()
+                .Where(element => element.Name.LocalName.Equals("attachment", StringComparison.OrdinalIgnoreCase) ||
+                                  element.Name.LocalName.Equals("supportingDocument", StringComparison.OrdinalIgnoreCase))
+                .Select(MapAttachment)
+                .Where(attachment => !string.IsNullOrWhiteSpace(attachment.AttachmentId))
+                .GroupBy(attachment => attachment.AttachmentId, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.First())
+                .ToArray());
     }
 
     private static OpenInvoiceLineItemSnapshot MapLineItem(XElement element)
@@ -65,12 +72,27 @@ public static class OpenInvoiceInvoiceMapper
 
     private static OpenInvoiceAttachmentSnapshot MapAttachment(XElement element)
     {
+        var rawId = GetFirstValue(element, "attachmentId", "documentId", "contentId", "cid", "id", "href");
+        var attachmentId = rawId.StartsWith("cid:", StringComparison.OrdinalIgnoreCase) ? rawId[4..] : rawId;
+        var fileName = GetFirstValue(element, "fileName", "filename", "name", "documentName");
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            fileName = attachmentId;
+        }
+        var metadata = AttachmentFileMetadataResolver.Resolve(fileName, GetFirstValue(element, "contentType", "mimeType", "mediaType"));
         return new OpenInvoiceAttachmentSnapshot(
-            GetString(element, "attachmentId"),
-            GetString(element, "fileName"),
-            GetString(element, "contentType"),
-            GetLong(element, "sizeBytes"),
+            attachmentId,
+            metadata.FileName,
+            metadata.ContentType,
+            long.TryParse(GetFirstValue(element, "sizeBytes", "size", "contentLength"), out var size) ? size : 0,
             GetNullableString(element, "storageFileName"));
+    }
+
+    private static string GetFirstValue(XElement parent, params string[] names)
+    {
+        return parent.Elements().FirstOrDefault(element => names.Any(name => element.Name.LocalName.Equals(name, StringComparison.OrdinalIgnoreCase)))?.Value
+            ?? parent.Attributes().FirstOrDefault(attribute => names.Any(name => attribute.Name.LocalName.Equals(name, StringComparison.OrdinalIgnoreCase)))?.Value
+            ?? string.Empty;
     }
 
     private static string GetString(XElement parent, string name)

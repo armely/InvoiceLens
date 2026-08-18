@@ -23,6 +23,10 @@ public static class OpenInvoiceOptionsFactory
             BuyerDuns = GetString(section, "BuyerDuns", string.Empty),
             TimeoutSeconds = GetInt(section, "TimeoutSeconds", 660),
             DefaultPageSize = GetInt(section, "DefaultPageSize", 100),
+            SyncLookbackDays = GetInt(section, "SyncLookbackDays", 3650),
+            StoragePath = GetString(section, "StoragePath", string.Empty),
+            RawDocumentRetentionDays = GetInt(section, "RawDocumentRetentionDays", 90),
+            OperationalHistoryRetentionDays = GetInt(section, "OperationalHistoryRetentionDays", 365),
             MaxRetryCount = GetInt(section, "MaxRetryCount", 3),
             RetryDelaySeconds = GetInt(section, "RetryDelaySeconds", 10)
         };

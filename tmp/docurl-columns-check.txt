@@ -1,0 +1,12 @@
+﻿DatabaseName
+------------
+invoicelens_db
+
+(1 rows affected)
+TABLE_NAME|COLUMN_NAME
+----------|-----------
+InvoiceAttachmentReference|DocumentUrl
+InvoiceAttachments|DocumentUrl
+InvoiceSnapshots|DocumentUrl
+
+(3 rows affected)

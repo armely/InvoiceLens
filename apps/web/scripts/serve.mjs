@@ -5,8 +5,6 @@ import http from 'node:http';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(scriptDir, '..', 'dist');
-const port = Number(process.env.PORT ?? 4200);
-const apiBaseUrl = process.env.API_BASE_URL ?? 'http://localhost:5106';
 
 function getEnvOverrideNames() {
   const environmentName = process.env.DOTNET_ENVIRONMENT ?? process.env.ASPNETCORE_ENVIRONMENT ?? process.env.NODE_ENV ?? 'development';
@@ -62,10 +60,19 @@ function loadDotEnvFile() {
 }
 
 loadDotEnvFile();
+const port = Number(process.env.PORT ?? 4200);
+const configuredApiBaseUrl = process.env.API_BASE_URL ?? 'http://localhost:5106';
+const apiBaseUrlCandidates = [...new Set([
+  configuredApiBaseUrl,
+  'http://localhost:5106',
+  'http://127.0.0.1:5106',
+])];
+
 const mimeTypes = new Map([
   ['.html', 'text/html; charset=utf-8'],
   ['.css', 'text/css; charset=utf-8'],
   ['.js', 'text/javascript; charset=utf-8'],
+  ['.mjs', 'text/javascript; charset=utf-8'],
   ['.json', 'application/json; charset=utf-8'],
   ['.svg', 'image/svg+xml'],
   ['.png', 'image/png'],
@@ -117,35 +124,45 @@ function readRequestBody(request) {
 }
 
 async function proxyRequest(request, response) {
-  try {
-    const targetUrl = new URL(request.url ?? '/', apiBaseUrl);
-    const headers = new Headers();
+  const headers = new Headers();
 
-    for (const [key, value] of Object.entries(request.headers)) {
-      if (typeof value === 'string') {
-        headers.set(key, value);
-      } else if (Array.isArray(value)) {
-        headers.set(key, value.join(','));
-      }
+  for (const [key, value] of Object.entries(request.headers)) {
+    if (typeof value === 'string') {
+      headers.set(key, value);
+    } else if (Array.isArray(value)) {
+      headers.set(key, value.join(','));
     }
+  }
 
-    headers.delete('host');
-    headers.delete('content-length');
+  headers.delete('host');
+  headers.delete('content-length');
 
-    const method = request.method ?? 'GET';
-    const body = method === 'GET' || method === 'HEAD' ? undefined : await readRequestBody(request);
-    const proxyResponse = await fetch(targetUrl, {
-      method,
-      headers,
-      body,
-    });
+  const method = request.method ?? 'GET';
+  const body = method === 'GET' || method === 'HEAD' ? undefined : await readRequestBody(request);
 
-    response.writeHead(proxyResponse.status, Object.fromEntries(proxyResponse.headers.entries()));
-    const data = Buffer.from(await proxyResponse.arrayBuffer());
-    response.end(data);
-  } catch (error) {
-    response.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' });
-    response.end(error instanceof Error ? error.message : 'Proxy error');
+  for (const baseUrl of apiBaseUrlCandidates) {
+    try {
+      const targetUrl = new URL(request.url ?? '/', baseUrl);
+      const proxyResponse = await fetch(targetUrl, {
+        method,
+        headers,
+        body,
+      });
+
+      response.writeHead(proxyResponse.status, Object.fromEntries(proxyResponse.headers.entries()));
+      const data = Buffer.from(await proxyResponse.arrayBuffer());
+      response.end(data);
+      return;
+    } catch (error) {
+      const isLastCandidate = baseUrl === apiBaseUrlCandidates[apiBaseUrlCandidates.length - 1];
+      if (!isLastCandidate) {
+        continue;
+      }
+
+      response.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' });
+      response.end(error instanceof Error ? error.message : 'Proxy error');
+      return;
+    }
   }
 }
 
@@ -179,4 +196,5 @@ const server = http.createServer((request, response) => {
 
 server.listen(port, '0.0.0.0', () => {
   console.log(`InvoiceLens web is running at http://0.0.0.0:${port}`);
+  console.log(`InvoiceLens API proxy targets: ${apiBaseUrlCandidates.join(', ')}`);
 });

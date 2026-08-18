@@ -4,11 +4,13 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UseAppHost>false</UseAppHost>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\InvoiceLens.Application\InvoiceLens.Application.csproj" />
     <ProjectReference Include="..\InvoiceLens.Infrastructure\InvoiceLens.Infrastructure.csproj" />
+    <ProjectReference Include="..\InvoiceLens.Worker\InvoiceLens.Worker.csproj" />
   </ItemGroup>
 
 </Project>

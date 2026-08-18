@@ -13,7 +13,12 @@ DotEnvLoader.Load();
 var builder = Host.CreateApplicationBuilder(args);
 builder.Configuration["ConnectionStrings:InvoiceLensDb"] = SqlConnectionStringFactory.Build();
 
+builder.Services.Configure<HostOptions>(options =>
+{
+    options.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore;
+});
 builder.Services.Configure<SyncScheduleOptions>(builder.Configuration.GetSection("SyncSchedule"));
+builder.Services.AddHttpClient();
 
 builder.Services.AddInvoiceLensInfrastructure(
     OpenInvoiceOptionsFactory.Create(builder.Configuration),
@@ -21,8 +26,6 @@ builder.Services.AddInvoiceLensInfrastructure(
     CreateNotificationOptions(builder.Configuration));
 
 builder.Services.AddHostedService<SyncOpenInvoiceInvoicesJob>();
-builder.Services.AddHostedService<SyncOpenInvoiceInvoiceDetailsJob>();
-builder.Services.AddHostedService<SyncOpenInvoiceAttachmentsJob>();
 builder.Services.AddHostedService<PostOpenInvoiceEventsJob>();
 builder.Services.AddHostedService<RetryFailedOpenInvoiceEventsJob>();
 builder.Services.AddHostedService<LoadAndCompareLocalInvoicesJob>();

@@ -41,10 +41,10 @@ function buildVendorBars(queueRows: QueueRow[]): VendorBar[] {
 }
 
 type ReportSignalRow = {
+  key: 'queue-health' | 'vendor-mix' | 'exceptions';
   signal: string;
   value: string;
   notes: string;
-  route: 'dashboard' | 'vendors' | 'notifications';
 };
 
 function buildReportSignalRows(queueRows: QueueRow[], validationAlerts: ValidationAlert[], vendorBars: VendorBar[]): ReportSignalRow[] {
@@ -52,22 +52,22 @@ function buildReportSignalRows(queueRows: QueueRow[], validationAlerts: Validati
 
   return [
     {
+      key: 'queue-health',
       signal: 'Queue Health',
       value: `${queueRows.length} items`,
       notes: queueRows.length > 0 ? 'Invoices currently waiting for reviewer action.' : 'No open queue records in this period.',
-      route: 'dashboard',
     },
     {
+      key: 'vendor-mix',
       signal: 'Vendor Mix',
       value: `${vendorBars.length} ranked`,
       notes: topVendors || 'No vendor concentration data in this period.',
-      route: 'vendors',
     },
     {
+      key: 'exceptions',
       signal: 'Exceptions',
       value: `${validationAlerts.length} alerts`,
       notes: validationAlerts.length > 0 ? 'Open validation alerts needing follow-up.' : 'No active validation alerts in this period.',
-      route: 'notifications',
     },
   ];
 }
@@ -94,7 +94,7 @@ function renderReportSignalsTable(rows: ReportSignalRow[]): string {
                   <td>${escapeHtml(row.notes)}</td>
                   <td>
                     <div class="report-table-actions">
-                      <a class="button ghost" href="/${row.route === 'dashboard' ? '' : row.route}" data-route="${row.route}">Open</a>
+                      <button class="button ghost" type="button" data-action="open-report" data-report="${row.key}">Open</button>
                       <button class="button ghost" type="button" data-action="print-report">Print</button>
                     </div>
                   </td>
@@ -137,17 +137,61 @@ export function renderReportsPage(
   reportsDateRange: DateRangeFilter,
   reportsDateFrom: string,
   reportsDateTo: string,
+  selectedReport: 'all' | 'queue-health' | 'vendor-mix' | 'exceptions',
+  selectedCompany: string,
 ): string {
   const vendorBars = buildVendorBars(queueRows);
   const signalRows = buildReportSignalRows(queueRows, validationAlerts, vendorBars);
   const totalAmount = invoices.reduce((sum, invoice) => sum + invoice.amount, 0);
   const approvedCount = invoices.filter((invoice) => normalizeLabel(invoice.status) === 'Approved').length;
   const lastSync = syncStatus ? formatDateTime(syncStatus.lastSuccessfulRunUtc) : 'Pending';
+  const companies = [...new Set(invoices.map((invoice) => invoice.company).filter((company) => company.trim().length > 0))].sort((left, right) => left.localeCompare(right));
+
+  const queueInvoiceIds = new Set(queueRows.map((row) => row.invoiceId));
+  const alertInvoiceIds = new Set(validationAlerts.map((alert) => alert.invoiceId));
+
+  const reportFilteredInvoices = invoices.filter((invoice) => {
+    if (selectedCompany !== 'All Companies' && invoice.company !== selectedCompany) {
+      return false;
+    }
+
+    if (selectedReport === 'queue-health') {
+      return queueInvoiceIds.has(invoice.invoiceId);
+    }
+
+    if (selectedReport === 'exceptions') {
+      return alertInvoiceIds.has(invoice.invoiceId);
+    }
+
+    return true;
+  });
+
+  const selectedReportLabel = selectedReport === 'all'
+    ? 'All Signals'
+    : selectedReport === 'queue-health'
+      ? 'Queue Health'
+      : selectedReport === 'vendor-mix'
+        ? 'Vendor Mix'
+        : 'Exceptions';
+
+  const reportScopeLabel = selectedCompany === 'All Companies'
+    ? selectedReportLabel
+    : `${selectedReportLabel} - ${selectedCompany}`;
 
   return `
     <section class="page active reports-page">
       ${pageHeader('Reports', 'Ready-to-share operational summaries with links back into the invoice workspace.', `
         <div class="date-range-controls reports-date-controls">
+          <select class="select-field" data-filter="reports-signal" aria-label="Report selection">
+            <option value="all" ${selectedReport === 'all' ? 'selected' : ''}>All Signals</option>
+            <option value="queue-health" ${selectedReport === 'queue-health' ? 'selected' : ''}>Queue Health</option>
+            <option value="vendor-mix" ${selectedReport === 'vendor-mix' ? 'selected' : ''}>Vendor Mix</option>
+            <option value="exceptions" ${selectedReport === 'exceptions' ? 'selected' : ''}>Exceptions</option>
+          </select>
+          <select class="select-field" data-filter="reports-company" aria-label="Company selection">
+            <option value="All Companies" ${selectedCompany === 'All Companies' ? 'selected' : ''}>All Companies</option>
+            ${companies.map((company) => `<option value="${escapeHtml(company)}" ${selectedCompany === company ? 'selected' : ''}>${escapeHtml(company)}</option>`).join('')}
+          </select>
           <select class="select-field" data-filter="reports-date-range" aria-label="Report date range">
             ${['All Time', 'Last 30 Days', 'This Week', 'This Quarter']
               .map((option) => `<option value="${option}" ${reportsDateRange === option ? 'selected' : ''}>${option}</option>`)
@@ -204,6 +248,58 @@ export function renderReportsPage(
           </div>
         </div>
         ${renderReportSignalsTable(signalRows)}
+      </section>
+
+      <section class="reports-section">
+        <div class="reports-section-header">
+          <div>
+            <h2>Report Invoice List</h2>
+            <p>Showing ${reportFilteredInvoices.length} invoices for ${escapeHtml(reportScopeLabel)}.</p>
+          </div>
+        </div>
+        <div class="table-wrap report-invoices-table-wrap">
+          <table aria-label="Report invoice list">
+            <thead>
+              <tr>
+                <th>Invoice</th>
+                <th>Company</th>
+                <th>Vendor</th>
+                <th>Status</th>
+                <th>Amount</th>
+                <th>Updated</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${reportFilteredInvoices.length === 0
+                ? `
+                  <tr>
+                    <td colspan="7">No invoices match the selected report and company filters.</td>
+                  </tr>
+                `
+                : reportFilteredInvoices
+                    .map(
+                      (invoice) => `
+                        <tr>
+                          <td>
+                            <div class="invoice-number-stack">
+                              <strong>${escapeHtml(invoice.invoiceNumber)}</strong>
+                              <small>${escapeHtml(invoice.invoiceId)}</small>
+                            </div>
+                          </td>
+                          <td>${escapeHtml(invoice.company)}</td>
+                          <td>${escapeHtml(invoice.vendor)}</td>
+                          <td><span class="status-chip ${normalizeLabel(invoice.status).toLowerCase().includes('approved') ? 'approved' : normalizeLabel(invoice.status).toLowerCase().includes('sent') ? 'exception' : 'pending'}">${escapeHtml(normalizeLabel(invoice.status))}</span></td>
+                          <td>${formatCurrency(invoice.amount, invoice.currency)}</td>
+                          <td>${formatDateTime(invoice.updatedAtUtc)}</td>
+                          <td><button class="button ghost" type="button" data-action="open-invoice-preview" data-invoice-id="${escapeHtml(invoice.invoiceId)}">Open</button></td>
+                        </tr>
+                      `,
+                    )
+                    .join('')}
+            </tbody>
+          </table>
+        </div>
       </section>
     </section>
   `;

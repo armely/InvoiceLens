@@ -23,11 +23,12 @@ import {
 } from './shared/models.js';
 import { applyInvoiceFilters, formatCurrency, formatDateTime, invoiceStatusTone, normalizeLabel } from './shared/utils.js';
 import { renderAdminPage } from './views/admin.js';
+import { renderArchivePage } from './views/archive.js';
 import { renderAnalyticsPage } from './views/analytics.js';
 import { renderContractsPage } from './views/contracts.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderHelpPage } from './views/help.js';
-import { renderInvoiceQueueItems, renderInvoicesPage } from './views/invoices.js';
+import { renderInvoiceDocument, renderInvoiceQueueItems, renderInvoicesPage } from './views/invoices.js';
 import { renderNotificationsPage } from './views/notifications.js';
 import { renderInvoicePreviewModalRich } from './views/shared.js';
 import { renderReportsPage } from './views/reports.js';
@@ -51,13 +52,30 @@ type InvoiceColumnLayout = {
 const api = new InvoiceLensApiClient(window.location.origin);
 const compactTypographyStorageKey = 'InvoiceLens:compactTypography';
 const queueAutoScrollStorageKey = 'InvoiceLens:queueAutoScroll';
+const emailAlertsEnabledStorageKey = 'InvoiceLens:emailAlertsEnabled';
+const emailAlertSyncFailuresStorageKey = 'InvoiceLens:emailAlertSyncFailures';
+const emailAlertQueueBacklogStorageKey = 'InvoiceLens:emailAlertQueueBacklog';
+const emailAlertApprovalChangesStorageKey = 'InvoiceLens:emailAlertApprovalChanges';
 const invoiceColumnLayoutStorageKey = 'InvoiceLens:invoice-columns';
 const notificationReadStorageKey = 'InvoiceLens:notification-read';
 const userRoleLabel = 'Finance Operations';
+let vendorInvoiceSearch = '';
+let vendorInvoiceStatus: AppState['invoiceStatusFilter'] = 'All Statuses';
+let vendorInvoiceSort: AppState['queueSort'] = 'Newest First';
+const expandedVendorCompanies = new Set<string>();
+let archiveSearch = '';
+let archiveStatus: AppState['invoiceStatusFilter'] = 'All Statuses';
+let archiveDateRange: AppState['invoiceDateRange'] = 'All Time';
+let archiveDateFrom = '';
+let archiveDateTo = '';
+let archiveSort: AppState['queueSort'] = 'Newest First';
+let reportsSignalFilter: 'all' | 'queue-health' | 'vendor-mix' | 'exceptions' = 'all';
+let reportsCompanyFilter = 'All Companies';
 
 const state: AppState = {
   route: 'dashboard',
   selectedInvoiceId: '',
+  selectedAttachmentUrl: null,
   invoicePreviewOpen: false,
   activeInvoicePanel: 'insights',
   globalSearch: '',
@@ -73,9 +91,13 @@ const state: AppState = {
   invoiceDateRange: 'All Time',
   invoiceDateFrom: '',
   invoiceDateTo: '',
-  queueSort: 'Oldest First',
+  queueSort: 'Newest First',
   compactTypography: true,
   queueAutoScroll: true,
+  emailAlertsEnabled: false,
+  emailAlertSyncFailures: true,
+  emailAlertQueueBacklog: true,
+  emailAlertApprovalChanges: true,
   loading: true,
   error: null,
 };
@@ -91,6 +113,7 @@ const store = {
 const routePaths: Record<Route, string> = {
   dashboard: '/',
   invoices: '/invoices',
+  archive: '/archive',
   analytics: '/analytics',
   contracts: '/contracts',
   vendors: '/vendors',
@@ -127,9 +150,95 @@ const toast = toastElement;
 let toastTimer: number | undefined;
 let bootstrapping = false;
 let invoiceChartInstances: Array<{ destroy: () => void }> = [];
-let invoiceZoom = 1;
+const defaultInvoiceZoom = 1;
+let invoiceZoom = defaultInvoiceZoom;
 let invoiceMutationInFlight = false;
+let pdfRenderGeneration = 0;
 const readNotificationIds = new Set<string>();
+
+type PdfViewport = { width: number; height: number };
+type PdfPage = {
+  getViewport(options: { scale: number }): PdfViewport;
+  render(options: { canvas: HTMLCanvasElement; canvasContext: CanvasRenderingContext2D; viewport: PdfViewport }): { promise: Promise<void> };
+};
+type PdfDocument = { getPage(pageNumber: number): Promise<PdfPage> };
+type PdfJsModule = {
+  GlobalWorkerOptions: { workerSrc: string };
+  getDocument(options: { url: string; withCredentials: boolean }): { promise: Promise<PdfDocument> };
+};
+
+let pdfJsPromise: Promise<PdfJsModule> | null = null;
+const pdfDocumentCache = new Map<string, Promise<PdfDocument>>();
+
+function loadPdfJs(): Promise<PdfJsModule> {
+  if (!pdfJsPromise) {
+    const moduleUrl = '/vendor/pdfjs/pdf.min.mjs';
+    pdfJsPromise = import(moduleUrl).then((module) => {
+      const pdfJs = module as PdfJsModule;
+      pdfJs.GlobalWorkerOptions.workerSrc = '/vendor/pdfjs/pdf.worker.min.mjs';
+      return pdfJs;
+    });
+  }
+
+  return pdfJsPromise;
+}
+
+async function renderPdfPreview(): Promise<void> {
+  const host = pageHost.querySelector<HTMLElement>('.invoice-pdf-preview');
+  const canvas = host?.querySelector<HTMLCanvasElement>('.invoice-pdf-canvas');
+  const loading = host?.querySelector<HTMLElement>('.invoice-pdf-loading');
+  const fallback = host?.querySelector<HTMLElement>('.invoice-pdf-design-fallback');
+  const sourceUrl = host?.dataset['sourceUrl'];
+  if (!host || !canvas || !loading || !fallback || !sourceUrl || host.clientWidth <= 0 || host.clientHeight <= 0) {
+    return;
+  }
+
+  const generation = ++pdfRenderGeneration;
+  fallback.hidden = true;
+  canvas.hidden = false;
+  loading.hidden = false;
+
+  try {
+    const pdfJs = await loadPdfJs();
+    let documentPromise = pdfDocumentCache.get(sourceUrl);
+    if (!documentPromise) {
+      documentPromise = pdfJs.getDocument({ url: sourceUrl, withCredentials: true }).promise;
+      pdfDocumentCache.set(sourceUrl, documentPromise);
+    }
+
+    const document = await documentPromise;
+    const page = await document.getPage(1);
+    const naturalViewport = page.getViewport({ scale: 1 });
+    const availableWidth = Math.max(1, host.clientWidth - 24);
+    const availableHeight = Math.max(1, host.clientHeight - 24);
+    const fitScale = Math.min(availableWidth / naturalViewport.width, availableHeight / naturalViewport.height);
+    const cssScale = fitScale * invoiceZoom;
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    const renderViewport = page.getViewport({ scale: cssScale * pixelRatio });
+
+    canvas.width = Math.max(1, Math.floor(renderViewport.width));
+    canvas.height = Math.max(1, Math.floor(renderViewport.height));
+    canvas.style.width = `${renderViewport.width / pixelRatio}px`;
+    canvas.style.height = `${renderViewport.height / pixelRatio}px`;
+
+    const context = canvas.getContext('2d');
+    if (!context) {
+      throw new Error('Canvas rendering is not available.');
+    }
+
+    await page.render({ canvas, canvasContext: context, viewport: renderViewport }).promise;
+    if (generation === pdfRenderGeneration) {
+      loading.hidden = true;
+    }
+  } catch {
+    pdfDocumentCache.delete(sourceUrl);
+    if (generation === pdfRenderGeneration) {
+      canvas.hidden = true;
+      loading.hidden = true;
+      fallback.hidden = false;
+    }
+  }
+}
 
 const invoiceColumnDefaults: InvoiceColumnLayout = {
   queueWidth: 360,
@@ -263,9 +372,14 @@ function applyInvoiceZoom(): void {
     paper.style.transformOrigin = 'top center';
   }
 
+  const pdfPreview = pageHost.querySelector<HTMLElement>('.invoice-pdf-preview');
+  if (pdfPreview) {
+    void renderPdfPreview();
+  }
+
   const label = pageHost.querySelector<HTMLElement>('.zoom');
   if (label) {
-    label.textContent = `${Math.round(invoiceZoom * 100)}%`;
+    label.textContent = pdfPreview && invoiceZoom === defaultInvoiceZoom ? 'Fit' : `${Math.round(invoiceZoom * 100)}%`;
   }
 }
 
@@ -274,8 +388,25 @@ function setInvoiceZoom(next: number): void {
   applyInvoiceZoom();
 }
 
+function getQueueInvoiceSet(): Set<string> {
+  return new Set(store.queue.map((item) => item.invoiceId));
+}
+
+function getQueueInvoices(): InvoiceSummaryDto[] {
+  const queueInvoiceIds = getQueueInvoiceSet();
+  return store.invoices.filter((invoice) => queueInvoiceIds.has(invoice.invoiceId));
+}
+
+function getInvoicesPageInvoices(): InvoiceSummaryDto[] {
+  const queueInvoices = getQueueInvoices();
+  const selected = store.invoices.find((invoice) => invoice.invoiceId === state.selectedInvoiceId);
+  return !selected || queueInvoices.some((invoice) => invoice.invoiceId === selected.invoiceId)
+    ? queueInvoices
+    : [selected, ...queueInvoices];
+}
+
 function getQueueOrderedInvoices(): InvoiceSummaryDto[] {
-  return applyInvoiceFilters(store.invoices, {
+  return applyInvoiceFilters(getQueueInvoices(), {
     search: state.globalSearch,
     status: state.invoiceStatusFilter,
     dateRange: state.invoiceDateRange,
@@ -283,6 +414,34 @@ function getQueueOrderedInvoices(): InvoiceSummaryDto[] {
     dateTo: state.invoiceDateTo,
     sort: state.queueSort,
   });
+}
+
+function getLatestInvoiceId(invoices: InvoiceSummaryDto[]): string {
+  const latest = invoices
+    .slice()
+    .sort((left, right) => {
+      const leftUpdated = Date.parse(left.updatedAtUtc || left.createdAtUtc || '');
+      const rightUpdated = Date.parse(right.updatedAtUtc || right.createdAtUtc || '');
+      const leftValue = Number.isNaN(leftUpdated) ? 0 : leftUpdated;
+      const rightValue = Number.isNaN(rightUpdated) ? 0 : rightUpdated;
+      return rightValue - leftValue;
+    })[0];
+
+  return latest?.invoiceId ?? '';
+}
+
+function resolveInvoicesPageSelection(preferredInvoiceId = ''): string {
+  const queueInvoices = getQueueOrderedInvoices();
+
+  if (preferredInvoiceId && store.invoices.some((invoice) => invoice.invoiceId === preferredInvoiceId)) {
+    return preferredInvoiceId;
+  }
+
+  if (queueInvoices.length > 0) {
+    return queueInvoices[0].invoiceId;
+  }
+
+  return getLatestInvoiceId(store.invoices);
 }
 
 function navigateInvoiceBy(delta: number): void {
@@ -297,7 +456,7 @@ function navigateInvoiceBy(delta: number): void {
   const nextInvoice = rows[nextIndex];
 
   if (nextInvoice && nextInvoice.invoiceId !== state.selectedInvoiceId) {
-    invoiceZoom = 1;
+    invoiceZoom = defaultInvoiceZoom;
     void openInvoicePreview(nextInvoice.invoiceId);
   }
 }
@@ -509,7 +668,23 @@ function setBootstrapState(isReady: boolean): void {
 }
 
 function isWorkspaceLocked(): boolean {
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return false;
+  }
+
   return document.body.dataset['authState'] !== 'signed-in';
+}
+
+function isPublicReadRoute(route: Route): boolean {
+  return route === 'vendors' || route === 'reports';
+}
+
+function isRouteRestricted(route: Route): boolean {
+  return !isPublicReadRoute(route);
+}
+
+function requiresAuthenticationForRoute(route: Route): boolean {
+  return false;
 }
 
 function readBooleanSetting(storageKey: string, fallback: boolean): boolean {
@@ -536,6 +711,10 @@ function persistBooleanSetting(storageKey: string, value: boolean): void {
 function loadWorkspaceSettings(): void {
   state.compactTypography = readBooleanSetting(compactTypographyStorageKey, true);
   state.queueAutoScroll = readBooleanSetting(queueAutoScrollStorageKey, true);
+  state.emailAlertsEnabled = readBooleanSetting(emailAlertsEnabledStorageKey, false);
+  state.emailAlertSyncFailures = readBooleanSetting(emailAlertSyncFailuresStorageKey, true);
+  state.emailAlertQueueBacklog = readBooleanSetting(emailAlertQueueBacklogStorageKey, true);
+  state.emailAlertApprovalChanges = readBooleanSetting(emailAlertApprovalChangesStorageKey, true);
 }
 
 function applyWorkspaceSettings(): void {
@@ -546,6 +725,10 @@ function applyWorkspaceSettings(): void {
 function persistWorkspaceSettings(): void {
   persistBooleanSetting(compactTypographyStorageKey, state.compactTypography);
   persistBooleanSetting(queueAutoScrollStorageKey, state.queueAutoScroll);
+  persistBooleanSetting(emailAlertsEnabledStorageKey, state.emailAlertsEnabled);
+  persistBooleanSetting(emailAlertSyncFailuresStorageKey, state.emailAlertSyncFailures);
+  persistBooleanSetting(emailAlertQueueBacklogStorageKey, state.emailAlertQueueBacklog);
+  persistBooleanSetting(emailAlertApprovalChangesStorageKey, state.emailAlertApprovalChanges);
   applyWorkspaceSettings();
 }
 
@@ -620,9 +803,9 @@ function syncProfile(profile = getCurrentAuthProfile()): void {
   }
 }
 
-function buildRouteUrl(route: Route, invoiceId = '', invoicePreviewOpen = false): string {
-  if (route === 'invoices' && invoicePreviewOpen && invoiceId) {
-    return invoiceId ? `/invoices/${encodeURIComponent(invoiceId)}` : '/invoices';
+function buildRouteUrl(route: Route, invoiceId = '', _invoicePreviewOpen = false): string {
+  if (route === 'invoices' && invoiceId) {
+    return `/invoices/${encodeURIComponent(invoiceId)}`;
   }
 
   return routePaths[route];
@@ -644,7 +827,7 @@ function readRouteFromLocation(): {
     return {
       route: 'invoices',
       selectedInvoiceId: selected,
-      invoicePreviewOpen: Boolean(selected),
+      invoicePreviewOpen: false,
     };
   }
 
@@ -689,15 +872,11 @@ function syncBrowserLocation(route: Route, selectedInvoiceId = '', replace = fal
 }
 
 function navigateTo(route: Route, selectedInvoiceId = state.selectedInvoiceId, replace = false): void {
-  if (isWorkspaceLocked()) {
-    return;
-  }
-
   state.route = route;
   state.invoicePreviewOpen = false;
 
   if (state.route === 'invoices') {
-    state.selectedInvoiceId = selectedInvoiceId || (store.invoices[0]?.invoiceId ?? state.selectedInvoiceId);
+    state.selectedInvoiceId = resolveInvoicesPageSelection(selectedInvoiceId || state.selectedInvoiceId);
   }
 
   syncBrowserLocation(state.route, state.route === 'invoices' ? state.selectedInvoiceId : '', replace, false);
@@ -790,6 +969,39 @@ function buildInvoiceStandaloneHtml(invoiceMarkup: string, pageTitle: string): s
 </html>`;
 }
 
+function openPrintDocument(html: string): boolean {
+  // A noopener feature can make window.open return null, even when the popup
+  // was created. Keep the reference long enough to write and print, then sever
+  // access back to the application explicitly.
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    return false;
+  }
+
+  printWindow.opener = null;
+  let hasPrinted = false;
+  const runPrint = () => {
+    if (hasPrinted || printWindow.closed) {
+      return;
+    }
+
+    hasPrinted = true;
+    printWindow.focus();
+    printWindow.print();
+  };
+
+  printWindow.addEventListener('load', () => {
+    window.setTimeout(runPrint, 120);
+  }, { once: true });
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
+
+  // Some browsers do not emit load for document.write content.
+  window.setTimeout(runPrint, 350);
+  return true;
+}
+
 async function downloadInvoiceWithCurrentDesign(): Promise<void> {
   const invoicePaper = getActiveInvoicePaper();
   if (!invoicePaper) {
@@ -825,28 +1037,9 @@ async function printInvoiceWithCurrentDesign(): Promise<void> {
   const pageTitle = `${getSelectedInvoiceName()}-print`;
   const invoiceClone = cloneWithInlineStyles(invoicePaper);
   const html = buildInvoiceStandaloneHtml(invoiceClone.outerHTML, pageTitle);
-  const printWindow = window.open('', '_blank', 'noopener,noreferrer');
-
-  if (!printWindow) {
+  if (!openPrintDocument(html)) {
     showToast('Enable pop-ups to print the invoice.');
-    return;
   }
-
-  printWindow.document.open();
-  printWindow.document.write(html);
-  printWindow.document.close();
-
-  const runPrint = () => {
-    printWindow.focus();
-    printWindow.print();
-  };
-
-  printWindow.addEventListener('load', () => {
-    window.setTimeout(runPrint, 120);
-  }, { once: true });
-
-  // Fallback for browsers that may not emit load on document.write content.
-  window.setTimeout(runPrint, 300);
 }
 
 function buildReportsPrintTitle(): string {
@@ -869,27 +1062,9 @@ async function printReportWithCurrentDesign(): Promise<void> {
 
   const reportClone = cloneWithInlineStyles(reportsRoot);
   const html = buildInvoiceStandaloneHtml(reportClone.outerHTML, buildReportsPrintTitle());
-  const printWindow = window.open('', '_blank', 'noopener,noreferrer');
-
-  if (!printWindow) {
+  if (!openPrintDocument(html)) {
     showToast('Enable pop-ups to print the report.');
-    return;
   }
-
-  printWindow.document.open();
-  printWindow.document.write(html);
-  printWindow.document.close();
-
-  const runPrint = () => {
-    printWindow.focus();
-    printWindow.print();
-  };
-
-  printWindow.addEventListener('load', () => {
-    window.setTimeout(runPrint, 120);
-  }, { once: true });
-
-  window.setTimeout(runPrint, 300);
 }
 
 function buildInvoiceLookup(): Map<string, InvoiceSummaryDto> {
@@ -1114,6 +1289,37 @@ function getSelectedReviewBundle(): ReviewBundle | null {
   return store.selected.get(state.selectedInvoiceId) ?? null;
 }
 
+function getSelectedInvoiceAttachments(): NonNullable<ReviewBundle['review']>['attachments'] {
+  return getSelectedReviewBundle()?.review?.attachments ?? [];
+}
+
+function buildAttachmentUrl(invoiceId: string, attachmentId: string): string {
+  return `/api/invoices/${encodeURIComponent(invoiceId)}/attachments/${encodeURIComponent(attachmentId)}`;
+}
+
+function selectAttachmentByOffset(delta: number): void {
+  if (!state.selectedInvoiceId) {
+    return;
+  }
+
+  const attachments = getSelectedInvoiceAttachments().filter(
+    (attachment) => Boolean(attachment.url) && !attachment.isFallback && attachment.fileName.toLowerCase().endsWith('.pdf'),
+  );
+  if (attachments.length === 0) {
+    return;
+  }
+
+  const currentIndex = attachments.findIndex((attachment) => buildAttachmentUrl(state.selectedInvoiceId, attachment.attachmentId) === state.selectedAttachmentUrl);
+  const baseIndex = currentIndex < 0 ? (delta > 0 ? -1 : attachments.length) : currentIndex;
+  const nextIndex = Math.min(attachments.length - 1, Math.max(0, baseIndex + delta));
+  const nextAttachment = attachments[nextIndex];
+
+  if (nextAttachment) {
+    state.selectedAttachmentUrl = buildAttachmentUrl(state.selectedInvoiceId, nextAttachment.attachmentId);
+    render();
+  }
+}
+
 function buildReviewViewData(): ReviewViewData {
   const selected = getSelectedReviewBundle();
 
@@ -1160,11 +1366,11 @@ function buildAdminData(): AdminViewData {
     lastUpdated: selectedInvoice ? formatDateTime(selectedInvoice.updatedAtUtc) : 'Pending',
     compactTypography: state.compactTypography,
     queueAutoScroll: state.queueAutoScroll,
-    emailAlertsEnabled: false,
+    emailAlertsEnabled: state.emailAlertsEnabled,
     notificationTargetEmail: currentProfile?.email?.trim() ? currentProfile.email : 'Not available',
-    emailAlertSyncFailures: false,
-    emailAlertQueueBacklog: false,
-    emailAlertApprovalChanges: false,
+    emailAlertSyncFailures: state.emailAlertSyncFailures,
+    emailAlertQueueBacklog: state.emailAlertQueueBacklog,
+    emailAlertApprovalChanges: state.emailAlertApprovalChanges,
     profile: currentProfile,
   };
 }
@@ -1552,11 +1758,6 @@ function renderAuthGate(message?: string): void {
 function render(): void {
   destroyInvoiceCharts();
 
-  if (isWorkspaceLocked()) {
-    renderAuthGate();
-    return;
-  }
-
   if (state.loading) {
     renderLoading();
     return;
@@ -1574,7 +1775,7 @@ function render(): void {
     dashboard: () => renderDashboard(dashboardData),
     invoices: () =>
       renderInvoicesPage(
-        store.invoices,
+        getInvoicesPageInvoices(),
         state.globalSearch,
         state.invoiceStatusFilter,
         state.invoiceDateRange,
@@ -1584,15 +1785,24 @@ function render(): void {
         state.selectedInvoiceId,
         reviewData,
         state.activeInvoicePanel,
+        state.selectedAttachmentUrl,
       ),
+    archive: () => renderArchivePage(store.invoices, {
+      search: archiveSearch,
+      status: archiveStatus,
+      dateRange: archiveDateRange,
+      dateFrom: archiveDateFrom,
+      dateTo: archiveDateTo,
+      sort: archiveSort,
+    }),
     analytics: () => renderAnalyticsPage(store.invoices, store.queueRows, dashboardData.validationAlerts, store.syncStatus),
     contracts: () => renderContractsPage(store.invoices, store.queueRows, dashboardData.validationAlerts, store.syncStatus),
     vendors: () =>
       renderVendorsPage(store.invoices, store.queueRows, dashboardData.validationAlerts, store.syncStatus, {
-        search: state.globalSearch,
-        status: state.invoiceStatusFilter,
-        sort: state.queueSort,
-        expandedCompanies: [],
+        search: vendorInvoiceSearch,
+        status: vendorInvoiceStatus,
+        sort: vendorInvoiceSort,
+        expandedCompanies: [...expandedVendorCompanies],
       }),
     reports: () => {
       const reportsInvoices = applyInvoiceFilters(store.invoices, {
@@ -1613,6 +1823,8 @@ function render(): void {
         state.reportsDateRange,
         state.reportsDateFrom,
         state.reportsDateTo,
+        reportsSignalFilter,
+        reportsCompanyFilter,
       );
     },
     notifications: () => renderNotificationsPage(store.queueRows, getNotificationsFeed(), [...readNotificationIds]),
@@ -1622,12 +1834,29 @@ function render(): void {
 
   const pageMarkup = routeRenderers[state.route]();
   const previewBundle = buildReviewViewData();
+  const modalPdfAttachments = previewBundle.review?.attachments.filter(
+    (attachment) => Boolean(attachment.url) && !attachment.isFallback && attachment.fileName.toLowerCase().endsWith('.pdf'),
+  ) ?? [];
+  const requestedModalAttachmentIndex = modalPdfAttachments.findIndex(
+    (attachment) => buildAttachmentUrl(state.selectedInvoiceId, attachment.attachmentId) === state.selectedAttachmentUrl,
+  );
+  const modalAttachmentIndex = requestedModalAttachmentIndex >= 0 ? requestedModalAttachmentIndex : 0;
+  const modalAttachment = modalPdfAttachments[modalAttachmentIndex] ?? null;
   const invoicePreviewMarkup =
     state.route !== 'invoices' && state.invoicePreviewOpen && state.selectedInvoiceId
-      ? renderInvoicePreviewModalRich(previewBundle.review, !store.selected.has(state.selectedInvoiceId))
+      ? renderInvoicePreviewModalRich(
+          previewBundle.review,
+          !store.selected.has(state.selectedInvoiceId),
+          modalAttachment ? buildAttachmentUrl(state.selectedInvoiceId, modalAttachment.attachmentId) : null,
+          modalAttachment?.fileName ?? null,
+          modalAttachment ? modalAttachmentIndex + 1 : 0,
+          modalPdfAttachments.length,
+          previewBundle.review?.invoice ? renderInvoiceDocument(previewBundle.review.invoice, null) : null,
+        )
       : '';
 
   pageHost.innerHTML = `${pageMarkup}${invoicePreviewMarkup}`;
+  applyQuoteSubmissionLock();
   if (state.route === 'invoices') {
     applyInvoiceColumnLayout();
   }
@@ -1679,6 +1908,12 @@ function setFilter(filter: string, value: string): void {
     case 'reports-date-to':
       state.reportsDateTo = value;
       break;
+    case 'reports-signal':
+      reportsSignalFilter = value as typeof reportsSignalFilter;
+      break;
+    case 'reports-company':
+      reportsCompanyFilter = value || 'All Companies';
+      break;
     case 'invoice-status':
       state.invoiceStatusFilter = value as AppState['invoiceStatusFilter'];
       break;
@@ -1693,6 +1928,33 @@ function setFilter(filter: string, value: string): void {
       break;
     case 'queue-sort':
       state.queueSort = value as AppState['queueSort'];
+      break;
+    case 'vendor-invoices-search':
+      vendorInvoiceSearch = value;
+      break;
+    case 'vendor-invoices-status':
+      vendorInvoiceStatus = value as AppState['invoiceStatusFilter'];
+      break;
+    case 'vendor-invoices-sort':
+      vendorInvoiceSort = value as AppState['queueSort'];
+      break;
+    case 'archive-search':
+      archiveSearch = value;
+      break;
+    case 'archive-status':
+      archiveStatus = value as AppState['invoiceStatusFilter'];
+      break;
+    case 'archive-date-range':
+      archiveDateRange = value as AppState['invoiceDateRange'];
+      break;
+    case 'archive-date-from':
+      archiveDateFrom = value;
+      break;
+    case 'archive-date-to':
+      archiveDateTo = value;
+      break;
+    case 'archive-sort':
+      archiveSort = value as AppState['queueSort'];
       break;
     default:
       return;
@@ -1794,20 +2056,30 @@ async function reloadData(selectedInvoiceId = state.selectedInvoiceId, options: 
     render();
   }
 
+  const loadTimeoutMs = 12000;
+
+  const loadWorkspaceData = Promise.all([
+    api.getInvoices(),
+    api.getQueue(),
+    api.getSyncStatus(),
+  ]);
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    window.setTimeout(() => reject(new Error('Workspace data request timed out.')), loadTimeoutMs);
+  });
+
   try {
-    const [invoices, queue, syncStatus] = await Promise.all([
-      api.getInvoices(),
-      api.getQueue(),
-      api.getSyncStatus(),
-    ]);
+    const [invoices, queue, syncStatus] = await Promise.race([loadWorkspaceData, timeoutPromise]);
 
     store.invoices = invoices;
     store.queue = queue;
     store.queueRows = buildQueueRows();
     store.syncStatus = syncStatus;
 
-    if (!selectedInvoiceId || !store.invoices.some((invoice) => invoice.invoiceId === selectedInvoiceId)) {
-      selectedInvoiceId = store.invoices[0]?.invoiceId ?? '';
+    if (state.route === 'invoices') {
+      selectedInvoiceId = resolveInvoicesPageSelection(selectedInvoiceId);
+    } else if (!selectedInvoiceId || !store.invoices.some((invoice) => invoice.invoiceId === selectedInvoiceId)) {
+      selectedInvoiceId = getLatestInvoiceId(store.invoices);
     }
 
     state.selectedInvoiceId = selectedInvoiceId;
@@ -1828,7 +2100,27 @@ async function reloadData(selectedInvoiceId = state.selectedInvoiceId, options: 
     if (error instanceof ApiAuthorizationError) {
       clearMicrosoftAuth();
       syncProfile(null);
-      renderAuthGate('Your Microsoft session expired. Please sign in again.');
+
+      store.invoices = [];
+      store.queue = [];
+      store.queueRows = [];
+      store.syncStatus = null;
+      store.selected.clear();
+      state.error = null;
+      render();
+      return;
+    }
+
+    if (state.route === 'reports') {
+      // Keep reports usable even if backend endpoints are unavailable.
+      store.invoices = [];
+      store.queue = [];
+      store.queueRows = [];
+      store.syncStatus = null;
+      store.selected.clear();
+      state.error = null;
+      render();
+      showToast('Reports loaded in offline mode. Data source is temporarily unavailable.');
       return;
     }
 
@@ -1838,11 +2130,15 @@ async function reloadData(selectedInvoiceId = state.selectedInvoiceId, options: 
 }
 
 async function openInvoicePreview(invoiceId: string): Promise<void> {
-  state.route = 'invoices';
+  const openInContext = state.route !== 'invoices';
   state.selectedInvoiceId = invoiceId;
+  state.selectedAttachmentUrl = null;
+  invoiceZoom = defaultInvoiceZoom;
   state.activeInvoicePanel = 'insights';
-  state.invoicePreviewOpen = false;
-  syncBrowserLocation('invoices', '', false, false);
+  state.invoicePreviewOpen = openInContext;
+  if (!openInContext) {
+    syncBrowserLocation('invoices', invoiceId, false, false);
+  }
   await loadReviewBundle(invoiceId);
   render();
 }
@@ -1892,14 +2188,40 @@ function showMutationError(actionLabel: string, error: unknown): void {
   showToast(`${actionLabel} failed: ${message}`);
 }
 
+function applyQuoteSubmissionLock(): void {
+  const quoteActionSelectors = [
+    '[data-action="approve-invoice"]',
+    '[data-action="request-quote"]',
+    '[data-action="submit-quote"]',
+  ];
+
+  const quoteButtons = pageHost.querySelectorAll<HTMLButtonElement>(quoteActionSelectors.join(', '));
+  const accountNotActivated = isWorkspaceLocked();
+  const isCartPath = window.location.pathname.startsWith('/cart');
+
+  quoteButtons.forEach((button) => {
+    if (accountNotActivated) {
+      button.disabled = true;
+      button.setAttribute('aria-disabled', 'true');
+      button.setAttribute('title', 'Account not activated. Sign in to submit quote.');
+
+      if (isCartPath) {
+        button.hidden = true;
+      }
+      return;
+    }
+
+    button.disabled = false;
+    button.removeAttribute('aria-disabled');
+    button.removeAttribute('title');
+    button.hidden = false;
+  });
+}
+
 document.addEventListener('click', (event) => {
   const target = event.target;
 
   if (!(target instanceof Element)) {
-    return;
-  }
-
-  if (isWorkspaceLocked() && !target.closest<HTMLElement>('[data-action="profile-auth"]')) {
     return;
   }
 
@@ -1934,6 +2256,15 @@ document.addEventListener('click', (event) => {
 
   const action = actionElement.getAttribute('data-action');
 
+  if (
+    isWorkspaceLocked()
+    && action
+    && ['approve-invoice', 'request-quote', 'submit-quote'].includes(action)
+  ) {
+    showToast('Quote submission is disabled until you sign in with Microsoft.');
+    return;
+  }
+
   switch (action) {
     case 'close-invoice-preview':
       state.invoicePreviewOpen = false;
@@ -1962,6 +2293,22 @@ document.addEventListener('click', (event) => {
         }
       }
       break;
+    case 'open-attachment':
+      {
+        const invoiceId = actionElement.getAttribute('data-invoice-id');
+        const attachmentId = actionElement.getAttribute('data-attachment-id');
+        if (invoiceId && attachmentId) {
+          state.selectedAttachmentUrl = buildAttachmentUrl(invoiceId, attachmentId);
+          render();
+        }
+      }
+      break;
+    case 'prev-attachment':
+      selectAttachmentByOffset(-1);
+      break;
+    case 'next-attachment':
+      selectAttachmentByOffset(1);
+      break;
     case 'toggle-sidebar':
       toggleSidebar();
       break;
@@ -1987,6 +2334,30 @@ document.addEventListener('click', (event) => {
     case 'print-report':
       void printReportWithCurrentDesign();
       break;
+    case 'open-report':
+      {
+        const selectedReport = actionElement.getAttribute('data-report') as typeof reportsSignalFilter | null;
+
+        if (selectedReport) {
+          reportsSignalFilter = selectedReport;
+        }
+
+        state.invoiceDateRange = state.reportsDateRange;
+        state.invoiceDateFrom = state.reportsDateFrom;
+        state.invoiceDateTo = state.reportsDateTo;
+
+        if (reportsSignalFilter === 'queue-health') {
+          state.invoiceStatusFilter = 'Pending Review';
+        } else if (reportsSignalFilter === 'exceptions') {
+          state.invoiceStatusFilter = 'Sent Back';
+        } else {
+          state.invoiceStatusFilter = 'All Statuses';
+        }
+
+        state.globalSearch = reportsCompanyFilter === 'All Companies' ? '' : reportsCompanyFilter;
+        navigateTo('invoices');
+      }
+      break;
     case 'more-actions':
       if (state.selectedInvoiceId) {
         window.open(api.getInvoiceSnapshotUrl(state.selectedInvoiceId), '_blank', 'noopener');
@@ -2007,7 +2378,7 @@ document.addEventListener('click', (event) => {
       setInvoiceZoom(invoiceZoom - 0.1);
       break;
     case 'zoom-reset':
-      setInvoiceZoom(1);
+      setInvoiceZoom(defaultInvoiceZoom);
       break;
     case 'load-more':
       showToast('All available invoices are already loaded.');
@@ -2034,6 +2405,49 @@ document.addEventListener('click', (event) => {
       persistWorkspaceSettings();
       syncProfile();
       showToast('Settings saved.');
+      break;
+    case 'reset-vendor-invoice-filters':
+      vendorInvoiceSearch = '';
+      vendorInvoiceStatus = 'All Statuses';
+      vendorInvoiceSort = 'Newest First';
+      expandedVendorCompanies.clear();
+      render();
+      break;
+    case 'reset-archive-filters':
+      archiveSearch = '';
+      archiveStatus = 'All Statuses';
+      archiveDateRange = 'All Time';
+      archiveDateFrom = '';
+      archiveDateTo = '';
+      archiveSort = 'Newest First';
+      render();
+      break;
+    case 'toggle-vendor-company':
+      {
+        const company = actionElement.getAttribute('data-company');
+        if (company) {
+          if (expandedVendorCompanies.has(company)) {
+            expandedVendorCompanies.delete(company);
+          } else {
+            expandedVendorCompanies.add(company);
+          }
+          render();
+        }
+      }
+      break;
+    case 'modal-shell':
+      break;
+    case 'send-test-email-alert':
+      {
+        const email = getCurrentAuthProfile()?.email;
+        void api.sendAdminTestEmail(email).then((result) => showToast(result.message)).catch((error) => showMutationError('Send test email', error));
+      }
+      break;
+    case 'run-sync-now':
+      void api.runSync().then(async () => {
+        showToast('Reconciliation started and completed.');
+        await reloadData(state.selectedInvoiceId, { silent: true });
+      }).catch((error) => showMutationError('Run reconciliation', error));
       break;
     case 'mark-notification-read':
       {
@@ -2067,6 +2481,14 @@ document.addEventListener('click', (event) => {
           state.compactTypography = !state.compactTypography;
         } else if (setting === 'queue-auto-scroll') {
           state.queueAutoScroll = !state.queueAutoScroll;
+        } else if (setting === 'email-alerts-enabled') {
+          state.emailAlertsEnabled = !state.emailAlertsEnabled;
+        } else if (setting === 'email-alert-sync-failures') {
+          state.emailAlertSyncFailures = !state.emailAlertSyncFailures;
+        } else if (setting === 'email-alert-queue-backlog') {
+          state.emailAlertQueueBacklog = !state.emailAlertQueueBacklog;
+        } else if (setting === 'email-alert-approval-changes') {
+          state.emailAlertApprovalChanges = !state.emailAlertApprovalChanges;
         } else {
           break;
         }
@@ -2104,7 +2526,7 @@ document.addEventListener('input', (event) => {
   }
 
   const filter = target.getAttribute('data-filter');
-  if (filter && target.type === 'date') {
+  if (filter && (target.type === 'date' || filter === 'vendor-invoices-search' || filter === 'archive-search')) {
     setFilter(filter, target.value);
   }
 });
@@ -2195,11 +2617,6 @@ window.addEventListener('resize', () => {
 });
 
 window.addEventListener('popstate', () => {
-  if (isWorkspaceLocked()) {
-    renderAuthGate();
-    return;
-  }
-
   const next = readRouteFromLocation();
   state.route = next.route;
   state.invoicePreviewOpen = next.invoicePreviewOpen;
@@ -2240,7 +2657,14 @@ async function start(): Promise<void> {
     });
     if (!profile) {
       syncProfile(null);
-      renderAuthGate(authBootstrap.unavailableMessage ?? undefined);
+
+      const initialRoute = readRouteFromLocation();
+      state.route = initialRoute.route;
+      state.selectedInvoiceId = '';
+      state.invoicePreviewOpen = false;
+      renderLoading();
+      await reloadData('');
+      showToast(authBootstrap.unavailableMessage ?? 'You can browse products while signed out. Quote submission requires sign-in.');
     } else {
       syncProfile(profile);
       const restoredRoute = restorePostLoginRoute();

@@ -5,14 +5,13 @@ param acrServer string
 param apiImage string
 param userAssignedIdentityId string
 param openInvoiceBaseUrl string = ''
-param openInvoiceHmacSigningKey string = ''
+param keyVaultName string = ''
 param sqlServerHost string = ''
 param sqlDatabaseName string = 'InvoiceLens'
 param sqlUsername string = ''
-@secure()
-param sqlPassword string = ''
 param authClientId string = ''
 param authTenantId string = ''
+param applicationInsightsConnectionString string = ''
 
 resource site 'Microsoft.Web/sites@2023-12-01' = {
   name: name
@@ -31,6 +30,7 @@ resource site 'Microsoft.Web/sites@2023-12-01' = {
       acrUserManagedIdentityID: userAssignedIdentityId
       linuxFxVersion: 'DOCKER|${acrServer}/${apiImage}'
       alwaysOn: true
+      healthCheckPath: '/health/ready'
       appSettings: [
         {
           name: 'ASPNETCORE_URLS'
@@ -41,12 +41,32 @@ resource site 'Microsoft.Web/sites@2023-12-01' = {
           value: '8080'
         }
         {
+          name: 'WEBSITES_ENABLE_APP_SERVICE_STORAGE'
+          value: 'true'
+        }
+        {
+          name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+          value: applicationInsightsConnectionString
+        }
+        {
+          name: 'AllowedHosts'
+          value: '${name}.azurewebsites.net'
+        }
+        {
           name: 'OpenInvoice__BaseUrl'
           value: openInvoiceBaseUrl
         }
         {
           name: 'OpenInvoice__HmacSigningKey'
-          value: openInvoiceHmacSigningKey
+          value: keyVaultName == '' ? '' : '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=openinvoice-hmac-key)'
+        }
+        {
+          name: 'OpenInvoice__SyncLookbackDays'
+          value: '3650'
+        }
+        {
+          name: 'OpenInvoice__StoragePath'
+          value: '/home/data/OpenInvoiceStorage'
         }
         {
           name: 'InvoiceLens__Sql__ServerHost'
@@ -62,7 +82,7 @@ resource site 'Microsoft.Web/sites@2023-12-01' = {
         }
         {
           name: 'InvoiceLens__Sql__Password'
-          value: sqlPassword
+          value: keyVaultName == '' ? '' : '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=sql-password)'
         }
         {
           name: 'InvoiceLens__Auth__ClientId'

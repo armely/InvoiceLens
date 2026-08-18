@@ -58,8 +58,8 @@ function renderInvoiceQueueItem(invoice: InvoiceSummaryDto, selectedInvoiceId: s
   const dotClass = tone === 'approved' ? 'good' : tone === 'exception' ? 'warn' : 'good';
 
   return `
-    <a href="${routeHref('invoices', invoice.invoiceId)}" class="invoice-card ${isSelected ? 'active' : ''}" data-invoice-id="${invoice.invoiceId}">
-      <div class="check" aria-hidden="true"></div>
+    <a href="${routeHref('invoices', invoice.invoiceId)}" class="invoice-card ${isSelected ? 'active' : ''}" data-invoice-id="${invoice.invoiceId}" aria-current="${isSelected ? 'true' : 'false'}">
+      <div class="check ${isSelected ? 'is-selected' : ''}" aria-hidden="true"></div>
       <div class="invoice-main">
         <h3>${escapeHtml(invoice.invoiceNumber)} <span class="queue-title-dot ${dotClass}" aria-hidden="true">&#9679;</span> <span class="queue-title-detail">${escapeHtml(badgeLabel)}</span></h3>
         <div class="meta">
@@ -84,7 +84,27 @@ function renderSummaryListRow(label: string, value: string): string {
   `;
 }
 
-function renderInvoiceDocument(invoice: InvoiceDetailDto | null, fallbackInvoice: InvoiceSummaryDto | null, snapshotUrl: string | null = null): string {
+function buildAttachmentUrl(invoiceId: string, attachmentId: string): string {
+  return `/api/invoices/${encodeURIComponent(invoiceId)}/attachments/${encodeURIComponent(attachmentId)}`;
+}
+
+function buildInlineAttachmentFallback(snapshotUrl: string, fileName: string | null | undefined): string {
+  const safeFileName = escapeHtml(fileName ?? 'attachment');
+  const safeUrl = escapeHtml(snapshotUrl);
+
+  return `
+    <div class="invoice-preview-fallback" style="display:flex;flex-direction:column;gap:12px;justify-content:center;align-items:flex-start;padding:24px;border:1px solid #d8dce6;border-radius:10px;background:#f8fafc;min-height:280px;">
+      <strong>Preview is not available for this file type.</strong>
+      <p style="margin:0;color:#475569;">${safeFileName}</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <a href="${safeUrl}" target="_blank" rel="noopener" style="padding:8px 12px;border-radius:8px;background:#0f172a;color:white;text-decoration:none;">Open in new tab</a>
+        <a href="${safeUrl}" download="${safeFileName}" style="padding:8px 12px;border-radius:8px;background:#e2e8f0;color:#0f172a;text-decoration:none;">Download</a>
+      </div>
+    </div>
+  `;
+}
+
+export function renderInvoiceDocument(invoice: InvoiceDetailDto | null, fallbackInvoice: InvoiceSummaryDto | null, snapshotUrl: string | null = null, previewFileName: string | null = null): string {
   if (!invoice && !fallbackInvoice) {
     return '<div class="empty-state">No invoice selected.</div>';
   }
@@ -217,11 +237,40 @@ function renderInvoiceDocument(invoice: InvoiceDetailDto | null, fallbackInvoice
     return paperHtml;
   }
 
-  return `
-    <object class="invoice-pdf-frame" data="${escapeHtml(snapshotUrl)}#toolbar=0&navpanes=0&view=FitH" type="application/pdf" aria-label="Invoice PDF preview">
-      ${paperHtml}
-    </object>
-  `;
+  const normalizedFileName = previewFileName?.trim() ?? '';
+  const normalizedSnapshotUrl = snapshotUrl.toLowerCase().split(/[?#]/, 1)[0];
+  const isPdfPreview =
+    /\.pdf$/i.test(normalizedFileName) ||
+    normalizedSnapshotUrl.endsWith('.pdf') ||
+    normalizedSnapshotUrl.endsWith('/snapshot');
+  const isImagePreview = /\.(png|jpe?g|gif|webp)$/i.test(normalizedFileName) || /\.(png|jpe?g|gif|webp)$/i.test(snapshotUrl);
+
+  if (isPdfPreview) {
+    const safeSnapshotUrl = escapeHtml(snapshotUrl);
+    return `
+      <div
+        class="invoice-pdf-preview"
+        data-source-url="${safeSnapshotUrl}"
+        aria-label="Invoice PDF preview"
+      >
+        <canvas class="invoice-pdf-canvas"></canvas>
+        <div class="invoice-pdf-loading">Loading PDF...</div>
+        <div class="invoice-pdf-design-fallback" hidden>
+          ${paperHtml}
+        </div>
+      </div>
+    `;
+  }
+
+  if (isImagePreview) {
+    return `
+      <div class="invoice-preview-image" style="display:flex;justify-content:center;align-items:center;padding:12px;border:1px solid #d8dce6;border-radius:10px;background:#fff;min-height:280px;">
+        <img src="${escapeHtml(snapshotUrl)}" alt="Invoice attachment preview" style="max-width:100%;max-height:420px;object-fit:contain;border-radius:8px;" />
+      </div>
+    `;
+  }
+
+  return buildInlineAttachmentFallback(snapshotUrl, normalizedFileName || 'attachment');
 }
 
 function renderValidationRow(label: string, value: string, toneClass = 'pass'): string {
@@ -279,6 +328,7 @@ export function renderInvoicesPage(
   selectedInvoiceId: string,
   reviewData: ReviewViewData,
   activeInvoicePanel: InvoicePanelTab,
+  selectedAttachmentUrl: string | null,
 ): string {
   const rows = applyInvoiceFilters(invoices, {
     search,
@@ -294,14 +344,47 @@ export function renderInvoicesPage(
     reviewData.review && selectedInvoice && reviewData.review.invoice.invoiceId === selectedInvoice.invoiceId
       ? reviewData.review.invoice
       : null;
+  const selectedAttachments =
+    reviewData.review && selectedInvoice && reviewData.review.invoice.invoiceId === selectedInvoice.invoiceId
+      ? reviewData.review.attachments
+      : [];
+  const selectableAttachments = selectedAttachments.filter(
+    (attachment) => Boolean(attachment.url) && !attachment.isFallback && attachment.fileName.toLowerCase().endsWith('.pdf'),
+  );
+  const selectedAttachment =
+    selectableAttachments.find((attachment) => selectedInvoice && buildAttachmentUrl(selectedInvoice.invoiceId, attachment.attachmentId) === selectedAttachmentUrl) ?? null;
+  const selectedAttachmentIndex = selectedAttachment ? selectableAttachments.findIndex((attachment) => attachment.url === selectedAttachment.url) + 1 : 0;
+  const selectedAttachmentTotal = selectableAttachments.length;
+  const embeddedAttachmentUrl = selectedAttachment && selectedInvoice
+    ? buildAttachmentUrl(selectedInvoice.invoiceId, selectedAttachment.attachmentId)
+    : null;
+  // A generated "InvoiceLens Snapshot" is only a placeholder, not an invoice
+  // attachment. With no selected synchronized PDF, render the designed invoice.
+  const embeddedDocumentUrl = embeddedAttachmentUrl;
+  const previewAttachmentFileName = selectedAttachment?.fileName ?? null;
   const validationSummary =
     reviewData.validationSummary && selectedInvoice && reviewData.validationSummary.invoiceId === selectedInvoice.invoiceId
       ? reviewData.validationSummary
       : null;
   const checks = validationSummary?.checks ?? [];
-  const passedChecks = checks.filter((check) => check.status.toLowerCase() === 'pass').length;
-  const confidenceScore = checks.length > 0 ? Math.round((passedChecks / checks.length) * 100) : 0;
-  const firstFailedCheck = checks.find((check) => check.status.toLowerCase() !== 'pass') ?? null;
+  const visibleChecks = checks.filter((check) => {
+    const ruleName = normalizeLabel(check.ruleName).toLowerCase();
+    const message = normalizeLabel(check.message).toLowerCase();
+
+    if (ruleName === 'msa rate') {
+      return false;
+    }
+
+    // This warning is too broad and was surfacing on nearly every invoice.
+    if (message.includes('amount above warning threshold')) {
+      return false;
+    }
+
+    return true;
+  });
+  const passedChecks = visibleChecks.filter((check) => check.status.toLowerCase() === 'pass').length;
+  const confidenceScore = visibleChecks.length > 0 ? Math.round((passedChecks / visibleChecks.length) * 100) : 0;
+  const firstFailedCheck = visibleChecks.find((check) => check.status.toLowerCase() !== 'pass') ?? null;
   const selectedIndex = selectedInvoice ? rows.findIndex((invoice) => invoice.invoiceId === selectedInvoice.invoiceId) : -1;
   const selectedPosition = selectedIndex >= 0 ? selectedIndex + 1 : 0;
   const totalInvoices = rows.length;
@@ -324,12 +407,7 @@ export function renderInvoicesPage(
     : '<div class="empty-state">No line items available.</div>';
   const activePanel = activeInvoicePanel === 'details' ? 'details' : 'insights';
   const canRunActions = Boolean(selectedInvoice?.invoiceId);
-  const failedCount = checks.filter((check) => check.status.toLowerCase() !== 'pass').length;
-  const rateCapImpact = firstFailedCheck ? totalAmount * 0.1458 : 0;
-  const priceImpact = failedCount > 1 ? totalAmount * 0.049 : 0;
-  const quantityImpact = lineItems.length > 3 ? totalAmount * 0.0054 : 0;
-  const impactTotal = rateCapImpact + priceImpact + quantityImpact;
-  const donutStyle = `background: radial-gradient(circle at center, #ffffff 0 52%, transparent 53%), conic-gradient(var(--red) 0 ${impactTotal > 0 ? (rateCapImpact / impactTotal) * 100 : 0}%, var(--orange) ${impactTotal > 0 ? (rateCapImpact / impactTotal) * 100 : 0}% ${impactTotal > 0 ? ((rateCapImpact + priceImpact) / impactTotal) * 100 : 0}%, var(--yellow) ${impactTotal > 0 ? ((rateCapImpact + priceImpact) / impactTotal) * 100 : 0}% 100%)`;
+  const failedCount = visibleChecks.filter((check) => check.status.toLowerCase() !== 'pass').length;
 
   return `
     <section class="page active invoices-layout invoices-page">
@@ -339,7 +417,7 @@ export function renderInvoicesPage(
             <div class="panel-header">
               <div class="title">
                 <span class="queue-header-icon" aria-hidden="true">◫</span>
-                Review Queue
+                Invoice Queue
                 <span class="count">${rows.length}</span>
               </div>
               <div class="queue-header-actions" aria-hidden="true">
@@ -351,7 +429,7 @@ export function renderInvoicesPage(
             <div class="sortbar">
               <span>Sort:</span>
               <select class="invoice-sort-select" data-filter="queue-sort" aria-label="Sort queue">
-                ${['Oldest First', 'Newest First', 'Highest Amount']
+                ${['Newest First', 'Oldest First', 'Highest Amount']
                   .map((option) => `<option value="${option}" ${queueSort === option ? 'selected' : ''}>${option}</option>`)
                   .join('')}
               </select>
@@ -368,7 +446,7 @@ export function renderInvoicesPage(
 
             <div class="queue-footer">
               <span>Showing 1 - ${rows.length} of ${rows.length}</span>
-              <button class="load-more" type="button" data-action="load-more">Load More</button>
+              <span class="queue-loaded-status">All loaded</span>
             </div>
 
           </aside>
@@ -378,15 +456,19 @@ export function renderInvoicesPage(
           <section class="panel viewer">
             <div class="viewer-toolbar">
               <div class="tool-group">
-                <span>Page</span>
-                <button class="tool-icon tool-icon-sm" type="button" data-action="prev-invoice" aria-label="Previous invoice" title="Previous">
+                <span class="viewer-title">Document Viewer</span>
+                <span class="toolbar-divider"></span>
+                <span class="attachment-label">Attachment</span>
+                <button class="tool-icon tool-icon-sm" type="button" data-action="prev-attachment" aria-label="Previous attachment" title="Previous attachment" ${selectedAttachmentTotal > 0 ? '' : 'disabled'}>
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
                 </button>
-                <strong>${selectedPosition > 0 ? selectedPosition : 1}</strong>
-                <span>/ ${Math.max(totalInvoices, 1)}</span>
-                <button class="tool-icon tool-icon-sm" type="button" data-action="next-invoice" aria-label="Next invoice" title="Next">
+                <strong>${selectedAttachmentIndex > 0 ? selectedAttachmentIndex : 0}</strong>
+                <span>/ ${Math.max(selectedAttachmentTotal, 1)}</span>
+                <button class="tool-icon tool-icon-sm" type="button" data-action="next-attachment" aria-label="Next attachment" title="Next attachment" ${selectedAttachmentTotal > 0 ? '' : 'disabled'}>
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
                 </button>
+                <span class="toolbar-divider"></span>
+                <strong>${escapeHtml(selectedAttachment?.fileName ?? 'No attachment selected')}</strong>
                 <span class="toolbar-divider"></span>
                 <button class="tool-icon tool-icon-sm" type="button" data-action="zoom-out" aria-label="Zoom out" title="Zoom out">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12"></path></svg>
@@ -411,13 +493,17 @@ export function renderInvoicesPage(
             </div>
 
             <div class="document-area">
-              ${renderInvoiceDocument(selectedReviewInvoice, selectedInvoice)}
+              ${renderInvoiceDocument(selectedReviewInvoice, selectedInvoice, embeddedDocumentUrl, previewAttachmentFileName)}
             </div>
           </section>
 
           <div class="invoice-column-resizer" data-resizer="insights" role="separator" aria-label="Resize document and insights panels" aria-orientation="vertical" tabindex="0"></div>
 
           <aside class="panel insights">
+            <div class="inspector-header">
+              <strong>Inspector</strong>
+              <span>Extraction Results</span>
+            </div>
             <div class="tabs" role="tablist" aria-label="Invoice side panels">
               <button class="tab ${activePanel === 'insights' ? 'active' : ''}" type="button" data-action="switch-invoice-panel" data-panel="insights" role="tab" aria-selected="${String(activePanel === 'insights')}">Insights</button>
               <button class="tab ${activePanel === 'details' ? 'active' : ''}" type="button" data-action="switch-invoice-panel" data-panel="details" role="tab" aria-selected="${String(activePanel === 'details')}">Line Item Details</button>
@@ -473,13 +559,13 @@ export function renderInvoicesPage(
                 <section class="info-card">
                   <div class="validation-head">
                     <div class="card-title" style="margin-bottom: 0;">Validation Results</div>
-                    <span class="passed">${passedChecks} / ${checks.length || 0} Passed</span>
+                    <span class="passed">${passedChecks} / ${visibleChecks.length || 0} Passed</span>
                   </div>
 
                   <div class="validation-list">
                     ${
-                      checks.length > 0
-                        ? checks
+                      visibleChecks.length > 0
+                        ? visibleChecks
                             .map(
                               (check) => `
                                 <div class="valid-row">
@@ -516,83 +602,12 @@ export function renderInvoicesPage(
                           <span>Variance</span>
                           <strong class="variance">${escapeHtml(firstFailedCheck.message)}</strong>
 
-                          <button class="view-btn" data-action="open-portal">View Details</button>
+                          <button class="view-btn" type="button" data-action="switch-invoice-panel" data-panel="details">View Details</button>
                         </div>
                       </section>
                     `
                     : ''
                 }
-
-                <section class="info-card variance-card">
-                  <div class="variance-header">
-                    <div class="card-title" style="margin-bottom: 0;">Variance Impact</div>
-                    <span class="load-more">View All</span>
-                  </div>
-
-                  <div class="variance-chart-body">
-                    <div class="donut-wrap">
-                      <div class="impact-donut">
-                        <canvas
-                          class="invoice-impact-chart"
-                          width="138"
-                          height="138"
-                          data-rate-cap="${rateCapImpact}"
-                          data-price="${priceImpact}"
-                          data-quantity="${quantityImpact}"
-                          aria-label="Variance impact chart"></canvas>
-                        <div class="donut-center">
-                          <div>
-                            <strong>${formatCurrency(impactTotal, invoiceCurrency)}</strong>
-                            <span>Total Impact</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div class="variance-legend">
-                      <div class="legend-row">
-                        <span class="legend-dot red"></span>
-                        <div class="legend-text">
-                          <strong>Rate Cap Variance</strong>
-                          <span>${firstFailedCheck ? '1 exception' : '0 exception'}</span>
-                        </div>
-                        <div class="legend-value">
-                          ${formatCurrency(rateCapImpact, invoiceCurrency)}
-                          <span>${impactTotal > 0 ? `${((rateCapImpact / impactTotal) * 100).toFixed(1)}%` : '0%'}</span>
-                        </div>
-                      </div>
-
-                      <div class="legend-row">
-                        <span class="legend-dot orange"></span>
-                        <div class="legend-text">
-                          <strong>Price Variance</strong>
-                          <span>${failedCount > 1 ? `${failedCount - 1} exception` : '0 exception'}</span>
-                        </div>
-                        <div class="legend-value">
-                          ${formatCurrency(priceImpact, invoiceCurrency)}
-                          <span>${impactTotal > 0 ? `${((priceImpact / impactTotal) * 100).toFixed(1)}%` : '0%'}</span>
-                        </div>
-                      </div>
-
-                      <div class="legend-row">
-                        <span class="legend-dot yellow"></span>
-                        <div class="legend-text">
-                          <strong>Quantity Variance</strong>
-                          <span>${lineItems.length > 3 ? `${lineItems.length - 3} exception` : '0 exception'}</span>
-                        </div>
-                        <div class="legend-value">
-                          ${formatCurrency(quantityImpact, invoiceCurrency)}
-                          <span>${impactTotal > 0 ? `${((quantityImpact / impactTotal) * 100).toFixed(1)}%` : '0%'}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="impact-total-bar">
-                    <span>Total Financial Impact</span>
-                    <strong>${formatCurrency(impactTotal, invoiceCurrency)}</strong>
-                  </div>
-                </section>
 
                 <section class="info-card">
                   <div class="risk-head">

@@ -1,263 +1,31 @@
-# InvoiceLens OpenInvoice API Simulation
+# OpenInvoice local runbook
 
-This README defines the required implementation for a production-aligned OpenInvoice API simulation layer for InvoiceLens.
+This file is now a short local runbook for the OpenInvoice mock and sync flow.
 
-The goal is not to create random mock data.
+## Local services
 
-The goal is to create a clean, OpenInvoice-compatible local API that behaves like the real upstream service, so InvoiceLens can be tested end to end before real OpenInvoice Onboard, UAT, or Production access is available.
+- OpenInvoice mock: http://localhost:5189/health
+- API: http://localhost:5106/health
+- Web app: http://localhost:4200
 
-## Purpose
+## Start everything
 
-InvoiceLens currently reads invoice, queue, validation, audit, and sync data from SQL Server.
-
-In production, SQL Server must not be treated as the upstream source.
-
-The real upstream source is OpenInvoice.
-
-SQL Server is the local operational cache used by InvoiceLens after data is pulled, normalized, and stored by the worker.
-
-The simulation must support this architecture:
-
-```text
-OpenInvoice API or OpenInvoice API Simulator
-        ↓
-InvoiceLens.Worker integration jobs
-        ↓
-SQL Server operational cache
-        ↓
-InvoiceLens.Api
-        ↓
-TypeScript frontend
+```powershell
+Set-Location "C:\Users\lmwangi\Desktop\InvoiceLens"
+.\scripts\start-local-stack.ps1
 ```
 
-The same worker and same OpenInvoice client must work against both the simulator and the real OpenInvoice environments.
+## Stop everything
 
-## Required Project Structure
-
-Add a separate mock API project.
-
-Do not place fake OpenInvoice behavior inside `InvoiceLens.Api`.
-
-```text
-InvoiceLens/
-  src/
-    InvoiceLens.Api/
-    InvoiceLens.Application/
-    InvoiceLens.Domain/
-    InvoiceLens.Infrastructure/
-    InvoiceLens.Worker/
-    InvoiceLens.OpenInvoiceMock/
-      Controllers/
-      Middleware/
-      Data/
-      Services/
-      Storage/
-      Program.cs
+```powershell
+Set-Location "C:\Users\lmwangi\Desktop\InvoiceLens"
+.\scripts\stop-local-stack.ps1
 ```
 
-Add OpenInvoice integration code under infrastructure.
+## Notes
 
-```text
-src/InvoiceLens.Infrastructure/OpenInvoice/
-  OpenInvoiceOptions.cs
-  IOpenInvoiceClient.cs
-  HttpOpenInvoiceClient.cs
-  OpenInvoiceHmacHandler.cs
-  OpenInvoiceCertificateHandler.cs
-  OpenInvoiceInvoiceMapper.cs
-  OpenInvoiceAttachmentMapper.cs
-  OpenInvoiceEventMapper.cs
-  OpenInvoiceSyncService.cs
-```
-
-Add worker jobs.
-
-```text
-src/InvoiceLens.Worker/Jobs/
-  SyncOpenInvoiceInvoicesJob.cs
-  SyncOpenInvoiceInvoiceDetailsJob.cs
-  SyncOpenInvoiceAttachmentsJob.cs
-  PostOpenInvoiceEventsJob.cs
-  RetryFailedOpenInvoiceEventsJob.cs
-```
-
-## Environment Strategy
-
-The integration must be environment-driven.
-
-No base URL, key, certificate path, username, password, tenant value, or security option should be hardcoded.
-
-Use `.env` locally and application settings in deployed environments.
-
-```bash
-OpenInvoice__Environment=Mock
-OpenInvoice__BaseUrl=http://localhost:5189
-OpenInvoice__UseMock=true
-
-OpenInvoice__EnableHmac=true
-OpenInvoice__HmacSigningKey=local-test-hmac-key
-OpenInvoice__MacHeaderName=mac
-
-OpenInvoice__CertificateEnabled=false
-OpenInvoice__CertificatePath=
-OpenInvoice__CertificatePassword=
-
-OpenInvoice__EnableAllowedIpSimulation=false
-OpenInvoice__AllowedIps=127.0.0.1,::1
-
-OpenInvoice__CompanyId=LOCAL-COMPANY
-OpenInvoice__BuyerDuns=000000000
-
-OpenInvoice__TimeoutSeconds=660
-OpenInvoice__DefaultPageSize=100
-OpenInvoice__MaxRetryCount=3
-OpenInvoice__RetryDelaySeconds=10
-```
-
-For real environments, the same values should be changed only by configuration.
-
-```bash
-OpenInvoice__Environment=Onboard
-OpenInvoice__BaseUrl=https://onboard-api.openinvoice.com
-OpenInvoice__UseMock=false
-OpenInvoice__EnableHmac=true
-OpenInvoice__HmacSigningKey=<provided-by-openinvoice>
-OpenInvoice__CertificateEnabled=true
-OpenInvoice__CertificatePath=<secure-path-or-mounted-secret>
-OpenInvoice__CertificatePassword=<secret>
-OpenInvoice__AllowedIps=<enverus-allowed-ips>
-OpenInvoice__CompanyId=<enverus-company-id>
-OpenInvoice__BuyerDuns=<enverus-buyer-duns>
-```
-
-## Supported OpenInvoice Environments
-
-The implementation must support these environment names:
-
-```text
-Mock
-Onboard
-UAT
-Production
-```
-
-Base URLs must be configurable.
-
-Expected real environment examples:
-
-```text
-Production: https://api.openinvoice.com
-Onboard:    https://onboard-api.openinvoice.com
-UAT:        https://onboard-api.openinvoice.com
-```
-
-Swagger documentation may exist separately from the API host and may require credentialed access.
-
-Do not rely on Swagger being publicly available during local development.
-
-## Security Requirements
-
-The simulator must support the same security behavior that the production client expects.
-
-### HMAC
-
-Support HMAC SHA256 request authentication.
-
-Use the configured signing key.
-
-Use the configured request header name, defaulting to `mac`.
-
-Rules:
-
-```text
-GET input string: empty string
-POST input string: raw request body
-Algorithm: HMACSHA256
-Encoding: UTF-8
-Output format: Base64
-Header: mac
-```
-
-The simulator must reject requests when HMAC is enabled and:
-
-```text
-mac header is missing
-mac header is invalid
-request body was changed after signing
-wrong key was used
-```
-
-Expected HTTP result:
-
-```text
-401 Unauthorized
-```
-
-Response body:
-
-```json
-{
-  "messages": [
-    {
-      "type": "error",
-      "code": "INVALID_MAC",
-      "developerMessage": "The request did not include a valid HMAC token."
-    }
-  ]
-}
-```
-
-### Client Certificate Readiness
-
-The mock does not need to require a real certificate by default.
-
-The real HTTP client must be built to support client certificates.
-
-Requirements:
-
-```text
-Load certificate from configured path.
-Support password-protected certificate files.
-Attach certificate to HttpClientHandler.
-Fail startup clearly if certificate is required but missing.
-Never log certificate content or password.
-```
-
-### Allowed IP Simulation
-
-The simulator should optionally support allowed IP checks.
-
-When enabled, it should read allowed IPs from configuration.
-
-If the request IP is not allowed, return:
-
-```text
-403 Forbidden
-```
-
-Response body:
-
-```json
-{
-  "messages": [
-    {
-      "type": "error",
-      "code": "IP_NOT_ALLOWED",
-      "developerMessage": "The request source is not allowed by the OpenInvoice security profile."
-    }
-  ]
-}
-```
-
-## Required API Endpoints for Phase 1
-
-Implement only the endpoints needed by InvoiceLens first.
-
-### Invoice Retrieval
-
-```http
-GET /docp/supply-chain/v1/invoices
-GET /docp/supply-chain/v1/invoices/{invoiceId}
+- The worker uses the mock endpoint from the root .env file when `OpenInvoice__UseMock=true`.
+- The API still requires authentication for protected endpoints.
 GET /docp/supply-chain/v1/invoices/{invoiceId}/attachments
 GET /docp/supply-chain/v1/invoices/{invoiceId}/attachments/{attachmentId}
 GET /docp/supply-chain/v1/invoices/{invoiceId}/snapshot

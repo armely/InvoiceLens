@@ -1,5 +1,6 @@
 import {
   AuditEntryDto,
+  InvoiceAttachmentDto,
   DashboardMetric,
   InvoiceDetailDto,
   InvoiceReviewDto,
@@ -33,7 +34,15 @@ function escapeHtml(value: unknown): string {
   });
 }
 
-export function renderInvoicePreviewModalRich(review: InvoiceReviewDto | null, loading = false): string {
+export function renderInvoicePreviewModalRich(
+  review: InvoiceReviewDto | null,
+  loading = false,
+  attachmentUrl: string | null = null,
+  attachmentFileName: string | null = null,
+  attachmentIndex = 0,
+  attachmentTotal = 0,
+  fallbackDocumentHtml: string | null = null,
+): string {
   const invoice = review?.invoice ?? null;
   const isApproved = normalizeLabel(invoice?.status).toLowerCase() === 'approved';
   const lineItems = invoice?.lineItems ?? [];
@@ -44,6 +53,7 @@ export function renderInvoicePreviewModalRich(review: InvoiceReviewDto | null, l
   const updatedAt = invoice?.updatedAtUtc ? formatDateTime(invoice.updatedAtUtc) : 'Pending';
   const paymentTerms = invoice?.paymentTerms ?? '';
   const notes = invoice?.notes ?? 'Thank you for your business. We appreciate the opportunity to support your team.';
+  const supportingDocuments = review?.attachments.filter((attachment) => Boolean(attachment.url) && !attachment.isFallback) ?? [];
 
   const formatLines = (lines: Array<string | null | undefined>): string =>
     lines
@@ -60,21 +70,13 @@ export function renderInvoicePreviewModalRich(review: InvoiceReviewDto | null, l
   `;
 
   return `
-    <div class="invoice-modal-backdrop invoice-modal-backdrop--rich" data-action="close-invoice-preview">
-      <section class="invoice-modal-shell invoice-modal-shell--rich" data-action="modal-shell" role="dialog" aria-modal="true" aria-labelledby="invoicePreviewTitle">
-        <header class="invoice-modal-header invoice-modal-header--rich">
+    <div class="invoice-modal-backdrop invoice-modal-backdrop--rich bootstrap-modal-backdrop" data-action="close-invoice-preview">
+      <section class="invoice-modal-shell invoice-modal-shell--rich bootstrap-modal-dialog" data-action="modal-shell" role="dialog" aria-modal="true" aria-labelledby="invoicePreviewTitle">
+        <header class="invoice-modal-header invoice-modal-header--rich bootstrap-modal-header">
           <div class="invoice-modal-header-left">
-            <div class="invoice-preview-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" role="presentation" focusable="false">
-                <path d="M7 3.75h6.5L19.25 9v10.25A1.75 1.75 0 0 1 17.5 21h-10A1.75 1.75 0 0 1 5.75 19.25v-13.5A1.75 1.75 0 0 1 7.5 4h-.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
-                <path d="M13.25 3.75V9H19.25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                <path d="M8.5 13.25h7M8.5 16.25h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-              </svg>
-            </div>
             <div class="invoice-modal-header-copy">
-              <p class="modal-kicker">Invoice Preview</p>
               <h2 id="invoicePreviewTitle">${invoice ? escapeHtml(invoice.invoiceNumber) : 'Invoice preview'}</h2>
-              <p class="invoice-modal-header-subtitle">${invoice ? `${escapeHtml(invoice.vendor)} <span aria-hidden="true">&bull;</span> ${escapeHtml(normalizeLabel(invoice.status))}` : loading ? 'Loading invoice details...' : 'Select an invoice to inspect.'}</p>
+              <p class="invoice-modal-header-subtitle">${invoice ? escapeHtml(invoice.vendor) : loading ? 'Loading invoice details...' : 'Select an invoice to inspect.'}</p>
             </div>
           </div>
           <div class="invoice-modal-header-badges">
@@ -84,9 +86,46 @@ export function renderInvoicePreviewModalRich(review: InvoiceReviewDto | null, l
             </button>
           </div>
         </header>
-        <div class="invoice-modal-body invoice-modal-body--rich">
+        <div class="invoice-modal-body invoice-modal-body--rich bootstrap-modal-body">
           ${
-            invoice
+            invoice && attachmentUrl
+              ? `
+                <section class="archive-attachment-preview" aria-label="${escapeHtml(attachmentFileName ?? 'Invoice attachment')}">
+                  <div class="archive-attachment-toolbar">
+                    <div><strong>${escapeHtml(attachmentFileName ?? 'Invoice attachment')}</strong><span>${attachmentIndex} / ${attachmentTotal}</span></div>
+                    <div class="archive-attachment-controls">
+                      <button class="tool-icon tool-icon-sm" type="button" data-action="prev-attachment" aria-label="Previous attachment" ${attachmentIndex <= 1 ? 'disabled' : ''}>&lsaquo;</button>
+                      <button class="tool-icon tool-icon-sm" type="button" data-action="next-attachment" aria-label="Next attachment" ${attachmentIndex >= attachmentTotal ? 'disabled' : ''}>&rsaquo;</button>
+                    </div>
+                  </div>
+                  <iframe class="archive-attachment-frame" src="${escapeHtml(attachmentUrl)}#page=1&zoom=page-fit&toolbar=1&navpanes=0" title="${escapeHtml(attachmentFileName ?? 'Invoice PDF attachment')}"></iframe>
+                </section>
+              `
+              : invoice && fallbackDocumentHtml
+                ? `<div class="archive-invoice-fallback invoices-page">${fallbackDocumentHtml}</div>`
+              : supportingDocuments.length > 0
+                ? `
+                  <section class="archive-supporting-documents">
+                    <div class="archive-supporting-documents-header">
+                      <h3>Supporting documents</h3>
+                      <span>${supportingDocuments.length} saved attachment${supportingDocuments.length === 1 ? '' : 's'}</span>
+                    </div>
+                    <div class="archive-supporting-document-list">
+                      ${supportingDocuments.map((attachment) => `
+                        <article class="archive-supporting-document">
+                          <div>
+                            <strong>${escapeHtml(attachment.fileName)}</strong>
+                            <span>${attachment.fileName.toLowerCase().endsWith('.pdf') ? 'PDF document' : 'Supporting document'}</span>
+                          </div>
+                          <div>
+                            <a class="button" href="${escapeHtml(attachment.url)}" target="_blank" rel="noopener">Open</a>
+                            <a class="button ghost" href="${escapeHtml(attachment.url)}" download="${escapeHtml(attachment.fileName)}">Download</a>
+                          </div>
+                        </article>`).join('')}
+                    </div>
+                  </section>
+                `
+                : invoice
               ? `
                 <div class="invoice-document invoice-document--rich">
                   <div class="invoice-document-hero">
@@ -193,7 +232,7 @@ export function renderInvoicePreviewModalRich(review: InvoiceReviewDto | null, l
               : `<div class="empty-state">${loading ? 'Loading invoice preview...' : 'No invoice selected.'}</div>`
           }
         </div>
-        <footer class="invoice-modal-footer invoice-modal-footer--rich">
+        <footer class="invoice-modal-footer invoice-modal-footer--rich bootstrap-modal-footer">
           <div class="modal-footer-copy">
             <span class="status-chip ${isApproved ? 'approved' : 'pending-neutral'}">${invoice ? normalizeLabel(invoice.status) : 'Pending'}</span>
             <span>${invoice ? (isApproved ? 'This invoice has been approved.' : 'Review the invoice details before approving.') : 'Select an invoice to inspect.'}</span>
@@ -667,7 +706,7 @@ export function renderInvoiceModal(
   `;
 }
 
-export function renderAttachmentList(attachments: string[]): string {
+export function renderAttachmentList(invoiceId: string, attachments: InvoiceAttachmentDto[]): string {
   if (attachments.length === 0) {
     return `<div class="empty-state">No attachments available.</div>`;
   }
@@ -679,10 +718,18 @@ export function renderAttachmentList(attachments: string[]): string {
           (attachment) => `
             <div class="validation-check">
               <div>
-                <strong>${attachment}</strong>
-                <small>Stored in SQL-backed invoice attachments</small>
+                <strong>${escapeHtml(attachment.fileName)}</strong>
+                <small>${
+                  attachment.url && !attachment.isFallback
+                    ? 'Fetched from OpenInvoice and embedded on demand'
+                    : 'Fallback reference only; shown when OpenInvoice has no attachment content'
+                }</small>
               </div>
-              <span class="check-pass pass">✓</span>
+              ${
+                attachment.url && !attachment.isFallback
+                  ? `<button class="check-pass pass" type="button" data-action="open-attachment" data-invoice-id="${escapeHtml(invoiceId)}" data-attachment-id="${escapeHtml(attachment.attachmentId)}">Embed</button>`
+                  : '<span class="check-pass pass">✓</span>'
+              }
             </div>
           `,
         )

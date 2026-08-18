@@ -9,6 +9,7 @@ public record InvoiceSummaryDto(
     decimal Amount,
     string Currency,
     string Status,
+    bool HasAttachments,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc);
 
@@ -55,7 +56,13 @@ public record InvoiceDetailDto(
     InvoiceTotalsDto Totals,
     IReadOnlyList<InvoiceLineItemDto> LineItems);
 
-public record InvoiceReviewDto(InvoiceDetailDto Invoice, IReadOnlyList<string> ValidationHighlights, IReadOnlyList<string> Attachments);
+public record InvoiceAttachmentDto(
+    string AttachmentId,
+    string FileName,
+    string? Url,
+    bool IsFallback);
+
+public record InvoiceReviewDto(InvoiceDetailDto Invoice, IReadOnlyList<string> ValidationHighlights, IReadOnlyList<InvoiceAttachmentDto> Attachments);
 
 public interface IInvoiceQueries
 {

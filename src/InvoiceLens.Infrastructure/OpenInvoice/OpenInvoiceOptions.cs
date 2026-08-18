@@ -56,6 +56,14 @@ public sealed class OpenInvoiceOptions
 
     public int DefaultPageSize { get; set; } = 100;
 
+    public int SyncLookbackDays { get; set; } = 3650;
+
+    public string StoragePath { get; set; } = string.Empty;
+
+    public int RawDocumentRetentionDays { get; set; } = 90;
+
+    public int OperationalHistoryRetentionDays { get; set; } = 365;
+
     public int MaxRetryCount { get; set; } = 3;
 
     public int RetryDelaySeconds { get; set; } = 10;

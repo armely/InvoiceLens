@@ -11,9 +11,60 @@ namespace InvoiceLens.Infrastructure.Persistence;
 
 public class SqlInvoiceService(
     ILogger<SqlInvoiceService> logger,
+    IOpenInvoiceClient openInvoiceClient,
     INotificationService notificationService,
     NotificationMessageFactory notificationMessageFactory) : IInvoiceQueries, IQueueService, ISyncStatusService
 {
+    public async Task<bool> HasOpenInvoiceInvoiceAsync(string openInvoiceDocumentId, CancellationToken cancellationToken)
+    {
+        await using var connection = SqlConnectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT CASE WHEN EXISTS (SELECT 1 FROM dbo.Invoice WHERE OpenInvoiceDocumentId = @DocumentId) THEN 1 ELSE 0 END;";
+        command.Parameters.AddWithValue("@DocumentId", openInvoiceDocumentId);
+        return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken)) == 1;
+    }
+
+    public async Task<bool> HasCurrentOpenInvoiceAttachmentAsync(string attachmentId, string bodyHash, string storagePath, CancellationToken cancellationToken)
+    {
+        await using var connection = SqlConnectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT CASE WHEN EXISTS (
+                SELECT 1 FROM dbo.InvoiceAttachments
+                WHERE OpenInvoiceAttachmentId = @AttachmentId
+                  AND BodyHash = @BodyHash
+                  AND StoragePath = @StoragePath
+            ) THEN 1 ELSE 0 END;
+            """;
+        command.Parameters.AddWithValue("@AttachmentId", attachmentId);
+        command.Parameters.AddWithValue("@BodyHash", bodyHash);
+        command.Parameters.AddWithValue("@StoragePath", storagePath);
+        return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken)) == 1;
+    }
+
+    public async Task<bool> HasCurrentOpenInvoiceSnapshotAsync(string invoiceNumber, string bodyHash, string storagePath, CancellationToken cancellationToken)
+    {
+        await using var connection = SqlConnectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT CASE WHEN EXISTS (
+                SELECT 1
+                FROM dbo.InvoiceSnapshots snapshot
+                INNER JOIN dbo.Invoice invoice ON invoice.InvoiceId = snapshot.InvoiceId
+                WHERE invoice.InvoiceNumber = @InvoiceNumber
+                  AND snapshot.BodyHash = @BodyHash
+                  AND snapshot.StoragePath = @StoragePath
+            ) THEN 1 ELSE 0 END;
+            """;
+        command.Parameters.AddWithValue("@InvoiceNumber", invoiceNumber);
+        command.Parameters.AddWithValue("@BodyHash", bodyHash);
+        command.Parameters.AddWithValue("@StoragePath", storagePath);
+        return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken)) == 1;
+    }
+
     public async Task<IReadOnlyList<InvoiceSummaryDto>> SearchAsync(string? query, CancellationToken cancellationToken)
     {
         try
@@ -26,21 +77,51 @@ public class SqlInvoiceService(
             if (string.IsNullOrEmpty(trimmedQuery))
             {
                 command.CommandText = """
-                    SELECT InvoiceId, InvoiceNumber, VendorCode, CompanyCode, ISNULL(AfeCode, '') AS AfeCode, TotalAmount, CurrencyCode, Status, CreatedAtUtc, UpdatedAtUtc
-                    FROM dbo.Invoice
-                    ORDER BY UpdatedAtUtc DESC, InvoiceNumber ASC;
+                    SELECT
+                        i.InvoiceId,
+                        i.InvoiceNumber,
+                        i.VendorCode,
+                        i.CompanyCode,
+                        ISNULL(i.AfeCode, '') AS AfeCode,
+                        i.TotalAmount,
+                        i.CurrencyCode,
+                        i.Status,
+                        CAST(CASE WHEN EXISTS (
+                            SELECT 1
+                            FROM dbo.InvoiceAttachmentReference air
+                            WHERE air.InvoiceId = i.InvoiceId
+                        ) THEN 1 ELSE 0 END AS bit) AS HasAttachments,
+                        i.CreatedAtUtc,
+                        i.UpdatedAtUtc
+                    FROM dbo.Invoice i
+                    ORDER BY i.UpdatedAtUtc DESC, i.InvoiceNumber ASC;
                     """;
             }
             else
             {
                 command.CommandText = """
-                    SELECT InvoiceId, InvoiceNumber, VendorCode, CompanyCode, ISNULL(AfeCode, '') AS AfeCode, TotalAmount, CurrencyCode, Status, CreatedAtUtc, UpdatedAtUtc
-                    FROM dbo.Invoice
-                    WHERE InvoiceNumber LIKE @Pattern
-                       OR VendorCode LIKE @Pattern
-                       OR CompanyCode LIKE @Pattern
-                       OR ISNULL(AfeCode, '') LIKE @Pattern
-                    ORDER BY UpdatedAtUtc DESC, InvoiceNumber ASC;
+                    SELECT
+                        i.InvoiceId,
+                        i.InvoiceNumber,
+                        i.VendorCode,
+                        i.CompanyCode,
+                        ISNULL(i.AfeCode, '') AS AfeCode,
+                        i.TotalAmount,
+                        i.CurrencyCode,
+                        i.Status,
+                        CAST(CASE WHEN EXISTS (
+                            SELECT 1
+                            FROM dbo.InvoiceAttachmentReference air
+                            WHERE air.InvoiceId = i.InvoiceId
+                        ) THEN 1 ELSE 0 END AS bit) AS HasAttachments,
+                        i.CreatedAtUtc,
+                        i.UpdatedAtUtc
+                    FROM dbo.Invoice i
+                    WHERE i.InvoiceNumber LIKE @Pattern
+                       OR i.VendorCode LIKE @Pattern
+                       OR i.CompanyCode LIKE @Pattern
+                       OR ISNULL(i.AfeCode, '') LIKE @Pattern
+                    ORDER BY i.UpdatedAtUtc DESC, i.InvoiceNumber ASC;
                     """;
 
                 command.Parameters.Add("@Pattern", System.Data.SqlDbType.NVarChar, 4000).Value = $"%{trimmedQuery}%";
@@ -59,6 +140,7 @@ public class SqlInvoiceService(
                     reader.GetDecimalValue("TotalAmount"),
                     reader.GetStringValue("CurrencyCode"),
                     reader.GetStringValue("Status"),
+                    reader.GetBooleanValue("HasAttachments"),
                     reader.GetDateTimeOffsetValue("CreatedAtUtc"),
                     reader.GetDateTimeOffsetValue("UpdatedAtUtc")));
             }
@@ -249,21 +331,43 @@ public class SqlInvoiceService(
                 }
             }
 
-            var attachments = new List<string>();
+            var attachments = new List<InvoiceAttachmentDto>();
             await using (var attachmentCommand = connection.CreateCommand())
             {
                 attachmentCommand.CommandText = """
-                    SELECT FileName
-                    FROM dbo.InvoiceAttachmentReference
-                    WHERE InvoiceId = @InvoiceId
-                    ORDER BY CreatedAtUtc DESC;
+                    SELECT
+                        air.ExternalAttachmentId AS AttachmentId,
+                        air.FileName,
+                        COALESCE(
+                            air.DocumentUrl,
+                            CONCAT('/api/invoices/', CONVERT(NVARCHAR(36), air.InvoiceId), '/attachments/', air.ExternalAttachmentId)
+                        ) AS DocumentUrl,
+                        CAST(CASE
+                            WHEN ia.Id IS NOT NULL AND ia.StoragePath NOT LIKE 'legacy://%'
+                                THEN 1
+                            ELSE 0
+                        END AS bit) AS HasRealContent
+                    FROM dbo.InvoiceAttachmentReference air
+                    LEFT JOIN dbo.InvoiceAttachments ia
+                        ON ia.InvoiceId = air.InvoiceId
+                       AND ia.OpenInvoiceAttachmentId = air.ExternalAttachmentId
+                    WHERE air.InvoiceId = @InvoiceId
+                    ORDER BY air.CreatedAtUtc DESC;
                     """;
                 attachmentCommand.Parameters.AddWithValue("@InvoiceId", invoiceId);
 
                 await using var attachmentReader = await attachmentCommand.ExecuteReaderAsync(cancellationToken);
                 while (await attachmentReader.ReadAsync(cancellationToken))
                 {
-                    attachments.Add(attachmentReader.GetStringValue("FileName"));
+                    var attachmentId = attachmentReader.GetStringValue("AttachmentId");
+                    var hasRealContent = attachmentReader.GetBooleanValue("HasRealContent");
+                    var url = attachmentReader.GetStringValue("DocumentUrl");
+
+                    attachments.Add(new InvoiceAttachmentDto(
+                        attachmentId,
+                        attachmentReader.GetStringValue("FileName"),
+                        url,
+                        !hasRealContent));
                 }
             }
 
@@ -276,6 +380,89 @@ public class SqlInvoiceService(
         {
             logger.LogError(exception, "Failed while loading invoice review for {InvoiceId}.", invoiceId);
             throw SqlFailureHandling.CreateException(exception, "loading invoice review");
+        }
+    }
+
+    private async Task EnrichWithLiveOpenInvoiceAttachmentsAsync(
+        SqlConnection connection,
+        Guid invoiceId,
+        List<InvoiceAttachmentDto> attachments,
+        CancellationToken cancellationToken)
+    {
+        string? openInvoiceDocumentId = null;
+
+        await using (var docIdCommand = connection.CreateCommand())
+        {
+            docIdCommand.CommandText = """
+                SELECT TOP (1) OpenInvoiceDocumentId
+                FROM dbo.Invoice
+                WHERE InvoiceId = @InvoiceId;
+                """;
+            docIdCommand.Parameters.AddWithValue("@InvoiceId", invoiceId);
+
+            var scalar = await docIdCommand.ExecuteScalarAsync(cancellationToken);
+            openInvoiceDocumentId = scalar as string;
+        }
+
+        if (string.IsNullOrWhiteSpace(openInvoiceDocumentId))
+        {
+            return;
+        }
+
+        try
+        {
+            using var response = await openInvoiceClient.GetInvoiceAttachmentsAsync(openInvoiceDocumentId, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                logger.LogWarning("Live OpenInvoice attachment list fetch failed for InvoiceId={InvoiceId}, OpenInvoiceDocumentId={OpenInvoiceDocumentId}, Status={StatusCode}", invoiceId, openInvoiceDocumentId, (int)response.StatusCode);
+                return;
+            }
+
+            var payload = await response.Content.ReadAsStringAsync(cancellationToken);
+            var live = OpenInvoiceAttachmentMapper.Map(payload);
+            if (live.Attachments.Count == 0)
+            {
+                return;
+            }
+
+            var indexById = attachments
+                .Select((attachment, index) => new { attachment.AttachmentId, Index = index })
+                .ToDictionary(item => item.AttachmentId, item => item.Index, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var liveAttachment in live.Attachments)
+            {
+                if (string.IsNullOrWhiteSpace(liveAttachment.AttachmentId))
+                {
+                    continue;
+                }
+
+                var liveUrl = $"/api/invoices/{invoiceId}/attachments/{Uri.EscapeDataString(liveAttachment.AttachmentId)}";
+                var liveFileName = string.IsNullOrWhiteSpace(liveAttachment.FileName)
+                    ? $"{liveAttachment.AttachmentId}.bin"
+                    : liveAttachment.FileName;
+
+                if (indexById.TryGetValue(liveAttachment.AttachmentId, out var existingIndex))
+                {
+                    var existing = attachments[existingIndex];
+                    attachments[existingIndex] = existing with
+                    {
+                        FileName = liveFileName,
+                        Url = liveUrl,
+                        IsFallback = false
+                    };
+                    continue;
+                }
+
+                attachments.Add(new InvoiceAttachmentDto(
+                    liveAttachment.AttachmentId,
+                    liveFileName,
+                    liveUrl,
+                    false));
+            }
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "Live OpenInvoice attachment enrichment failed for InvoiceId={InvoiceId}, OpenInvoiceDocumentId={OpenInvoiceDocumentId}", invoiceId, openInvoiceDocumentId);
         }
     }
 
@@ -495,15 +682,16 @@ public class SqlInvoiceService(
             BEGIN
                 UPDATE dbo.InvoiceAttachmentReference
                 SET FileName = @FileName,
-                    ContentType = @ContentType
+                    ContentType = @ContentType,
+                    DocumentUrl = @DocumentUrl
                 WHERE ExternalAttachmentId = @ExternalAttachmentId AND InvoiceId = @InvoiceId;
             END
             ELSE
             BEGIN
                 INSERT INTO dbo.InvoiceAttachmentReference
-                    (AttachmentId, InvoiceId, ExternalAttachmentId, FileName, ContentType, CreatedAtUtc)
+                    (AttachmentId, InvoiceId, ExternalAttachmentId, FileName, ContentType, DocumentUrl, CreatedAtUtc)
                 VALUES
-                    (@AttachmentId, @InvoiceId, @ExternalAttachmentId, @FileName, @ContentType, SYSUTCDATETIME());
+                    (@AttachmentId, @InvoiceId, @ExternalAttachmentId, @FileName, @ContentType, @DocumentUrl, SYSUTCDATETIME());
             END
             """;
         command.Parameters.AddWithValue("@AttachmentId", Guid.NewGuid());
@@ -511,6 +699,7 @@ public class SqlInvoiceService(
         command.Parameters.AddWithValue("@ExternalAttachmentId", attachment.AttachmentId);
         command.Parameters.AddWithValue("@FileName", attachment.FileName);
         command.Parameters.AddWithValue("@ContentType", attachment.ContentType);
+        command.Parameters.AddWithValue("@DocumentUrl", $"/api/invoices/{invoiceId.Value}/attachments/{Uri.EscapeDataString(attachment.AttachmentId)}");
         await command.ExecuteNonQueryAsync(cancellationToken);
 
         await using var attachmentInsert = connection.CreateCommand();
@@ -523,15 +712,16 @@ public class SqlInvoiceService(
                     ContentType = @ContentType,
                     SizeBytes = @SizeBytes,
                     StoragePath = @StoragePath,
+                    DocumentUrl = @DocumentUrl,
                     BodyHash = @BodyHash
                 WHERE OpenInvoiceAttachmentId = @OpenInvoiceAttachmentId;
             END
             ELSE
             BEGIN
                 INSERT INTO dbo.InvoiceAttachments
-                    (Id, InvoiceId, OpenInvoiceAttachmentId, FileName, ContentType, SizeBytes, StoragePath, BodyHash, CreatedAtUtc)
+                    (Id, InvoiceId, OpenInvoiceAttachmentId, FileName, ContentType, SizeBytes, StoragePath, DocumentUrl, BodyHash, CreatedAtUtc)
                 VALUES
-                    (@Id, @InvoiceId, @OpenInvoiceAttachmentId, @FileName, @ContentType, @SizeBytes, @StoragePath, @BodyHash, SYSUTCDATETIME());
+                    (@Id, @InvoiceId, @OpenInvoiceAttachmentId, @FileName, @ContentType, @SizeBytes, @StoragePath, @DocumentUrl, @BodyHash, SYSUTCDATETIME());
             END
             """;
         attachmentInsert.Parameters.AddWithValue("@Id", Guid.NewGuid());
@@ -541,8 +731,19 @@ public class SqlInvoiceService(
         attachmentInsert.Parameters.AddWithValue("@ContentType", attachment.ContentType);
         attachmentInsert.Parameters.AddWithValue("@SizeBytes", sizeBytes);
         attachmentInsert.Parameters.AddWithValue("@StoragePath", storagePath);
+        attachmentInsert.Parameters.AddWithValue("@DocumentUrl", $"/api/invoices/{invoiceId.Value}/attachments/{Uri.EscapeDataString(attachment.AttachmentId)}");
         attachmentInsert.Parameters.AddWithValue("@BodyHash", bodyHash);
         await attachmentInsert.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    public async Task RemoveOpenInvoiceAttachmentAsync(string attachmentId, CancellationToken cancellationToken)
+    {
+        await using var connection = SqlConnectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "DELETE FROM dbo.InvoiceAttachments WHERE OpenInvoiceAttachmentId = @AttachmentId;";
+        command.Parameters.AddWithValue("@AttachmentId", attachmentId);
+        await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
     public async Task UpsertOpenInvoiceSnapshotAsync(string invoiceNumber, string storagePath, string contentType, long sizeBytes, string bodyHash, CancellationToken cancellationToken)
@@ -564,9 +765,9 @@ public class SqlInvoiceService(
         await using var insertCommand = connection.CreateCommand();
         insertCommand.CommandText = """
             INSERT INTO dbo.InvoiceSnapshots
-                (Id, InvoiceId, StoragePath, ContentType, SizeBytes, BodyHash, CreatedAtUtc)
+                (Id, InvoiceId, StoragePath, ContentType, SizeBytes, BodyHash, DocumentUrl, CreatedAtUtc)
             VALUES
-                (@Id, @InvoiceId, @StoragePath, @ContentType, @SizeBytes, @BodyHash, SYSUTCDATETIME());
+                (@Id, @InvoiceId, @StoragePath, @ContentType, @SizeBytes, @BodyHash, @DocumentUrl, SYSUTCDATETIME());
             """;
         insertCommand.Parameters.AddWithValue("@Id", Guid.NewGuid());
         insertCommand.Parameters.AddWithValue("@InvoiceId", invoiceId.Value);
@@ -574,6 +775,7 @@ public class SqlInvoiceService(
         insertCommand.Parameters.AddWithValue("@ContentType", contentType);
         insertCommand.Parameters.AddWithValue("@SizeBytes", sizeBytes);
         insertCommand.Parameters.AddWithValue("@BodyHash", bodyHash);
+        insertCommand.Parameters.AddWithValue("@DocumentUrl", $"/api/invoices/{invoiceId.Value}/snapshot");
         await insertCommand.ExecuteNonQueryAsync(cancellationToken);
     }
 

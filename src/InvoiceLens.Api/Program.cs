@@ -6,6 +6,9 @@ using InvoiceLens.Infrastructure.LocalInvoices;
 using InvoiceLens.Infrastructure.Notifications;
 using InvoiceLens.Infrastructure.OpenInvoice;
 using InvoiceLens.Infrastructure.Persistence;
+using InvoiceLens.Worker;
+using InvoiceLens.Worker.Jobs;
+using InvoiceLens.Worker.Schedules;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
@@ -26,7 +29,9 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.Name = ".InvoiceLens.Auth";
         options.Cookie.HttpOnly = true;
         options.Cookie.SameSite = SameSiteMode.Strict;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+        options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+            ? CookieSecurePolicy.SameAsRequest
+            : CookieSecurePolicy.Always;
         options.SlidingExpiration = true;
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
         options.LoginPath = "/api/auth/session";
@@ -58,10 +63,20 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         };
     });
 builder.Services.AddAuthorization();
+builder.Services.Configure<HostOptions>(options =>
+{
+    options.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore;
+});
+builder.Services.Configure<SyncScheduleOptions>(builder.Configuration.GetSection("SyncSchedule"));
 builder.Services.AddInvoiceLensInfrastructure(
     OpenInvoiceOptionsFactory.Create(builder.Configuration),
     CreateLocalInvoiceOptions(builder.Configuration),
     CreateNotificationOptions(builder.Configuration));
+builder.Services.AddHostedService<SyncOpenInvoiceInvoicesJob>();
+builder.Services.AddHostedService<PostOpenInvoiceEventsJob>();
+builder.Services.AddHostedService<RetryFailedOpenInvoiceEventsJob>();
+builder.Services.AddHostedService<LoadAndCompareLocalInvoicesJob>();
+builder.Services.AddHostedService<SyncHeartbeatWorker>();
 
 var app = builder.Build();
 
@@ -70,6 +85,7 @@ app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 if (!app.Environment.IsDevelopment())
 {
+    app.UseHsts();
     app.UseHttpsRedirection();
 }
 app.UseAuthentication();
@@ -83,6 +99,32 @@ app.MapGet("/", () => Results.Ok(new
 })).AllowAnonymous();
 
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" })).AllowAnonymous();
+
+app.MapGet("/health/ready", async (OpenInvoiceSyncRepository repository, OpenInvoiceOptions openInvoiceOptions, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var status = await repository.GetOperationalStatusAsync(cancellationToken);
+        var storageRoot = string.IsNullOrWhiteSpace(openInvoiceOptions.StoragePath)
+            ? Path.Combine(AppContext.BaseDirectory, "OpenInvoiceStorage")
+            : Path.GetFullPath(openInvoiceOptions.StoragePath);
+        Directory.CreateDirectory(storageRoot);
+        var probePath = Path.Combine(storageRoot, $".readiness-{Guid.NewGuid():N}");
+        await File.WriteAllTextAsync(probePath, "ready", cancellationToken);
+        File.Delete(probePath);
+
+        var maximumAge = TimeSpan.FromMinutes(Math.Max(10, builder.Configuration.GetValue<int>("SyncSchedule:IncrementalSyncMinutes") * 2));
+        var syncFresh = status.LastCompletedUtc is not null && DateTimeOffset.UtcNow - status.LastCompletedUtc <= maximumAge;
+        var ready = syncFresh && !string.Equals(status.Status, "Failed", StringComparison.OrdinalIgnoreCase);
+        return ready
+            ? Results.Ok(new { status = "ready", database = "available", storage = "writable", sync = status.Status, status.LastCompletedUtc, status.PendingEvents })
+            : Results.Json(new { status = "not-ready", database = "available", storage = "writable", sync = status.Status ?? "never-run", status.LastCompletedUtc, status.PendingEvents }, statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+    catch (Exception exception)
+    {
+        return Results.Json(new { status = "not-ready", error = exception.Message }, statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+}).AllowAnonymous();
 
 app.MapControllers().RequireAuthorization();
 

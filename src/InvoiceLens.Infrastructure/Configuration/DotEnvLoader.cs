@@ -99,6 +99,12 @@ public static class DotEnvLoader
             var key = line[..separatorIndex].Trim();
             var value = line[(separatorIndex + 1)..].Trim();
 
+            // Respect process-level overrides (for local runs/tasks) by not replacing existing values.
+            if (Environment.GetEnvironmentVariable(key) is not null)
+            {
+                continue;
+            }
+
             if (value.Length >= 2)
             {
                 var first = value[0];

@@ -1,0 +1,25 @@
+jobs:
+- deployment: MigrateDatabase
+  displayName: Back up and migrate Azure SQL
+  environment: invoicelens-production
+  strategy:
+    runOnce:
+      deploy:
+        steps:
+        - task: AzurePowerShell@5
+          inputs:
+            azureSubscription: '$(AzureServiceConnection)'
+            ScriptType: InlineScript
+            azurePowerShellVersion: LatestVersion
+            Inline: |
+              $ErrorActionPreference = 'Stop'
+              $resourceGroup = "$(ResourcePrefix)-$(EnvironmentName)-rg"
+              $server = "$(ResourcePrefix)-$(EnvironmentName)-sql"
+              $database = 'InvoiceLens'
+              $backup = "InvoiceLens-predeploy-$(Build.BuildId)"
+              New-AzSqlDatabaseCopy -ResourceGroupName $resourceGroup -ServerName $server -DatabaseName $database -CopyResourceGroupName $resourceGroup -CopyServerName $server -CopyDatabaseName $backup
+              Install-Module SqlServer -Scope CurrentUser -Force -AllowClobber
+              Get-ChildItem database/migrations/*.sql | Sort-Object Name | ForEach-Object {
+                Invoke-Sqlcmd -ServerInstance "$server.database.windows.net" -Database $database -Username '$(SqlAdminLogin)' -Password '$(SqlAdminPassword)' -InputFile $_.FullName -Encrypt Mandatory -AbortOnError
+              }
+          displayName: Create rollback copy and apply ordered migrations
